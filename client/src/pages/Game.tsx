@@ -118,11 +118,11 @@ export default function Game() {
             <span className="text-accent font-mono font-bold">{stats.balance?.toFixed(2) || '0.00'} USDC</span>
           </div>
           
-          <div className="relative">
+          <div className="relative overflow-hidden rounded-md">
             <Button
               variant="outline"
               size="sm"
-              className={`gap-2 border-destructive/50 text-destructive hover:bg-destructive/20 transition-all ${isHoldingLeave ? 'bg-destructive/30' : ''}`}
+              className={`gap-2 border-destructive/50 text-destructive hover:bg-destructive/20 transition-all relative z-10 ${isHoldingLeave ? '' : ''}`}
               onMouseDown={handleLeaveStart}
               onMouseUp={handleLeaveEnd}
               onMouseLeave={handleLeaveEnd}
@@ -131,12 +131,15 @@ export default function Game() {
               data-testid="button-leave"
             >
               <LogOut className="w-4 h-4" />
-              {isHoldingLeave ? `${Math.ceil(3 - leaveProgress * 3)}s` : 'Hold to Leave'}
+              {isHoldingLeave ? 'Leaving...' : 'Hold to Leave'}
             </Button>
-            
-            {isHoldingLeave && (
-              <div className="absolute bottom-0 left-0 h-1 bg-destructive rounded-b transition-all" style={{ width: `${leaveProgress * 100}%` }} />
-            )}
+            <div 
+              className="absolute inset-0 bg-destructive/40 transition-all duration-75 ease-linear" 
+              style={{ 
+                width: `${leaveProgress * 100}%`,
+                opacity: isHoldingLeave ? 1 : 0
+              }} 
+            />
           </div>
           
           {leaveError && (

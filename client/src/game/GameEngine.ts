@@ -15,6 +15,14 @@ export interface Player {
   balance?: number;
 }
 
+interface InterpolatedPlayer extends Player {
+  prevX: number;
+  prevY: number;
+  targetX: number;
+  targetY: number;
+  interpStartTime: number;
+}
+
 export interface Food {
   id: string;
   x: number;
@@ -26,18 +34,19 @@ export interface Food {
 
 interface ServerState {
   players: Player[];
-  foods: Food[];
 }
 
 export class GameEngine {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
-  players: Map<string, Player> = new Map();
+  players: Map<string, InterpolatedPlayer> = new Map();
   foods: Food[] = [];
   localPlayerId: string | null = null;
   
   static WORLD_SIZE = 4000;
   static INITIAL_RADIUS = 20;
+  static INTERP_DURATION = 100;
+  static MAX_SPEED = 2;
   
   isRunning: boolean = false;
   lastTime: number = 0;
@@ -47,6 +56,7 @@ export class GameEngine {
   private frameCount: number = 0;
   private fpsLastTime: number = 0;
   private currentFps: number = 60;
+  private localInputVector: Point = { x: 0, y: 0 };
   
   onGameOver: (stats: { score: number, killer?: string, balance?: number }) => void;
   onUpdateStats: (stats: { fps: number, population: number, balance?: number }) => void;
@@ -124,10 +134,17 @@ export class GameEngine {
         this.localPlayerId = message.payload.playerId;
         const player = message.payload.player;
         this.camera = { x: player.x, y: player.y };
+        if (message.payload.foods) {
+          this.foods = message.payload.foods;
+        }
         break;
 
       case 'STATE':
         this.applyServerState(message.payload);
+        break;
+
+      case 'FOOD_DELTA':
+        this.applyFoodDelta(message.payload);
         break;
 
       case 'ELIMINATED':
@@ -149,16 +166,50 @@ export class GameEngine {
     }
   }
 
+  private applyFoodDelta(delta: { spawned: Food[]; eaten: string[] }) {
+    if (delta.eaten && delta.eaten.length > 0) {
+      const eatenSet = new Set(delta.eaten);
+      this.foods = this.foods.filter(f => !eatenSet.has(f.id));
+    }
+    if (delta.spawned && delta.spawned.length > 0) {
+      this.foods.push(...delta.spawned);
+    }
+  }
+
   private applyServerState(state: ServerState) {
-    this.players.clear();
-    state.players.forEach(p => {
-      this.players.set(p.id, {
-        ...p,
-        velocity: { x: 0, y: 0 }
-      });
+    const now = performance.now();
+    const existingIds = new Set(state.players.map(p => p.id));
+    
+    this.players.forEach((_, id) => {
+      if (!existingIds.has(id)) {
+        this.players.delete(id);
+      }
     });
 
-    this.foods = state.foods;
+    state.players.forEach(p => {
+      const existing = this.players.get(p.id);
+      if (existing) {
+        existing.prevX = existing.x;
+        existing.prevY = existing.y;
+        existing.targetX = p.x;
+        existing.targetY = p.y;
+        existing.interpStartTime = now;
+        existing.radius = p.radius;
+        existing.score = p.score;
+        existing.color = p.color;
+        existing.balance = p.balance;
+      } else {
+        this.players.set(p.id, {
+          ...p,
+          velocity: { x: 0, y: 0 },
+          prevX: p.x,
+          prevY: p.y,
+          targetX: p.x,
+          targetY: p.y,
+          interpStartTime: now
+        });
+      }
+    });
   }
 
   private sendJoin(name: string, walletAddress?: string) {
@@ -213,6 +264,7 @@ export class GameEngine {
   }
 
   handleInput(vector: Point) {
+    this.localInputVector = { x: vector.x, y: vector.y };
     this.sendInput(vector);
   }
 
@@ -229,6 +281,7 @@ export class GameEngine {
       this.fpsLastTime = timestamp;
     }
 
+    this.updateInterpolation(timestamp, dt);
     this.updateCamera();
     this.render();
     
@@ -243,6 +296,37 @@ export class GameEngine {
 
     requestAnimationFrame(this.loop);
   };
+
+  private updateInterpolation(timestamp: number, dt: number) {
+    this.players.forEach(player => {
+      if (player.id === this.localPlayerId) {
+        const input = this.localInputVector;
+        const length = Math.sqrt(input.x * input.x + input.y * input.y);
+        
+        if (length > 0) {
+          const speedFactor = Math.max(0.5, 1 - (player.radius / 200));
+          const speed = GameEngine.MAX_SPEED * speedFactor;
+          const vx = (input.x / length) * speed;
+          const vy = (input.y / length) * speed;
+          
+          player.x += vx * dt * 60;
+          player.y += vy * dt * 60;
+          
+          player.x = Math.max(player.radius, Math.min(GameEngine.WORLD_SIZE - player.radius, player.x));
+          player.y = Math.max(player.radius, Math.min(GameEngine.WORLD_SIZE - player.radius, player.y));
+        }
+        
+        player.x += (player.targetX - player.x) * 0.1;
+        player.y += (player.targetY - player.y) * 0.1;
+      } else {
+        const elapsed = timestamp - player.interpStartTime;
+        const t = Math.min(1, elapsed / GameEngine.INTERP_DURATION);
+        
+        player.x = player.prevX + (player.targetX - player.prevX) * t;
+        player.y = player.prevY + (player.targetY - player.prevY) * t;
+      }
+    });
+  }
 
   private updateCamera() {
     const localPlayer = this.players.get(this.localPlayerId!);

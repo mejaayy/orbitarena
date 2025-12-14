@@ -43,7 +43,7 @@ interface ClientMessage {
 }
 
 interface ServerMessage {
-  type: 'STATE' | 'JOINED' | 'ELIMINATED' | 'PLAYER_LEFT' | 'ERROR' | 'ROOM_INFO';
+  type: 'STATE' | 'JOINED' | 'ELIMINATED' | 'PLAYER_LEFT' | 'ERROR' | 'ROOM_INFO' | 'FOOD_DELTA';
   payload: any;
 }
 
@@ -61,6 +61,8 @@ class GameRoom {
   private gameState: GameState;
   private clients: Map<string, WebSocket> = new Map();
   private tickInterval: NodeJS.Timeout | null = null;
+  private spawnedFoods: Food[] = [];
+  private eatenFoodIds: string[] = [];
 
   constructor(id: string) {
     this.id = id;
@@ -75,19 +77,24 @@ class GameRoom {
 
   private initFood() {
     for (let i = 0; i < FOOD_COUNT; i++) {
-      this.spawnFood();
+      this.spawnFood(false);
     }
   }
 
-  private spawnFood() {
-    this.gameState.foods.push({
+  private spawnFood(trackDelta: boolean = true): Food {
+    const food: Food = {
       id: `food-${Math.random().toString(36).substr(2, 9)}`,
       x: Math.random() * WORLD_SIZE,
       y: Math.random() * WORLD_SIZE,
       radius: 4 + Math.random() * 4,
       color: `hsl(${Math.random() * 360}, 60%, 50%)`,
       value: 5
-    });
+    };
+    this.gameState.foods.push(food);
+    if (trackDelta) {
+      this.spawnedFoods.push(food);
+    }
+    return food;
   }
 
   private startGameLoop() {
@@ -154,7 +161,7 @@ class GameRoom {
 
     this.send(ws, {
       type: 'JOINED',
-      payload: { playerId, player, roomId: this.id }
+      payload: { playerId, player, roomId: this.id, foods: this.gameState.foods }
     });
 
     this.send(ws, {
@@ -264,6 +271,7 @@ class GameRoom {
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist < player.radius + food.radius) {
+          this.eatenFoodIds.push(food.id);
           this.gameState.foods.splice(i, 1);
           this.growPlayer(player, food.value);
           this.spawnFood();
@@ -347,15 +355,27 @@ class GameRoom {
       balance: p.balance
     }));
 
-    const message: ServerMessage = {
+    const stateMessage: ServerMessage = {
       type: 'STATE',
       payload: {
-        players: playersArray,
-        foods: this.gameState.foods
+        players: playersArray
       }
     };
 
-    this.broadcast(message);
+    this.broadcast(stateMessage);
+
+    if (this.spawnedFoods.length > 0 || this.eatenFoodIds.length > 0) {
+      const deltaMessage: ServerMessage = {
+        type: 'FOOD_DELTA',
+        payload: {
+          spawned: this.spawnedFoods,
+          eaten: this.eatenFoodIds
+        }
+      };
+      this.broadcast(deltaMessage);
+      this.spawnedFoods = [];
+      this.eatenFoodIds = [];
+    }
   }
 
   private send(ws: WebSocket, message: ServerMessage) {
