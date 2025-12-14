@@ -35,7 +35,7 @@ export class GameEngine {
   // Game constants
   static WORLD_SIZE = 4000;
   static INITIAL_RADIUS = 20;
-  static MAX_SPEED = 3;
+  static MAX_SPEED = 2; // Reduced from 3 to 2 for better control
   static DRAG = 0.98; // Friction
   static FOOD_COUNT = 300;
   
@@ -257,9 +257,9 @@ export class GameEngine {
     // 4. Update Camera
     const localPlayer = this.players.get(this.localPlayerId!);
     if (localPlayer) {
-      // Smooth camera follow
-      this.camera.x += (localPlayer.x - this.camera.x) * 0.1;
-      this.camera.y += (localPlayer.y - this.camera.y) * 0.1;
+      // Smooth camera follow - Increased lerp from 0.1 to 0.3 for snappier, less "baggy" tracking
+      this.camera.x += (localPlayer.x - this.camera.x) * 0.3;
+      this.camera.y += (localPlayer.y - this.camera.y) * 0.3;
     }
   }
 
