@@ -12,8 +12,10 @@ export async function registerRoutes(
   app.get("/api/game/status", (req, res) => {
     const gameServer = getGameServer();
     res.json({
-      playerCount: gameServer?.getPlayerCount() || 0,
-      maxPlayers: 15,
+      playerCount: gameServer?.getTotalPlayerCount() || 0,
+      maxPlayers: gameServer?.getMaxTotalPlayers() || 150,
+      roomCount: gameServer?.getRoomCount() || 0,
+      rooms: gameServer?.getRoomStats() || [],
       status: "running"
     });
   });

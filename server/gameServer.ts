@@ -43,7 +43,7 @@ interface ClientMessage {
 }
 
 interface ServerMessage {
-  type: 'STATE' | 'JOINED' | 'ELIMINATED' | 'PLAYER_LEFT' | 'ERROR';
+  type: 'STATE' | 'JOINED' | 'ELIMINATED' | 'PLAYER_LEFT' | 'ERROR' | 'ROOM_INFO';
   payload: any;
 }
 
@@ -51,68 +51,78 @@ const WORLD_SIZE = 4000;
 const INITIAL_RADIUS = 20;
 const MAX_SPEED = 2;
 const FOOD_COUNT = 300;
-const MAX_PLAYERS = 15;
+const MAX_PLAYERS_PER_ROOM = 15;
+const MAX_ROOMS = 10;
 const TICK_RATE = 30;
 const COMBAT_COOLDOWN = 3000;
 
-export class GameServer {
-  private wss: WebSocketServer;
+class GameRoom {
+  id: string;
   private gameState: GameState;
   private clients: Map<string, WebSocket> = new Map();
   private tickInterval: NodeJS.Timeout | null = null;
 
-  constructor(httpServer: Server) {
-    this.wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  constructor(id: string) {
+    this.id = id;
     this.gameState = {
       players: new Map(),
       foods: []
     };
-
     this.initFood();
     this.startGameLoop();
-
-    this.wss.on('connection', (ws) => {
-      const playerId = `player-${Math.random().toString(36).substr(2, 9)}`;
-      
-      ws.on('message', (data) => {
-        try {
-          const message: ClientMessage = JSON.parse(data.toString());
-          this.handleMessage(playerId, ws, message);
-        } catch (e) {
-          log(`Invalid message from ${playerId}`, 'ws');
-        }
-      });
-
-      ws.on('close', () => {
-        this.handleDisconnect(playerId);
-      });
-
-      ws.on('error', (err) => {
-        log(`WebSocket error for ${playerId}: ${err.message}`, 'ws');
-      });
-    });
-
-    log('WebSocket game server initialized on /ws', 'ws');
+    log(`Game room ${id} created`, 'room');
   }
 
-  private handleMessage(playerId: string, ws: WebSocket, message: ClientMessage) {
-    switch (message.type) {
-      case 'JOIN':
-        this.handleJoin(playerId, ws, message.payload);
-        break;
-      case 'INPUT':
-        this.handleInput(playerId, message.payload);
-        break;
-      case 'LEAVE':
-        this.handleLeave(playerId);
-        break;
+  private initFood() {
+    for (let i = 0; i < FOOD_COUNT; i++) {
+      this.spawnFood();
     }
   }
 
-  private handleJoin(playerId: string, ws: WebSocket, payload: { name: string; walletAddress?: string }) {
-    if (this.gameState.players.size >= MAX_PLAYERS) {
-      this.send(ws, { type: 'ERROR', payload: { message: 'Server full (max 15 players)' } });
-      return;
+  private spawnFood() {
+    this.gameState.foods.push({
+      id: `food-${Math.random().toString(36).substr(2, 9)}`,
+      x: Math.random() * WORLD_SIZE,
+      y: Math.random() * WORLD_SIZE,
+      radius: 4 + Math.random() * 4,
+      color: `hsl(${Math.random() * 360}, 60%, 50%)`,
+      value: 5
+    });
+  }
+
+  private startGameLoop() {
+    this.tickInterval = setInterval(() => {
+      this.update();
+      this.broadcastState();
+    }, 1000 / TICK_RATE);
+  }
+
+  stopGameLoop() {
+    if (this.tickInterval) {
+      clearInterval(this.tickInterval);
+      this.tickInterval = null;
+    }
+  }
+
+  getPlayerCount(): number {
+    return this.gameState.players.size;
+  }
+
+  isFull(): boolean {
+    return this.gameState.players.size >= MAX_PLAYERS_PER_ROOM;
+  }
+
+  isEmpty(): boolean {
+    return this.gameState.players.size === 0;
+  }
+
+  getClientCount(): number {
+    return this.clients.size;
+  }
+
+  addPlayer(playerId: string, ws: WebSocket, payload: { name: string; walletAddress?: string }): boolean {
+    if (this.isFull()) {
+      return false;
     }
 
     let balance = 1;
@@ -144,13 +154,19 @@ export class GameServer {
 
     this.send(ws, {
       type: 'JOINED',
-      payload: { playerId, player }
+      payload: { playerId, player, roomId: this.id }
     });
 
-    log(`Player ${payload.name} (${playerId}) joined. Total: ${this.gameState.players.size}`, 'ws');
+    this.send(ws, {
+      type: 'ROOM_INFO',
+      payload: { roomId: this.id, playerCount: this.getPlayerCount(), maxPlayers: MAX_PLAYERS_PER_ROOM }
+    });
+
+    log(`Player ${payload.name} (${playerId}) joined room ${this.id}. Room total: ${this.gameState.players.size}`, 'room');
+    return true;
   }
 
-  private handleInput(playerId: string, payload: { x: number; y: number }) {
+  handleInput(playerId: string, payload: { x: number; y: number }) {
     const player = this.gameState.players.get(playerId);
     if (!player) return;
 
@@ -162,9 +178,9 @@ export class GameServer {
     player.inputVector = { x: payload.x, y: payload.y };
   }
 
-  private handleLeave(playerId: string) {
+  handleLeave(playerId: string): boolean {
     const player = this.gameState.players.get(playerId);
-    if (!player) return;
+    if (!player) return false;
 
     const now = Date.now();
     if (now - player.lastCombatTime < COMBAT_COOLDOWN) {
@@ -175,27 +191,32 @@ export class GameServer {
           payload: { message: 'Cannot leave during or shortly after combat' } 
         });
       }
-      return;
+      return false;
     }
 
     if (player.walletAddress) {
       const withdrawResult = escrowService.withdraw(player.walletAddress);
       if (withdrawResult.success) {
-        log(`Player ${player.name} withdrew ${withdrawResult.netAmount.toFixed(4)} USDC (fee: ${withdrawResult.fee.toFixed(4)})`, 'ws');
+        log(`Player ${player.name} withdrew ${withdrawResult.netAmount.toFixed(4)} USDC (fee: ${withdrawResult.fee.toFixed(4)})`, 'room');
       }
     }
 
     this.removePlayer(playerId, 'left');
+    return true;
   }
 
-  private handleDisconnect(playerId: string) {
+  handleDisconnect(playerId: string) {
     this.removePlayer(playerId, 'disconnected');
+  }
+
+  hasPlayer(playerId: string): boolean {
+    return this.gameState.players.has(playerId);
   }
 
   private removePlayer(playerId: string, reason: string) {
     const player = this.gameState.players.get(playerId);
     if (player) {
-      log(`Player ${player.name} (${playerId}) ${reason}. Total: ${this.gameState.players.size - 1}`, 'ws');
+      log(`Player ${player.name} (${playerId}) ${reason} from room ${this.id}. Room total: ${this.gameState.players.size - 1}`, 'room');
     }
     this.gameState.players.delete(playerId);
     this.clients.delete(playerId);
@@ -204,30 +225,6 @@ export class GameServer {
       type: 'PLAYER_LEFT',
       payload: { playerId }
     });
-  }
-
-  private initFood() {
-    for (let i = 0; i < FOOD_COUNT; i++) {
-      this.spawnFood();
-    }
-  }
-
-  private spawnFood() {
-    this.gameState.foods.push({
-      id: `food-${Math.random().toString(36).substr(2, 9)}`,
-      x: Math.random() * WORLD_SIZE,
-      y: Math.random() * WORLD_SIZE,
-      radius: 4 + Math.random() * 4,
-      color: `hsl(${Math.random() * 360}, 60%, 50%)`,
-      value: 5
-    });
-  }
-
-  private startGameLoop() {
-    this.tickInterval = setInterval(() => {
-      this.update();
-      this.broadcastState();
-    }, 1000 / TICK_RATE);
   }
 
   private update() {
@@ -328,7 +325,7 @@ export class GameServer {
       });
     }
 
-    log(`${predator.name} eliminated ${prey.name}`, 'ws');
+    log(`${predator.name} eliminated ${prey.name} in room ${this.id}`, 'room');
     this.gameState.players.delete(prey.id);
     this.clients.delete(prey.id);
   }
@@ -375,13 +372,165 @@ export class GameServer {
       }
     });
   }
+}
 
-  getPlayerCount(): number {
-    return this.gameState.players.size;
+export class GameServer {
+  private wss: WebSocketServer;
+  private rooms: Map<string, GameRoom> = new Map();
+  private playerToRoom: Map<string, string> = new Map();
+
+  constructor(httpServer: Server) {
+    this.wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+    
+    this.createRoom();
+
+    this.wss.on('connection', (ws) => {
+      const playerId = `player-${Math.random().toString(36).substr(2, 9)}`;
+      
+      ws.on('message', (data) => {
+        try {
+          const message: ClientMessage = JSON.parse(data.toString());
+          this.handleMessage(playerId, ws, message);
+        } catch (e) {
+          log(`Invalid message from ${playerId}`, 'ws');
+        }
+      });
+
+      ws.on('close', () => {
+        this.handleDisconnect(playerId);
+      });
+
+      ws.on('error', (err) => {
+        log(`WebSocket error for ${playerId}: ${err.message}`, 'ws');
+      });
+    });
+
+    log('WebSocket game server initialized with room support on /ws', 'ws');
   }
 
-  getPlayerByWallet(walletAddress: string): Player | undefined {
-    return Array.from(this.gameState.players.values()).find(p => p.walletAddress === walletAddress);
+  private createRoom(): GameRoom {
+    const roomId = `room-${this.rooms.size + 1}`;
+    const room = new GameRoom(roomId);
+    this.rooms.set(roomId, room);
+    return room;
+  }
+
+  private findAvailableRoom(): GameRoom | null {
+    const rooms = Array.from(this.rooms.values());
+    for (const room of rooms) {
+      if (!room.isFull()) {
+        return room;
+      }
+    }
+    
+    if (this.rooms.size < MAX_ROOMS) {
+      return this.createRoom();
+    }
+    
+    return null;
+  }
+
+  private handleMessage(playerId: string, ws: WebSocket, message: ClientMessage) {
+    switch (message.type) {
+      case 'JOIN':
+        this.handleJoin(playerId, ws, message.payload);
+        break;
+      case 'INPUT':
+        this.handleInput(playerId, message.payload);
+        break;
+      case 'LEAVE':
+        this.handleLeave(playerId);
+        break;
+    }
+  }
+
+  private handleJoin(playerId: string, ws: WebSocket, payload: { name: string; walletAddress?: string }) {
+    const room = this.findAvailableRoom();
+    
+    if (!room) {
+      ws.send(JSON.stringify({ 
+        type: 'ERROR', 
+        payload: { message: 'All rooms are full. Please try again later.' } 
+      }));
+      return;
+    }
+
+    const added = room.addPlayer(playerId, ws, payload);
+    if (added) {
+      this.playerToRoom.set(playerId, room.id);
+      log(`Player ${payload.name} (${playerId}) matched to ${room.id}. Total players: ${this.getTotalPlayerCount()}`, 'ws');
+    }
+  }
+
+  private handleInput(playerId: string, payload: { x: number; y: number }) {
+    const roomId = this.playerToRoom.get(playerId);
+    if (!roomId) return;
+    
+    const room = this.rooms.get(roomId);
+    room?.handleInput(playerId, payload);
+  }
+
+  private handleLeave(playerId: string) {
+    const roomId = this.playerToRoom.get(playerId);
+    if (!roomId) return;
+    
+    const room = this.rooms.get(roomId);
+    if (room?.handleLeave(playerId)) {
+      this.playerToRoom.delete(playerId);
+      this.cleanupEmptyRooms();
+    }
+  }
+
+  private handleDisconnect(playerId: string) {
+    const roomId = this.playerToRoom.get(playerId);
+    if (!roomId) return;
+    
+    const room = this.rooms.get(roomId);
+    room?.handleDisconnect(playerId);
+    this.playerToRoom.delete(playerId);
+    this.cleanupEmptyRooms();
+  }
+
+  private cleanupEmptyRooms() {
+    // Keep at least one room always, and only cleanup rooms that have no players tracked anywhere
+    if (this.rooms.size <= 1) return;
+    
+    const entries = Array.from(this.rooms.entries());
+    for (const [roomId, room] of entries) {
+      // Only cleanup if room is truly empty AND no players reference this room
+      const playersInRoom = Array.from(this.playerToRoom.values()).filter(r => r === roomId).length;
+      if (room.isEmpty() && room.getClientCount() === 0 && playersInRoom === 0 && this.rooms.size > 1) {
+        room.stopGameLoop();
+        this.rooms.delete(roomId);
+        log(`Room ${roomId} removed (no players or clients)`, 'room');
+        break;
+      }
+    }
+  }
+
+  getTotalPlayerCount(): number {
+    let total = 0;
+    const rooms = Array.from(this.rooms.values());
+    for (const room of rooms) {
+      total += room.getPlayerCount();
+    }
+    return total;
+  }
+
+  getRoomCount(): number {
+    return this.rooms.size;
+  }
+
+  getMaxTotalPlayers(): number {
+    return MAX_ROOMS * MAX_PLAYERS_PER_ROOM;
+  }
+
+  getRoomStats(): { id: string; players: number; maxPlayers: number }[] {
+    return Array.from(this.rooms.values()).map(room => ({
+      id: room.id,
+      players: room.getPlayerCount(),
+      maxPlayers: MAX_PLAYERS_PER_ROOM
+    }));
   }
 }
 

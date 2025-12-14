@@ -44,6 +44,10 @@ export class GameEngine {
   camera: Point = { x: 0, y: 0 };
   baseZoom: number = 0.8;
   
+  private frameCount: number = 0;
+  private fpsLastTime: number = 0;
+  private currentFps: number = 60;
+  
   onGameOver: (stats: { score: number, killer?: string, balance?: number }) => void;
   onUpdateStats: (stats: { fps: number, population: number, balance?: number }) => void;
   onConnectionChange?: (connected: boolean) => void;
@@ -155,15 +159,6 @@ export class GameEngine {
     });
 
     this.foods = state.foods;
-
-    const localPlayer = this.players.get(this.localPlayerId!);
-    if (localPlayer) {
-      this.onUpdateStats({
-        fps: Math.round(1000 / 33),
-        population: this.players.size,
-        balance: localPlayer.balance
-      });
-    }
   }
 
   private sendJoin(name: string, walletAddress?: string) {
@@ -227,8 +222,24 @@ export class GameEngine {
     const dt = (timestamp - this.lastTime) / 1000;
     this.lastTime = timestamp;
 
+    this.frameCount++;
+    if (timestamp - this.fpsLastTime >= 1000) {
+      this.currentFps = this.frameCount;
+      this.frameCount = 0;
+      this.fpsLastTime = timestamp;
+    }
+
     this.updateCamera();
     this.render();
+    
+    const localPlayer = this.players.get(this.localPlayerId!);
+    if (localPlayer) {
+      this.onUpdateStats({
+        fps: this.currentFps,
+        population: this.players.size,
+        balance: localPlayer.balance
+      });
+    }
 
     requestAnimationFrame(this.loop);
   };

@@ -1,21 +1,31 @@
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 
+interface PhantomProvider {
+  isPhantom: boolean;
+  connect: () => Promise<{ publicKey: PublicKey }>;
+  disconnect: () => Promise<void>;
+  signTransaction: (transaction: any) => Promise<any>;
+  signAllTransactions: (transactions: any[]) => Promise<any[]>;
+  publicKey: PublicKey | null;
+  isConnected: boolean;
+  on: (event: string, callback: (args: any) => void) => void;
+  off: (event: string, callback: (args: any) => void) => void;
+}
+
 declare global {
   interface Window {
     phantom?: {
-      solana?: {
-        isPhantom: boolean;
-        connect: () => Promise<{ publicKey: PublicKey }>;
-        disconnect: () => Promise<void>;
-        signTransaction: (transaction: any) => Promise<any>;
-        signAllTransactions: (transactions: any[]) => Promise<any[]>;
-        publicKey: PublicKey | null;
-        isConnected: boolean;
-        on: (event: string, callback: (args: any) => void) => void;
-        off: (event: string, callback: (args: any) => void) => void;
-      };
+      solana?: PhantomProvider;
     };
+    solana?: PhantomProvider;
   }
+}
+
+function getPhantomProvider(): PhantomProvider | null {
+  if (typeof window === 'undefined') return null;
+  if (window.phantom?.solana?.isPhantom) return window.phantom.solana;
+  if (window.solana?.isPhantom) return window.solana;
+  return null;
 }
 
 export const SOLANA_NETWORK = 'devnet';
@@ -29,17 +39,18 @@ export function getConnection(): Connection {
 }
 
 export function isPhantomInstalled(): boolean {
-  return typeof window !== 'undefined' && !!window.phantom?.solana?.isPhantom;
+  return getPhantomProvider() !== null;
 }
 
 export async function connectPhantom(): Promise<string | null> {
-  if (!isPhantomInstalled()) {
+  const provider = getPhantomProvider();
+  if (!provider) {
     window.open('https://phantom.app/', '_blank');
     return null;
   }
 
   try {
-    const response = await window.phantom!.solana!.connect();
+    const response = await provider.connect();
     return response.publicKey.toBase58();
   } catch (error) {
     console.error('Failed to connect Phantom:', error);
@@ -48,14 +59,16 @@ export async function connectPhantom(): Promise<string | null> {
 }
 
 export async function disconnectPhantom(): Promise<void> {
-  if (window.phantom?.solana) {
-    await window.phantom.solana.disconnect();
+  const provider = getPhantomProvider();
+  if (provider) {
+    await provider.disconnect();
   }
 }
 
 export function getConnectedWallet(): string | null {
-  if (window.phantom?.solana?.isConnected && window.phantom.solana.publicKey) {
-    return window.phantom.solana.publicKey.toBase58();
+  const provider = getPhantomProvider();
+  if (provider?.isConnected && provider.publicKey) {
+    return provider.publicKey.toBase58();
   }
   return null;
 }
