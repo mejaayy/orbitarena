@@ -49,9 +49,9 @@ export class GameEngine {
   onGameOver: (stats: { score: number, killer?: string }) => void;
   onUpdateStats: (stats: { fps: number, population: number }) => void;
 
-  // [SOLANA INTEGRATION NOTE]
-  // In a real implementation, you would pass a wallet adapter or socket connection here
-  // to sign transactions for entry fees and receive server-authoritative state.
+  // Networking
+  channel: BroadcastChannel;
+  lastBroadcast: number = 0;
 
   constructor(
     canvas: HTMLCanvasElement, 
@@ -63,10 +63,42 @@ export class GameEngine {
     this.onGameOver = onGameOver;
     this.onUpdateStats = onUpdateStats;
     
+    // Setup Local Multiplayer (Tab-to-Tab)
+    this.channel = new BroadcastChannel('orbit-arena-local');
+    this.channel.onmessage = this.handleNetworkMessage;
+
     // Handle resize
     window.addEventListener('resize', this.handleResize);
     this.handleResize();
   }
+
+  handleNetworkMessage = (event: MessageEvent) => {
+    const { type, payload } = event.data;
+    
+    if (type === 'UPDATE') {
+      // Ignore self (shouldn't happen but good practice)
+      if (payload.id === this.localPlayerId) return;
+      
+      // Update or Create remote player
+      // We don't overwrite 'velocity' because we want to interpolate or just show them at position
+      // For this simple version, direct position set is fine
+      this.players.set(payload.id, {
+        ...payload,
+        isBot: false,
+        velocity: { x: 0, y: 0 } // Remote players don't need velocity for now
+      });
+    }
+    else if (type === 'KILL') {
+      if (payload.targetId === this.localPlayerId) {
+        // I died!
+        this.onGameOver({ score: this.players.get(this.localPlayerId!)?.score || 0, killer: payload.killerName });
+        this.stop();
+      } else {
+        // Someone else died
+        this.players.delete(payload.targetId);
+      }
+    }
+  };
 
   handleResize = () => {
     this.canvas.width = window.innerWidth;
@@ -85,16 +117,12 @@ export class GameEngine {
     // 3. Send signed transaction signature to Game Server via WebSocket to join lobby.
     
     // Spawn local player
-    this.localPlayerId = 'player-local';
+    this.localPlayerId = `player-${Math.random().toString(36).substr(2, 9)}`;
     this.spawnPlayer(this.localPlayerId, playerName, false);
     
     // [MULTIPLAYER NOTE]
-    // Bots removed as requested. 
-    // To play with real people, you would receive 'player joined' events via WebSocket here.
-    // const botCount = 15;
-    // for (let i = 0; i < botCount; i++) {
-    //   this.spawnPlayer(`bot-${i}`, `Bot ${i+1}`, true);
-    // }
+    // Local Multiplayer via BroadcastChannel is active.
+    // Open multiple tabs to test!
     
     // Spawn food
     this.refillFood();
@@ -200,26 +228,41 @@ export class GameEngine {
     
     // 1. Update all players
     this.players.forEach(player => {
-      // Bot Logic
-      if (player.isBot) {
-        this.updateBot(player);
+      // Only move LOCAL player
+      if (player.id === this.localPlayerId) {
+        // Move (Time-based movement)
+        const timeScale = dt * 60; // Should be ~1.0 at 60fps
+        
+        player.x += player.velocity.x * timeScale;
+        player.y += player.velocity.y * timeScale;
+        
+        // Boundary check
+        player.x = Math.max(player.radius, Math.min(GameEngine.WORLD_SIZE - player.radius, player.x));
+        player.y = Math.max(player.radius, Math.min(GameEngine.WORLD_SIZE - player.radius, player.y));
       }
-
-    // Move (Time-based movement)
-      // Normalize velocity to pixels per second (MAX_SPEED * 60)
-      // If MAX_SPEED was 2 pixels/frame at 60fps, it's 120 pixels/second
-      // Let's stick to the previous feeling but make it time-independent
-      // We'll treat velocity as pixels-per-frame at 60fps for compatibility, then scale by dt
-      
-      const timeScale = dt * 60; // Should be ~1.0 at 60fps
-      
-      player.x += player.velocity.x * timeScale;
-      player.y += player.velocity.y * timeScale;
-      
-      // Boundary check
-      player.x = Math.max(player.radius, Math.min(GameEngine.WORLD_SIZE - player.radius, player.x));
-      player.y = Math.max(player.radius, Math.min(GameEngine.WORLD_SIZE - player.radius, player.y));
+      // Remote players are updated via network events
     });
+    
+    // Broadcast State (Limit to ~30Hz to save resources)
+    const now = performance.now();
+    if (this.localPlayerId && now - this.lastBroadcast > 30) {
+      const p = this.players.get(this.localPlayerId);
+      if (p) {
+        this.channel.postMessage({
+          type: 'UPDATE',
+          payload: {
+            id: p.id,
+            name: p.name,
+            x: p.x,
+            y: p.y,
+            radius: p.radius,
+            color: p.color,
+            score: p.score
+          }
+        });
+        this.lastBroadcast = now;
+      }
+    }
 
     // 2. Collision Detection (Player vs Food)
     this.players.forEach(player => {
@@ -256,19 +299,23 @@ export class GameEngine {
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         // Rule: Strictly larger eats smaller
-        if (dist < predator.radius && predator.radius > prey.radius) {
+        // Only Local player checks for their own kills to avoid double-counting
+        if (predator.id === this.localPlayerId && dist < predator.radius && predator.radius > prey.radius) {
           // Eat prey
-          this.growPlayer(predator, prey.score || 10); // Gain their mass/score
+          this.growPlayer(predator, prey.score || 10); 
           this.players.delete(prey.id);
+          
+          // Broadcast Kill
+          this.channel.postMessage({
+            type: 'KILL',
+            payload: {
+              targetId: prey.id,
+              killerName: predator.name
+            }
+          });
           
           // [SOLANA INTEGRATION NOTE]
           // If isStakeMode, Server would trigger a Smart Contract Payout here.
-          // winnerAddress receives loserStakedAmount.
-          
-          if (prey.id === this.localPlayerId) {
-            this.onGameOver({ score: prey.score, killer: predator.name });
-            this.stop();
-          }
         }
       }
     }
