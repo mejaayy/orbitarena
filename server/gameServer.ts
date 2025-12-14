@@ -58,21 +58,23 @@ const COMBAT_COOLDOWN = 3000;
 
 class GameRoom {
   id: string;
+  isStakeMode: boolean;
   private gameState: GameState;
   private clients: Map<string, WebSocket> = new Map();
   private tickInterval: NodeJS.Timeout | null = null;
   private spawnedFoods: Food[] = [];
   private eatenFoodIds: string[] = [];
 
-  constructor(id: string) {
+  constructor(id: string, isStakeMode: boolean = false) {
     this.id = id;
+    this.isStakeMode = isStakeMode;
     this.gameState = {
       players: new Map(),
       foods: []
     };
     this.initFood();
     this.startGameLoop();
-    log(`Game room ${id} created`, 'room');
+    log(`Game room ${id} created (${isStakeMode ? 'stake' : 'free'} mode)`, 'room');
   }
 
   private initFood() {
@@ -396,13 +398,17 @@ class GameRoom {
 
 export class GameServer {
   private wss: WebSocketServer;
-  private rooms: Map<string, GameRoom> = new Map();
+  private freeRooms: Map<string, GameRoom> = new Map();
+  private stakeRooms: Map<string, GameRoom> = new Map();
   private playerToRoom: Map<string, string> = new Map();
+  private playerStakeMode: Map<string, boolean> = new Map();
+  private roomIdCounter: number = 0;
 
   constructor(httpServer: Server) {
     this.wss = new WebSocketServer({ server: httpServer, path: '/ws' });
     
-    this.createRoom();
+    this.createRoom(false);
+    this.createRoom(true);
 
     this.wss.on('connection', (ws) => {
       const playerId = `player-${Math.random().toString(36).substr(2, 9)}`;
@@ -428,23 +434,31 @@ export class GameServer {
     log('WebSocket game server initialized with room support on /ws', 'ws');
   }
 
-  private createRoom(): GameRoom {
-    const roomId = `room-${this.rooms.size + 1}`;
-    const room = new GameRoom(roomId);
-    this.rooms.set(roomId, room);
+  private createRoom(isStakeMode: boolean): GameRoom {
+    const pool = isStakeMode ? this.stakeRooms : this.freeRooms;
+    const prefix = isStakeMode ? 'stake' : 'free';
+    this.roomIdCounter++;
+    const roomId = `${prefix}-room-${this.roomIdCounter}`;
+    const room = new GameRoom(roomId, isStakeMode);
+    pool.set(roomId, room);
     return room;
   }
 
-  private findAvailableRoom(): GameRoom | null {
-    const rooms = Array.from(this.rooms.values());
+  private getTotalRoomCount(): number {
+    return this.freeRooms.size + this.stakeRooms.size;
+  }
+
+  private findAvailableRoom(isStakeMode: boolean): GameRoom | null {
+    const pool = isStakeMode ? this.stakeRooms : this.freeRooms;
+    const rooms = Array.from(pool.values());
     for (const room of rooms) {
       if (!room.isFull()) {
         return room;
       }
     }
     
-    if (this.rooms.size < MAX_ROOMS) {
-      return this.createRoom();
+    if (this.getTotalRoomCount() < MAX_ROOMS) {
+      return this.createRoom(isStakeMode);
     }
     
     return null;
@@ -464,8 +478,9 @@ export class GameServer {
     }
   }
 
-  private handleJoin(playerId: string, ws: WebSocket, payload: { name: string; walletAddress?: string }) {
-    const room = this.findAvailableRoom();
+  private handleJoin(playerId: string, ws: WebSocket, payload: { name: string; isStakeMode?: boolean; walletAddress?: string }) {
+    const isStakeMode = payload.isStakeMode ?? false;
+    const room = this.findAvailableRoom(isStakeMode);
     
     if (!room) {
       ws.send(JSON.stringify({ 
@@ -478,79 +493,99 @@ export class GameServer {
     const added = room.addPlayer(playerId, ws, payload);
     if (added) {
       this.playerToRoom.set(playerId, room.id);
-      log(`Player ${payload.name} (${playerId}) matched to ${room.id}. Total players: ${this.getTotalPlayerCount()}`, 'ws');
+      this.playerStakeMode.set(playerId, isStakeMode);
+      log(`Player ${payload.name} (${playerId}) matched to ${room.id} (${isStakeMode ? 'stake' : 'free'}). Total players: ${this.getTotalPlayerCount()}`, 'ws');
     }
   }
 
-  private handleInput(playerId: string, payload: { x: number; y: number }) {
+  private getRoom(playerId: string): GameRoom | undefined {
     const roomId = this.playerToRoom.get(playerId);
-    if (!roomId) return;
-    
-    const room = this.rooms.get(roomId);
+    if (!roomId) return undefined;
+    const isStakeMode = this.playerStakeMode.get(playerId) ?? false;
+    const pool = isStakeMode ? this.stakeRooms : this.freeRooms;
+    return pool.get(roomId);
+  }
+
+  private handleInput(playerId: string, payload: { x: number; y: number }) {
+    const room = this.getRoom(playerId);
     room?.handleInput(playerId, payload);
   }
 
   private handleLeave(playerId: string) {
-    const roomId = this.playerToRoom.get(playerId);
-    if (!roomId) return;
-    
-    const room = this.rooms.get(roomId);
+    const room = this.getRoom(playerId);
     if (room?.handleLeave(playerId)) {
       this.playerToRoom.delete(playerId);
+      this.playerStakeMode.delete(playerId);
       this.cleanupEmptyRooms();
     }
   }
 
   private handleDisconnect(playerId: string) {
-    const roomId = this.playerToRoom.get(playerId);
-    if (!roomId) return;
-    
-    const room = this.rooms.get(roomId);
+    const room = this.getRoom(playerId);
     room?.handleDisconnect(playerId);
     this.playerToRoom.delete(playerId);
+    this.playerStakeMode.delete(playerId);
     this.cleanupEmptyRooms();
   }
 
   private cleanupEmptyRooms() {
-    // Keep at least one room always, and only cleanup rooms that have no players tracked anywhere
-    if (this.rooms.size <= 1) return;
-    
-    const entries = Array.from(this.rooms.entries());
-    for (const [roomId, room] of entries) {
-      // Only cleanup if room is truly empty AND no players reference this room
-      const playersInRoom = Array.from(this.playerToRoom.values()).filter(r => r === roomId).length;
-      if (room.isEmpty() && room.getClientCount() === 0 && playersInRoom === 0 && this.rooms.size > 1) {
-        room.stopGameLoop();
-        this.rooms.delete(roomId);
-        log(`Room ${roomId} removed (no players or clients)`, 'room');
-        break;
+    const cleanupPool = (pool: Map<string, GameRoom>) => {
+      if (pool.size <= 1) return;
+      
+      const entries = Array.from(pool.entries());
+      for (const [roomId, room] of entries) {
+        const playersInRoom = Array.from(this.playerToRoom.values()).filter(r => r === roomId).length;
+        if (room.isEmpty() && room.getClientCount() === 0 && playersInRoom === 0 && pool.size > 1) {
+          room.stopGameLoop();
+          pool.delete(roomId);
+          log(`Room ${roomId} removed (no players or clients)`, 'room');
+          break;
+        }
       }
-    }
+    };
+    
+    cleanupPool(this.freeRooms);
+    cleanupPool(this.stakeRooms);
   }
 
   getTotalPlayerCount(): number {
     let total = 0;
-    const rooms = Array.from(this.rooms.values());
-    for (const room of rooms) {
+    for (const room of this.freeRooms.values()) {
+      total += room.getPlayerCount();
+    }
+    for (const room of this.stakeRooms.values()) {
       total += room.getPlayerCount();
     }
     return total;
   }
 
   getRoomCount(): number {
-    return this.rooms.size;
+    return this.freeRooms.size + this.stakeRooms.size;
   }
 
   getMaxTotalPlayers(): number {
     return MAX_ROOMS * MAX_PLAYERS_PER_ROOM;
   }
 
-  getRoomStats(): { id: string; players: number; maxPlayers: number }[] {
-    return Array.from(this.rooms.values()).map(room => ({
-      id: room.id,
-      players: room.getPlayerCount(),
-      maxPlayers: MAX_PLAYERS_PER_ROOM
-    }));
+  getRoomStats(): { id: string; players: number; maxPlayers: number; isStakeMode: boolean }[] {
+    const stats: { id: string; players: number; maxPlayers: number; isStakeMode: boolean }[] = [];
+    for (const room of this.freeRooms.values()) {
+      stats.push({
+        id: room.id,
+        players: room.getPlayerCount(),
+        maxPlayers: MAX_PLAYERS_PER_ROOM,
+        isStakeMode: false
+      });
+    }
+    for (const room of this.stakeRooms.values()) {
+      stats.push({
+        id: room.id,
+        players: room.getPlayerCount(),
+        maxPlayers: MAX_PLAYERS_PER_ROOM,
+        isStakeMode: true
+      });
+    }
+    return stats;
   }
 }
 

@@ -65,7 +65,7 @@ export class GameEngine {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
-  private pendingJoin: { name: string; walletAddress?: string } | null = null;
+  private pendingJoin: { name: string; isStakeMode: boolean; walletAddress?: string } | null = null;
 
   constructor(
     canvas: HTMLCanvasElement, 
@@ -100,7 +100,7 @@ export class GameEngine {
       this.localPlayerId = null;
       
       if (this.pendingJoin) {
-        this.sendJoin(this.pendingJoin.name, this.pendingJoin.walletAddress);
+        this.sendJoin(this.pendingJoin.name, this.pendingJoin.isStakeMode, this.pendingJoin.walletAddress);
       }
     };
 
@@ -212,11 +212,11 @@ export class GameEngine {
     });
   }
 
-  private sendJoin(name: string, walletAddress?: string) {
+  private sendJoin(name: string, isStakeMode: boolean, walletAddress?: string) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({
         type: 'JOIN',
-        payload: { name, walletAddress }
+        payload: { name, isStakeMode, walletAddress }
       }));
     }
   }
@@ -249,7 +249,7 @@ export class GameEngine {
     this.foods = [];
     this.localPlayerId = null;
     
-    this.pendingJoin = { name: playerName, walletAddress };
+    this.pendingJoin = { name: playerName, isStakeMode, walletAddress };
     this.connectWebSocket();
     
     this.lastTime = performance.now();
