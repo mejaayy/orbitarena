@@ -107,7 +107,8 @@ export class GameEngine {
   spawnPlayer(id: string, name: string, isBot: boolean) {
     const x = Math.random() * GameEngine.WORLD_SIZE;
     const y = Math.random() * GameEngine.WORLD_SIZE;
-    const colors = ['#FF0055', '#00FF99', '#00CCFF', '#FF9900', '#CC00FF', '#FFFF00'];
+    // Darker, less intense colors
+    const colors = ['#D40046', '#00CC7A', '#00A3CC', '#CC7A00', '#A300CC', '#CCCC00'];
     
     this.players.set(id, {
       id,
@@ -115,8 +116,8 @@ export class GameEngine {
       x,
       y,
       radius: GameEngine.INITIAL_RADIUS,
-      color: isBot ? colors[Math.floor(Math.random() * colors.length)] : '#FFFFFF', // Local player is white
-      score: 0,
+      color: isBot ? colors[Math.floor(Math.random() * colors.length)] : '#E0E0E0', // Local player is off-white
+      score: 10, // Start with some score/mass
       velocity: { x: 0, y: 0 },
       isBot,
       target: isBot ? { x: Math.random() * GameEngine.WORLD_SIZE, y: Math.random() * GameEngine.WORLD_SIZE } : undefined
@@ -130,8 +131,8 @@ export class GameEngine {
         x: Math.random() * GameEngine.WORLD_SIZE,
         y: Math.random() * GameEngine.WORLD_SIZE,
         radius: 4 + Math.random() * 4,
-        color: `hsl(${Math.random() * 360}, 70%, 60%)`,
-        value: 1
+        color: `hsl(${Math.random() * 360}, 60%, 50%)`, // Lower saturation and lightness
+        value: 5 // Food gives 5 score
       });
     }
   }
@@ -235,10 +236,10 @@ export class GameEngine {
         const dy = predator.y - prey.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // Rule: Must be 20% larger to eat
-        if (dist < predator.radius && predator.radius > prey.radius * 1.2) {
+        // Rule: Strictly larger eats smaller
+        if (dist < predator.radius && predator.radius > prey.radius) {
           // Eat prey
-          this.growPlayer(predator, prey.radius * 0.5); // Gain some mass
+          this.growPlayer(predator, prey.score || 10); // Gain their mass/score
           this.players.delete(prey.id);
           
           // [SOLANA INTEGRATION NOTE]
@@ -286,12 +287,11 @@ export class GameEngine {
   }
 
   growPlayer(player: Player, amount: number) {
-    // Area = pi * r^2
-    // New Area = Old Area + amount
-    // But simplified linear growth for gameplay feel is often better or sqrt
-    // Let's do a damped growth
-    player.score += Math.floor(amount * 10);
-    player.radius += amount * 0.5; // Simplified
+    player.score += Math.floor(amount);
+    // Radius grows with square root of score (area preservation-ish) to prevent becoming massive too fast
+    // But user asked for "size equal to score", so we'll make it noticeable
+    // Base radius 20 + sqrt(score) * 2
+    player.radius = GameEngine.INITIAL_RADIUS + Math.sqrt(player.score) * 2;
   }
 
   render() {
@@ -300,7 +300,7 @@ export class GameEngine {
     const cy = height / 2;
 
     // Clear
-    this.ctx.fillStyle = '#0a0a10'; // Dark background
+    this.ctx.fillStyle = '#050508'; // Darker background
     this.ctx.fillRect(0, 0, width, height);
 
     this.ctx.save();
@@ -364,8 +364,8 @@ export class GameEngine {
     this.ctx.beginPath();
     this.ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
     
-    // Glow effect
-    this.ctx.shadowBlur = 20;
+    // Reduced Glow effect
+    this.ctx.shadowBlur = 10;
     this.ctx.shadowColor = player.color;
     this.ctx.fillStyle = player.color;
     this.ctx.fill();
