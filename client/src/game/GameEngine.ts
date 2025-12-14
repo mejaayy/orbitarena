@@ -43,6 +43,7 @@ export class GameEngine {
   isRunning: boolean = false;
   lastTime: number = 0;
   camera: Point = { x: 0, y: 0 };
+  baseZoom: number = 0.8; // Zoomed out slightly by default
   
   // Callbacks
   onGameOver: (stats: { score: number, killer?: string }) => void;
@@ -88,7 +89,7 @@ export class GameEngine {
     this.spawnPlayer(this.localPlayerId, playerName, false);
     
     // Spawn bots (Simulating multiplayer for prototype)
-    const botCount = 20;
+    const botCount = 15; // User requested support for 15 people
     for (let i = 0; i < botCount; i++) {
       this.spawnPlayer(`bot-${i}`, `Bot ${i+1}`, true);
     }
@@ -307,18 +308,23 @@ export class GameEngine {
 
     this.ctx.save();
     
-    // Camera Transform
-    this.ctx.translate(cx - this.camera.x, cy - this.camera.y);
+    // Center the camera
+    this.ctx.translate(cx, cy);
+    // Apply Zoom
+    this.ctx.scale(this.baseZoom, this.baseZoom);
+    // Move to camera position
+    this.ctx.translate(-this.camera.x, -this.camera.y);
 
     // Draw Grid
     this.drawGrid();
 
     // Draw Food
-    const viewPadding = 100;
-    const viewLeft = this.camera.x - cx - viewPadding;
-    const viewRight = this.camera.x + cx + viewPadding;
-    const viewTop = this.camera.y - cy - viewPadding;
-    const viewBottom = this.camera.y + cy + viewPadding;
+    // Adjust view padding for zoom to prevent popping at edges
+    const viewPadding = 100 / this.baseZoom;
+    const viewLeft = this.camera.x - (cx / this.baseZoom) - viewPadding;
+    const viewRight = this.camera.x + (cx / this.baseZoom) + viewPadding;
+    const viewTop = this.camera.y - (cy / this.baseZoom) - viewPadding;
+    const viewBottom = this.camera.y + (cy / this.baseZoom) + viewPadding;
 
     this.foods.forEach(food => {
       // Simple viewport culling
@@ -379,13 +385,19 @@ export class GameEngine {
     this.ctx.beginPath();
     this.ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
     
-    // Reduced Glow effect
-    this.ctx.shadowBlur = 10;
-    this.ctx.shadowColor = player.color;
+    // PERFORMANCE: Remove shadowBlur completely for non-local players to reduce lag
+    // Only local player gets the fancy glow
+    if (player.id === this.localPlayerId) {
+       this.ctx.shadowBlur = 15;
+       this.ctx.shadowColor = player.color;
+    } else {
+       this.ctx.shadowBlur = 0;
+    }
+    
     this.ctx.fillStyle = player.color;
     this.ctx.fill();
     
-    // Reset shadow for text
+    // Reset shadow
     this.ctx.shadowBlur = 0;
     
     // Name
