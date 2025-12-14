@@ -1,39 +1,90 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Trophy, Coins, Gamepad2 } from 'lucide-react';
+import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users } from 'lucide-react';
 import solanaLogo from '@assets/generated_images/solana_crypto_coin_logo_icon.png';
+import { connectPhantom, disconnectPhantom, isPhantomInstalled, getConnectedWallet, shortenAddress, ENTRY_FEE_USDC } from '@/lib/phantom';
 
 export default function Lobby() {
   const [nickname, setNickname] = useState('');
   const [isStakeMode, setIsStakeMode] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [serverStatus, setServerStatus] = useState<{ playerCount: number; maxPlayers: number } | null>(null);
   const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    const savedNickname = localStorage.getItem('orbit-arena-nickname');
+    if (savedNickname) setNickname(savedNickname);
+    
+    const connected = getConnectedWallet();
+    if (connected) setWalletAddress(connected);
+
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch('/api/game/status');
+        const data = await res.json();
+        setServerStatus(data);
+      } catch (e) {
+        console.error('Failed to fetch server status');
+      }
+    };
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleConnectWallet = async () => {
+    setIsConnecting(true);
+    try {
+      const address = await connectPhantom();
+      setWalletAddress(address);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const handleDisconnectWallet = async () => {
+    await disconnectPhantom();
+    setWalletAddress(null);
+    setIsStakeMode(false);
+  };
 
   const handlePlay = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nickname.trim()) return;
     
-    // Save to local storage for persistence (optional)
+    if (isStakeMode && !walletAddress) {
+      return;
+    }
+    
     localStorage.setItem('orbit-arena-nickname', nickname);
     
-    // Navigate with query params
-    setLocation(`/game?name=${encodeURIComponent(nickname)}&stake=${isStakeMode}`);
+    const params = new URLSearchParams({
+      name: nickname,
+      stake: String(isStakeMode)
+    });
+    if (walletAddress) {
+      params.set('wallet', walletAddress);
+    }
+    
+    setLocation(`/game?${params.toString()}`);
   };
+
+  const canPlay = nickname.trim() && (!isStakeMode || walletAddress);
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-background">
-      {/* Background decoration */}
       <div className="absolute inset-0 grid grid-cols-[repeat(20,1fr)] grid-rows-[repeat(20,1fr)] opacity-20 pointer-events-none">
         {Array.from({ length: 400 }).map((_, i) => (
           <div key={i} className="border-[0.5px] border-white/5" />
         ))}
       </div>
       
-      {/* Animated Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/20 blur-[100px] rounded-full pointer-events-none animate-pulse" />
 
       <Card className="w-full max-w-md bg-card/80 backdrop-blur-xl border-white/10 shadow-2xl relative z-10">
@@ -47,6 +98,12 @@ export default function Lobby() {
           <CardDescription className="text-gray-400 font-medium">
             Dominate the grid. Eat or be eaten.
           </CardDescription>
+          {serverStatus && (
+            <div className="flex items-center justify-center gap-2 text-xs text-gray-500 mt-2" data-testid="server-status">
+              <Users className="w-3 h-3" />
+              <span>{serverStatus.playerCount}/{serverStatus.maxPlayers} players online</span>
+            </div>
+          )}
         </CardHeader>
         
         <CardContent>
@@ -57,6 +114,7 @@ export default function Lobby() {
               </Label>
               <Input
                 id="nickname"
+                data-testid="input-nickname"
                 placeholder="Enter your handle..."
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
@@ -75,21 +133,61 @@ export default function Lobby() {
                   <div className="flex flex-col">
                     <span className="font-bold text-sm">Stake Mode</span>
                     <span className="text-xs text-gray-400">
-                      {isStakeMode ? "Entry fee: 0.1 SOL" : "Practice for free"}
+                      {isStakeMode ? `Entry: ${ENTRY_FEE_USDC} USDC` : "Practice for free"}
                     </span>
                   </div>
                 </div>
                 <Switch 
                   checked={isStakeMode}
-                  onCheckedChange={setIsStakeMode}
+                  onCheckedChange={(checked) => {
+                    if (checked && !walletAddress) {
+                      handleConnectWallet();
+                    }
+                    setIsStakeMode(checked);
+                  }}
                   className="data-[state=checked]:bg-accent"
+                  data-testid="switch-stake-mode"
                 />
               </div>
               
               {isStakeMode && (
-                <div className="text-xs text-accent/80 bg-accent/10 p-2 rounded border border-accent/20 flex items-center gap-2">
-                  <img src={solanaLogo} className="w-4 h-4" alt="SOL" />
-                  <span>Mock Wallet Connected: 12.5 SOL</span>
+                <div className="space-y-3">
+                  {walletAddress ? (
+                    <div className="flex items-center justify-between bg-accent/10 p-3 rounded-lg border border-accent/20">
+                      <div className="flex items-center gap-2">
+                        <img src={solanaLogo} className="w-5 h-5" alt="SOL" />
+                        <span className="text-sm font-mono text-accent">{shortenAddress(walletAddress)}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleDisconnectWallet}
+                        className="text-xs text-gray-400 hover:text-white"
+                        data-testid="button-disconnect-wallet"
+                      >
+                        Disconnect
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={handleConnectWallet}
+                      disabled={isConnecting}
+                      data-testid="button-connect-wallet"
+                    >
+                      <Wallet className="w-4 h-4" />
+                      {isConnecting ? 'Connecting...' : isPhantomInstalled() ? 'Connect Phantom Wallet' : 'Install Phantom'}
+                      {!isPhantomInstalled() && <ExternalLink className="w-3 h-3" />}
+                    </Button>
+                  )}
+                  
+                  <div className="text-xs text-gray-500 space-y-1">
+                    <p>Devnet USDC required. Eliminate players to earn.</p>
+                    <p>10% exit fee applies when leaving.</p>
+                  </div>
                 </div>
               )}
             </div>
@@ -98,6 +196,8 @@ export default function Lobby() {
               type="submit" 
               className="w-full h-14 text-lg font-bold uppercase tracking-wider shadow-lg hover:shadow-primary/25 transition-all"
               size="lg"
+              disabled={!canPlay}
+              data-testid="button-enter-arena"
             >
               Enter Arena
             </Button>
