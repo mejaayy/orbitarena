@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle } from 'lucide-react';
 import solanaLogo from '@assets/generated_images/solana_crypto_coin_logo_icon.png';
@@ -24,6 +23,13 @@ export default function Lobby() {
   useEffect(() => {
     const savedNickname = localStorage.getItem('orbit-arena-nickname');
     if (savedNickname) setNickname(savedNickname);
+    
+    const hasAcceptedTerms = localStorage.getItem('orbit-arena-terms-accepted');
+    if (hasAcceptedTerms === 'true') {
+      setTermsAccepted(true);
+    } else {
+      setShowTerms(true);
+    }
     
     const connected = getConnectedWallet();
     if (connected) setWalletAddress(connected);
@@ -66,11 +72,10 @@ export default function Lobby() {
       return;
     }
     
-    setShowTerms(true);
-  };
-
-  const handleConfirmPlay = () => {
-    if (!termsAccepted) return;
+    if (!termsAccepted) {
+      setShowTerms(true);
+      return;
+    }
     
     localStorage.setItem('orbit-arena-nickname', nickname);
     
@@ -83,6 +88,12 @@ export default function Lobby() {
     }
     
     setLocation(`/game?${params.toString()}`);
+  };
+
+  const handleAcceptTerms = () => {
+    setTermsAccepted(true);
+    localStorage.setItem('orbit-arena-terms-accepted', 'true');
+    setShowTerms(false);
   };
 
   const canPlay = nickname.trim() && (!isStakeMode || walletAddress);
@@ -143,7 +154,7 @@ export default function Lobby() {
                   <div className="flex flex-col">
                     <span className="font-bold text-sm">Solana Mode</span>
                     <span className="text-xs text-gray-400">
-                      {isStakeMode ? `Entry: ${ENTRY_FEE_USDC} USDC` : "Practice for free"}
+                      {isStakeMode ? `Entry: ${ENTRY_FEE_USDC} USDC` : "Play for USDC"}
                     </span>
                   </div>
                 </div>
@@ -234,38 +245,18 @@ export default function Lobby() {
               <p>Balances and earnings are not guaranteed.</p>
             </div>
             
-            <div className="flex items-start space-x-3 p-3 bg-black/20 rounded-lg border border-white/5">
-              <Checkbox 
-                id="terms-accept"
-                checked={termsAccepted}
-                onCheckedChange={(checked) => setTermsAccepted(checked === true)}
-                className="mt-0.5 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                data-testid="checkbox-terms"
-              />
-              <Label htmlFor="terms-accept" className="text-sm text-gray-300 cursor-pointer leading-relaxed">
-                By joining, you confirm you are 18+ and accept these terms.
-              </Label>
-            </div>
+            <p className="text-sm text-gray-400 text-center">
+              By clicking "I Accept", you confirm you are 18+ and agree to these terms.
+            </p>
           </div>
 
-          <DialogFooter className="sm:justify-center gap-2">
+          <DialogFooter className="sm:justify-center">
             <Button 
-              variant="outline" 
-              onClick={() => {
-                setShowTerms(false);
-                setTermsAccepted(false);
-              }}
-              data-testid="button-cancel-terms"
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleConfirmPlay}
-              disabled={!termsAccepted}
-              className="bg-primary hover:bg-primary/90 text-white"
+              onClick={handleAcceptTerms}
+              className="bg-primary hover:bg-primary/90 text-white w-full"
               data-testid="button-accept-terms"
             >
-              Accept & Play
+              I Accept
             </Button>
           </DialogFooter>
         </DialogContent>
