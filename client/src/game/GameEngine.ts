@@ -154,11 +154,17 @@ export class GameEngine {
       const speedFactor = Math.max(0.5, 1 - (player.radius / 200)); 
       const speed = GameEngine.MAX_SPEED * speedFactor;
       
-      player.velocity.x = (vector.x / length) * speed;
-      player.velocity.y = (vector.y / length) * speed;
+      // Calculate target velocity
+      const targetVx = (vector.x / length) * speed;
+      const targetVy = (vector.y / length) * speed;
+      
+      // Simple smoothing to prevent jitter from noisy input
+      player.velocity.x += (targetVx - player.velocity.x) * 0.2;
+      player.velocity.y += (targetVy - player.velocity.y) * 0.2;
     } else {
-      player.velocity.x = 0;
-      player.velocity.y = 0;
+      // Smooth stop
+      player.velocity.x *= 0.8;
+      player.velocity.y *= 0.8;
     }
   }
 
@@ -196,9 +202,16 @@ export class GameEngine {
         this.updateBot(player);
       }
 
-      // Move
-      player.x += player.velocity.x;
-      player.y += player.velocity.y;
+    // Move (Time-based movement)
+      // Normalize velocity to pixels per second (MAX_SPEED * 60)
+      // If MAX_SPEED was 2 pixels/frame at 60fps, it's 120 pixels/second
+      // Let's stick to the previous feeling but make it time-independent
+      // We'll treat velocity as pixels-per-frame at 60fps for compatibility, then scale by dt
+      
+      const timeScale = dt * 60; // Should be ~1.0 at 60fps
+      
+      player.x += player.velocity.x * timeScale;
+      player.y += player.velocity.y * timeScale;
       
       // Boundary check
       player.x = Math.max(player.radius, Math.min(GameEngine.WORLD_SIZE - player.radius, player.x));
