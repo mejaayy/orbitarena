@@ -158,13 +158,14 @@ export class GameEngine {
       const targetVx = (vector.x / length) * speed;
       const targetVy = (vector.y / length) * speed;
       
-      // Simple smoothing to prevent jitter from noisy input
-      player.velocity.x += (targetVx - player.velocity.x) * 0.2;
-      player.velocity.y += (targetVy - player.velocity.y) * 0.2;
+      // Much stronger smoothing for instant responsiveness but slight ease (0.2 -> 0.8)
+      // This fixes "ice skating" by reaching target speed almost instantly
+      player.velocity.x += (targetVx - player.velocity.x) * 0.8;
+      player.velocity.y += (targetVy - player.velocity.y) * 0.8;
     } else {
-      // Smooth stop
-      player.velocity.x *= 0.8;
-      player.velocity.y *= 0.8;
+      // Instant stop - no sliding
+      player.velocity.x = 0;
+      player.velocity.y = 0;
     }
   }
 
@@ -364,24 +365,36 @@ export class GameEngine {
   }
 
   drawGrid() {
+    // Only draw grid lines that are visible in the viewport
+    // Calculate visible bounds accounting for zoom
+    const { width, height } = this.canvas;
+    const cx = width / 2;
+    const cy = height / 2;
+    
+    const viewPadding = 100 / this.baseZoom;
+    const viewLeft = this.camera.x - (cx / this.baseZoom) - viewPadding;
+    const viewRight = this.camera.x + (cx / this.baseZoom) + viewPadding;
+    const viewTop = this.camera.y - (cy / this.baseZoom) - viewPadding;
+    const viewBottom = this.camera.y + (cy / this.baseZoom) + viewPadding;
+
     const gridSize = 100;
-    const startX = Math.floor((this.camera.x - this.canvas.width/2) / gridSize) * gridSize;
-    const startY = Math.floor((this.camera.y - this.canvas.height/2) / gridSize) * gridSize;
-    const endX = startX + this.canvas.width + gridSize;
-    const endY = startY + this.canvas.height + gridSize;
+    
+    // Clamp to world bounds
+    const startX = Math.max(0, Math.floor(viewLeft / gridSize) * gridSize);
+    const startY = Math.max(0, Math.floor(viewTop / gridSize) * gridSize);
+    const endX = Math.min(GameEngine.WORLD_SIZE, Math.ceil(viewRight / gridSize) * gridSize);
+    const endY = Math.min(GameEngine.WORLD_SIZE, Math.ceil(viewBottom / gridSize) * gridSize);
 
     this.ctx.strokeStyle = '#1a1a20';
     this.ctx.lineWidth = 2;
     this.ctx.beginPath();
 
     for (let x = startX; x <= endX; x += gridSize) {
-      if (x < 0 || x > GameEngine.WORLD_SIZE) continue;
       this.ctx.moveTo(x, Math.max(0, startY));
       this.ctx.lineTo(x, Math.min(GameEngine.WORLD_SIZE, endY));
     }
 
     for (let y = startY; y <= endY; y += gridSize) {
-      if (y < 0 || y > GameEngine.WORLD_SIZE) continue;
       this.ctx.moveTo(Math.max(0, startX), y);
       this.ctx.lineTo(Math.min(GameEngine.WORLD_SIZE, endX), y);
     }
