@@ -88,11 +88,13 @@ export class GameEngine {
     this.localPlayerId = 'player-local';
     this.spawnPlayer(this.localPlayerId, playerName, false);
     
-    // Spawn bots (Simulating multiplayer for prototype)
-    const botCount = 15; // User requested support for 15 people
-    for (let i = 0; i < botCount; i++) {
-      this.spawnPlayer(`bot-${i}`, `Bot ${i+1}`, true);
-    }
+    // [MULTIPLAYER NOTE]
+    // Bots removed as requested. 
+    // To play with real people, you would receive 'player joined' events via WebSocket here.
+    // const botCount = 15;
+    // for (let i = 0; i < botCount; i++) {
+    //   this.spawnPlayer(`bot-${i}`, `Bot ${i+1}`, true);
+    // }
     
     // Spawn food
     this.refillFood();

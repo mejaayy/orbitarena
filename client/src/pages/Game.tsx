@@ -57,10 +57,8 @@ export default function Game() {
       />
       
       {/* UI Overlay */}
-      <div className="absolute top-4 left-4 text-white/50 text-xs font-mono space-y-1 pointer-events-none">
-        <div>FPS: {stats.fps}</div>
-        <div>PLAYERS: {stats.population}</div>
-        <div>MODE: {isStakeMode ? 'STAKE (0.1 SOL)' : 'FREE PLAY'}</div>
+      <div className="absolute bottom-4 right-4 text-white/30 text-[10px] font-mono pointer-events-none select-none">
+        FPS: {stats.fps}
       </div>
 
       <Leaderboard players={leaderboard} />
