@@ -2,7 +2,6 @@ import { log } from './index';
 
 const ENTRY_FEE_USDC = 1;
 const EXIT_FEE_PERCENT = 10;
-const PLATFORM_WALLET = 'PLATFORMxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
 
 interface PlayerEscrow {
   walletAddress: string;
@@ -13,9 +12,23 @@ interface PlayerEscrow {
   totalLost: number;
 }
 
+interface FeeTransaction {
+  timestamp: number;
+  playerWallet: string;
+  grossAmount: number;
+  feeAmount: number;
+  netAmount: number;
+}
+
 class EscrowService {
   private escrows: Map<string, PlayerEscrow> = new Map();
   private platformBalance: number = 0;
+  private feeTransactions: FeeTransaction[] = [];
+  private totalFeesCollected: number = 0;
+
+  getPlatformWallet(): string | null {
+    return process.env.PLATFORM_WALLET_ADDRESS || null;
+  }
 
   deposit(walletAddress: string): { success: boolean; balance: number; error?: string } {
     if (this.escrows.has(walletAddress)) {
@@ -87,28 +100,48 @@ class EscrowService {
     grossAmount: number;
     fee: number;
     netAmount: number;
+    platformWalletConfigured: boolean;
     error?: string 
   } {
     const escrow = this.escrows.get(walletAddress);
     
     if (!escrow) {
-      return { success: false, grossAmount: 0, fee: 0, netAmount: 0, error: 'Not in escrow' };
+      return { success: false, grossAmount: 0, fee: 0, netAmount: 0, platformWalletConfigured: false, error: 'Not in escrow' };
     }
 
     const grossAmount = escrow.balance;
     const fee = grossAmount * (EXIT_FEE_PERCENT / 100);
     const netAmount = grossAmount - fee;
+    const platformWallet = this.getPlatformWallet();
 
     this.platformBalance += fee;
+    this.totalFeesCollected += fee;
     this.escrows.delete(walletAddress);
 
-    log(`Escrow withdraw: ${walletAddress.slice(0,8)}... withdrew ${netAmount.toFixed(4)} USDC (fee: ${fee.toFixed(4)} USDC)`, 'solana');
+    const feeTransaction: FeeTransaction = {
+      timestamp: Date.now(),
+      playerWallet: walletAddress,
+      grossAmount,
+      feeAmount: fee,
+      netAmount
+    };
+    this.feeTransactions.push(feeTransaction);
+
+    log(`Escrow withdraw: ${walletAddress.slice(0,8)}... withdrew ${netAmount.toFixed(4)} USDC`, 'solana');
+    log(`Platform fee: ${fee.toFixed(4)} USDC collected (total: ${this.totalFeesCollected.toFixed(4)} USDC)`, 'solana');
+    
+    if (platformWallet) {
+      log(`Fee destination: ${platformWallet.slice(0,8)}...${platformWallet.slice(-4)}`, 'solana');
+    } else {
+      log(`Warning: PLATFORM_WALLET_ADDRESS not set - fees held in escrow`, 'solana');
+    }
 
     return {
       success: true,
       grossAmount,
       fee,
-      netAmount
+      netAmount,
+      platformWalletConfigured: !!platformWallet
     };
   }
 
@@ -132,6 +165,33 @@ class EscrowService {
 
   getActivePlayerCount(): number {
     return this.escrows.size;
+  }
+
+  getTotalFeesCollected(): number {
+    return this.totalFeesCollected;
+  }
+
+  getFeeTransactionCount(): number {
+    return this.feeTransactions.length;
+  }
+
+  getRecentFeeTransactions(limit: number = 10): FeeTransaction[] {
+    return this.feeTransactions.slice(-limit);
+  }
+
+  getFeeStats(): {
+    totalFeesCollected: number;
+    transactionCount: number;
+    platformWallet: string | null;
+    platformWalletConfigured: boolean;
+  } {
+    const platformWallet = this.getPlatformWallet();
+    return {
+      totalFeesCollected: this.totalFeesCollected,
+      transactionCount: this.feeTransactions.length,
+      platformWallet: platformWallet ? `${platformWallet.slice(0,8)}...${platformWallet.slice(-4)}` : null,
+      platformWalletConfigured: !!platformWallet
+    };
   }
 }
 
