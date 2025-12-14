@@ -170,8 +170,10 @@ export class GameEngine {
     this.update(dt);
     this.render();
     
-    // Mock network stats
-    if (Math.random() < 0.05) {
+    // Mock network stats - REDUCED FREQUENCY
+    // Only update stats every ~60 frames (approx 1 sec) instead of random chance per frame
+    // Using a counter would be better, but for now just reducing the probability significantly
+    if (Math.random() < 0.01) { // Was 0.05
       this.onUpdateStats({
         fps: Math.round(1/dt),
         population: this.players.size
@@ -312,7 +314,16 @@ export class GameEngine {
     this.drawGrid();
 
     // Draw Food
+    const viewPadding = 100;
+    const viewLeft = this.camera.x - cx - viewPadding;
+    const viewRight = this.camera.x + cx + viewPadding;
+    const viewTop = this.camera.y - cy - viewPadding;
+    const viewBottom = this.camera.y + cy + viewPadding;
+
     this.foods.forEach(food => {
+      // Simple viewport culling
+      if (food.x < viewLeft || food.x > viewRight || food.y < viewTop || food.y > viewBottom) return;
+
       this.ctx.beginPath();
       this.ctx.arc(food.x, food.y, food.radius, 0, Math.PI * 2);
       this.ctx.fillStyle = food.color;
@@ -323,6 +334,10 @@ export class GameEngine {
     const sortedPlayers = Array.from(this.players.values()).sort((a, b) => a.radius - b.radius);
     
     sortedPlayers.forEach(player => {
+      // Simple viewport culling
+      if (player.x + player.radius < viewLeft || player.x - player.radius > viewRight || 
+          player.y + player.radius < viewTop || player.y - player.radius > viewBottom) return;
+
       this.drawPlayer(player);
     });
 
