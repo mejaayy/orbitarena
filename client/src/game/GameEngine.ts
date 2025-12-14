@@ -362,6 +362,62 @@ export class GameEngine {
     });
 
     this.ctx.restore();
+
+    // Draw Minimap (Overlay)
+    this.drawMinimap();
+  }
+
+  drawMinimap() {
+    const size = 140; // Size of minimap square
+    const padding = 20; // Padding from screen edge
+    const { width, height } = this.canvas;
+    
+    // Position bottom-right
+    const mapX = width - size - padding;
+    const mapY = height - size - padding;
+    
+    // Background
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    this.ctx.fillRect(mapX, mapY, size, size);
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(mapX, mapY, size, size);
+    
+    const scale = size / GameEngine.WORLD_SIZE;
+    
+    // Draw Players on Minimap
+    this.players.forEach(player => {
+      const px = mapX + player.x * scale;
+      const py = mapY + player.y * scale;
+      
+      this.ctx.beginPath();
+      if (player.id === this.localPlayerId) {
+        this.ctx.fillStyle = '#00FF99'; // Self: Bright Green
+        this.ctx.arc(px, py, 3, 0, Math.PI * 2);
+      } else {
+        this.ctx.fillStyle = 'rgba(255, 0, 85, 0.8)'; // Enemy: Red
+        this.ctx.arc(px, py, 2, 0, Math.PI * 2);
+      }
+      this.ctx.fill();
+    });
+
+    // Draw Viewport Rectangle on Minimap
+    // Reverse the camera transform logic to find view bounds relative to world
+    const cx = width / 2;
+    const cy = height / 2;
+    const viewW = width / this.baseZoom;
+    const viewH = height / this.baseZoom;
+    const viewX = this.camera.x - viewW / 2;
+    const viewY = this.camera.y - viewH / 2;
+
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(
+      mapX + viewX * scale, 
+      mapY + viewY * scale, 
+      viewW * scale, 
+      viewH * scale
+    );
   }
 
   drawGrid() {
