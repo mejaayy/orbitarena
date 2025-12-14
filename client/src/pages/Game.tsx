@@ -111,49 +111,51 @@ export default function Game() {
         FPS: {stats.fps} | Players: {stats.population}
       </div>
 
-      {isStakeMode && (
-        <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+      <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+        {isStakeMode && (
           <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-accent/30 flex items-center gap-2" data-testid="balance-display">
             <Coins className="w-4 h-4 text-accent" />
             <span className="text-accent font-mono font-bold">{stats.balance?.toFixed(2) || '0.00'} USDC</span>
           </div>
-          
-          <div className="relative overflow-hidden rounded-md">
-            <Button
-              variant="outline"
-              size="sm"
-              className={`gap-2 border-destructive/50 text-destructive hover:bg-destructive/20 transition-all relative z-10 ${isHoldingLeave ? '' : ''}`}
-              onMouseDown={handleLeaveStart}
-              onMouseUp={handleLeaveEnd}
-              onMouseLeave={handleLeaveEnd}
-              onTouchStart={handleLeaveStart}
-              onTouchEnd={handleLeaveEnd}
-              data-testid="button-leave"
-            >
-              <LogOut className="w-4 h-4" />
-              {isHoldingLeave ? 'Leaving...' : 'Hold to Leave'}
-            </Button>
-            <div 
-              className="absolute inset-0 bg-destructive/40 transition-all duration-75 ease-linear" 
-              style={{ 
-                width: `${leaveProgress * 100}%`,
-                opacity: isHoldingLeave ? 1 : 0
-              }} 
-            />
+        )}
+        
+        <div className="relative overflow-hidden rounded-md">
+          <Button
+            variant="outline"
+            size="sm"
+            className={`gap-2 border-destructive/50 text-destructive hover:bg-destructive/20 transition-all relative z-10`}
+            onMouseDown={handleLeaveStart}
+            onMouseUp={handleLeaveEnd}
+            onMouseLeave={handleLeaveEnd}
+            onTouchStart={handleLeaveStart}
+            onTouchEnd={handleLeaveEnd}
+            data-testid="button-leave"
+          >
+            <LogOut className="w-4 h-4" />
+            {isHoldingLeave ? 'Leaving...' : 'Hold to Leave'}
+          </Button>
+          <div 
+            className="absolute inset-0 bg-destructive/40 transition-all duration-75 ease-linear" 
+            style={{ 
+              width: `${leaveProgress * 100}%`,
+              opacity: isHoldingLeave ? 1 : 0
+            }} 
+          />
+        </div>
+        
+        {leaveError && (
+          <div className="flex items-center gap-1 text-xs text-destructive bg-destructive/10 px-2 py-1 rounded">
+            <AlertCircle className="w-3 h-3" />
+            {leaveError}
           </div>
-          
-          {leaveError && (
-            <div className="flex items-center gap-1 text-xs text-destructive bg-destructive/10 px-2 py-1 rounded">
-              <AlertCircle className="w-3 h-3" />
-              {leaveError}
-            </div>
-          )}
-          
+        )}
+        
+        {isStakeMode && (
           <div className="text-[10px] text-gray-500">
             {EXIT_FEE_PERCENT}% exit fee applies
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <Leaderboard players={leaderboard} />
       <Joystick engine={engine} />

@@ -316,8 +316,8 @@ export class GameEngine {
           player.y = Math.max(player.radius, Math.min(GameEngine.WORLD_SIZE - player.radius, player.y));
         }
         
-        player.x += (player.targetX - player.x) * 0.1;
-        player.y += (player.targetY - player.y) * 0.1;
+        player.x += (player.targetX - player.x) * 0.05;
+        player.y += (player.targetY - player.y) * 0.05;
       } else {
         const elapsed = timestamp - player.interpStartTime;
         const t = Math.min(1, elapsed / GameEngine.INTERP_DURATION);
