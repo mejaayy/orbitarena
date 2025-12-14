@@ -35,7 +35,7 @@ export class GameEngine {
   // Game constants
   static WORLD_SIZE = 4000;
   static INITIAL_RADIUS = 20;
-  static MAX_SPEED = 5;
+  static MAX_SPEED = 3;
   static DRAG = 0.98; // Friction
   static FOOD_COUNT = 300;
   

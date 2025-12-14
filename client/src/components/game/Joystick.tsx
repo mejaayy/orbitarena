@@ -12,7 +12,8 @@ export const Joystick: React.FC<JoystickProps> = ({ engine }) => {
     // event.x and event.y are normalized -1 to 1? Check docs or assume.
     // react-joystick-component gives x/y relative to center usually.
     if (event.x !== undefined && event.y !== undefined) {
-      engine.handleInput({ x: event.x, y: event.y });
+      // Invert Y because Joystick is Cartesian (Up=Positive) but Canvas is Screen (Down=Positive)
+      engine.handleInput({ x: event.x, y: -event.y });
     }
   };
 
