@@ -5,7 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle } from 'lucide-react';
 import solanaLogo from '@assets/generated_images/solana_crypto_coin_logo_icon.png';
 import { connectPhantom, disconnectPhantom, isPhantomInstalled, getConnectedWallet, shortenAddress, ENTRY_FEE_USDC } from '@/lib/phantom';
 
@@ -15,6 +17,8 @@ export default function Lobby() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [serverStatus, setServerStatus] = useState<{ playerCount: number; maxPlayers: number } | null>(null);
+  const [showTerms, setShowTerms] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -61,6 +65,12 @@ export default function Lobby() {
     if (isStakeMode && !walletAddress) {
       return;
     }
+    
+    setShowTerms(true);
+  };
+
+  const handleConfirmPlay = () => {
+    if (!termsAccepted) return;
     
     localStorage.setItem('orbit-arena-nickname', nickname);
     
@@ -204,6 +214,62 @@ export default function Lobby() {
           </form>
         </CardContent>
       </Card>
+
+      <Dialog open={showTerms} onOpenChange={setShowTerms}>
+        <DialogContent className="bg-card/95 backdrop-blur-xl border-white/10 sm:max-w-md">
+          <DialogHeader className="text-center">
+            <div className="mx-auto w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center mb-4 text-amber-500">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-2xl font-bold">Terms of Play</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Please read and accept before entering
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            <div className="bg-black/30 p-4 rounded-lg border border-white/10 space-y-3 text-sm text-gray-300">
+              <p>This is a skill-based game.</p>
+              <p>All payments are non-refundable.</p>
+              <p>Balances and earnings are not guaranteed.</p>
+            </div>
+            
+            <div className="flex items-start space-x-3 p-3 bg-black/20 rounded-lg border border-white/5">
+              <Checkbox 
+                id="terms-accept"
+                checked={termsAccepted}
+                onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                className="mt-0.5 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                data-testid="checkbox-terms"
+              />
+              <Label htmlFor="terms-accept" className="text-sm text-gray-300 cursor-pointer leading-relaxed">
+                By joining, you confirm you are 18+ and accept these terms.
+              </Label>
+            </div>
+          </div>
+
+          <DialogFooter className="sm:justify-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowTerms(false);
+                setTermsAccepted(false);
+              }}
+              data-testid="button-cancel-terms"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmPlay}
+              disabled={!termsAccepted}
+              className="bg-primary hover:bg-primary/90 text-white"
+              data-testid="button-accept-terms"
+            >
+              Accept & Play
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
