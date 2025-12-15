@@ -149,7 +149,7 @@ export default function Lobby() {
           {serverStatus && (
             <div className="flex items-center justify-center gap-2 text-xs text-gray-500 mt-2" data-testid="server-status">
               <Users className="w-3 h-3" />
-              <span>{serverStatus.playerCount} players online ({serverStatus.roomCount} {serverStatus.roomCount === 1 ? 'room' : 'rooms'})</span>
+              <span>{serverStatus.playerCount} players online</span>
             </div>
           )}
         </CardHeader>
