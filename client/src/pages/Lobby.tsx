@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle } from 'lucide-react';
 import solanaLogo from '@assets/generated_images/solana_crypto_coin_logo_icon.png';
 import { connectPhantom, disconnectPhantom, isPhantomInstalled, getConnectedWallet, shortenAddress, ENTRY_FEE_USDC, getUSDCBalance } from '@/lib/phantom';
-import { Palette } from 'lucide-react';
 
 export default function Lobby() {
   const [nickname, setNickname] = useState('');
@@ -172,19 +171,16 @@ export default function Lobby() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-widest text-gray-500 flex items-center gap-2">
-                <Palette className="w-3 h-3" />
-                Avatar Color
-              </Label>
-              <div className="flex flex-wrap gap-2 p-3 bg-black/20 rounded-lg border border-white/10">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs uppercase tracking-widest text-gray-500">Color</Label>
+              <div className="flex gap-1.5">
                 {AVATAR_COLORS.map((color) => (
                   <button
                     key={color.hex}
                     type="button"
                     onClick={() => setSelectedColor(color.hex)}
-                    className={`w-8 h-8 rounded-full transition-all hover:scale-110 ${
-                      selectedColor === color.hex ? 'ring-2 ring-white ring-offset-2 ring-offset-black scale-110' : ''
+                    className={`w-5 h-5 rounded-full transition-all hover:scale-110 ${
+                      selectedColor === color.hex ? 'ring-2 ring-white ring-offset-1 ring-offset-black' : 'opacity-60 hover:opacity-100'
                     }`}
                     style={{ backgroundColor: color.hex }}
                     title={color.name}

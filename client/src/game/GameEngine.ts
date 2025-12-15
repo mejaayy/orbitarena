@@ -448,8 +448,8 @@ export class GameEngine {
     const endX = Math.min(GameEngine.WORLD_SIZE, Math.ceil(viewRight / gridSize) * gridSize);
     const endY = Math.min(GameEngine.WORLD_SIZE, Math.ceil(viewBottom / gridSize) * gridSize);
 
-    this.ctx.strokeStyle = '#1a1a20';
-    this.ctx.lineWidth = 2;
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    this.ctx.lineWidth = 1;
     this.ctx.beginPath();
 
     for (let x = startX; x <= endX; x += gridSize) {
