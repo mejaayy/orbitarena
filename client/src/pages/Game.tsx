@@ -20,11 +20,13 @@ export default function Game() {
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const leaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const leaveStartRef = useRef<number>(0);
+  const isHoldingQRef = useRef<boolean>(false);
 
   const searchParams = new URLSearchParams(window.location.search);
   const playerName = searchParams.get('name') || 'Unknown';
   const isStakeMode = searchParams.get('stake') === 'true';
   const walletAddress = searchParams.get('wallet') || undefined;
+  const playerColor = searchParams.get('color') || undefined;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -44,7 +46,7 @@ export default function Game() {
 
   const handleRestart = () => {
     setGameOverStats(null);
-    engine?.start(playerName, isStakeMode, walletAddress);
+    engine?.start(playerName, isStakeMode, walletAddress, playerColor);
   };
 
   const handleExit = () => {
@@ -58,7 +60,7 @@ export default function Game() {
     
     leaveTimerRef.current = setInterval(() => {
       const elapsed = Date.now() - leaveStartRef.current;
-      const progress = Math.min(elapsed / 3000, 1);
+      const progress = Math.min(elapsed / 2000, 1);
       setLeaveProgress(progress);
       
       if (progress >= 1) {
@@ -89,12 +91,33 @@ export default function Game() {
   }, []);
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'q' || e.key === 'Q') {
+        if (!isHoldingQRef.current && !gameOverStats) {
+          isHoldingQRef.current = true;
+          handleLeaveStart();
+        }
+      }
+    };
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'q' || e.key === 'Q') {
+        isHoldingQRef.current = false;
+        handleLeaveEnd();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
     return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
       if (leaveTimerRef.current) {
         clearInterval(leaveTimerRef.current);
       }
     };
-  }, []);
+  }, [handleLeaveStart, handleLeaveEnd, gameOverStats]);
 
   return (
     <div className="w-full h-screen relative bg-black overflow-hidden">
@@ -102,6 +125,7 @@ export default function Game() {
         playerName={playerName}
         isStakeMode={isStakeMode}
         walletAddress={walletAddress}
+        playerColor={playerColor}
         onGameOver={handleGameOver}
         onUpdateStats={setStats}
         onEngineInit={setEngine}
@@ -132,7 +156,7 @@ export default function Game() {
             data-testid="button-leave"
           >
             <LogOut className="w-4 h-4" />
-            {isHoldingLeave ? 'Leaving...' : 'Hold to Leave'}
+            {isHoldingLeave ? 'Leaving...' : 'Hold to Leave (Q)'}
           </Button>
           <div 
             className="absolute inset-0 bg-destructive/40 transition-all duration-75 ease-linear" 

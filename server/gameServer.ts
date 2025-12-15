@@ -49,7 +49,7 @@ interface ServerMessage {
 
 const WORLD_SIZE = 4000;
 const INITIAL_RADIUS = 20;
-const MAX_SPEED = 2;
+const MAX_SPEED = 2.3;
 const FOOD_COUNT = 300;
 const MAX_PLAYERS_PER_ROOM = 15;
 const MAX_ROOMS = 10;
@@ -129,7 +129,7 @@ class GameRoom {
     return this.clients.size;
   }
 
-  addPlayer(playerId: string, ws: WebSocket, payload: { name: string; walletAddress?: string }): boolean {
+  addPlayer(playerId: string, ws: WebSocket, payload: { name: string; walletAddress?: string; playerColor?: string }): boolean {
     if (this.isFull()) {
       return false;
     }
@@ -142,14 +142,14 @@ class GameRoom {
       }
     }
 
-    const colors = ['#D40046', '#00CC7A', '#00A3CC', '#CC7A00', '#A300CC', '#CCCC00'];
+    const defaultColors = ['#D40046', '#00CC7A', '#00A3CC', '#CC7A00', '#A300CC', '#CCCC00'];
     const player: Player = {
       id: playerId,
       name: payload.name || 'Anonymous',
       x: Math.random() * WORLD_SIZE,
       y: Math.random() * WORLD_SIZE,
       radius: INITIAL_RADIUS,
-      color: colors[Math.floor(Math.random() * colors.length)],
+      color: payload.playerColor || defaultColors[Math.floor(Math.random() * defaultColors.length)],
       score: 10,
       velocity: { x: 0, y: 0 },
       walletAddress: payload.walletAddress,

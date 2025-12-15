@@ -46,7 +46,7 @@ export class GameEngine {
   static WORLD_SIZE = 4000;
   static INITIAL_RADIUS = 20;
   static INTERP_DURATION = 100;
-  static MAX_SPEED = 2;
+  static MAX_SPEED = 2.3;
   
   isRunning: boolean = false;
   lastTime: number = 0;
@@ -57,6 +57,8 @@ export class GameEngine {
   private fpsLastTime: number = 0;
   private currentFps: number = 60;
   private localInputVector: Point = { x: 0, y: 0 };
+  private lastInputSendTime: number = 0;
+  private inputSendInterval: number = 33;
   
   onGameOver: (stats: { score: number, killer?: string, balance?: number }) => void;
   onUpdateStats: (stats: { fps: number, population: number, balance?: number }) => void;
@@ -65,7 +67,7 @@ export class GameEngine {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
-  private pendingJoin: { name: string; isStakeMode: boolean; walletAddress?: string } | null = null;
+  private pendingJoin: { name: string; isStakeMode: boolean; walletAddress?: string; playerColor?: string } | null = null;
 
   constructor(
     canvas: HTMLCanvasElement, 
@@ -100,7 +102,7 @@ export class GameEngine {
       this.localPlayerId = null;
       
       if (this.pendingJoin) {
-        this.sendJoin(this.pendingJoin.name, this.pendingJoin.isStakeMode, this.pendingJoin.walletAddress);
+        this.sendJoin(this.pendingJoin.name, this.pendingJoin.isStakeMode, this.pendingJoin.walletAddress, this.pendingJoin.playerColor);
       }
     };
 
@@ -212,11 +214,11 @@ export class GameEngine {
     });
   }
 
-  private sendJoin(name: string, isStakeMode: boolean, walletAddress?: string) {
+  private sendJoin(name: string, isStakeMode: boolean, walletAddress?: string, playerColor?: string) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({
         type: 'JOIN',
-        payload: { name, isStakeMode, walletAddress }
+        payload: { name, isStakeMode, walletAddress, playerColor }
       }));
     }
   }
@@ -243,13 +245,13 @@ export class GameEngine {
     this.canvas.height = window.innerHeight;
   };
 
-  start(playerName: string, isStakeMode: boolean, walletAddress?: string) {
+  start(playerName: string, isStakeMode: boolean, walletAddress?: string, playerColor?: string) {
     this.isRunning = true;
     this.players.clear();
     this.foods = [];
     this.localPlayerId = null;
     
-    this.pendingJoin = { name: playerName, isStakeMode, walletAddress };
+    this.pendingJoin = { name: playerName, isStakeMode, walletAddress, playerColor };
     this.connectWebSocket();
     
     this.lastTime = performance.now();
@@ -264,8 +266,24 @@ export class GameEngine {
   }
 
   handleInput(vector: Point) {
+    const isZero = vector.x === 0 && vector.y === 0;
+    const wasZero = this.localInputVector.x === 0 && this.localInputVector.y === 0;
+    
     this.localInputVector = { x: vector.x, y: vector.y };
-    this.sendInput(vector);
+    
+    // Always send immediately when stopping (zero vector) to prevent drift
+    if (isZero && !wasZero) {
+      this.sendInput(vector);
+      this.lastInputSendTime = performance.now();
+      return;
+    }
+    
+    // Throttle non-zero vectors
+    const now = performance.now();
+    if (now - this.lastInputSendTime >= this.inputSendInterval) {
+      this.sendInput(vector);
+      this.lastInputSendTime = now;
+    }
   }
 
   loop = (timestamp: number) => {

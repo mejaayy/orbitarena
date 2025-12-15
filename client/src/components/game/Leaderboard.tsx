@@ -11,7 +11,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ players }) => {
   // For prototype, we can poll engine or pass data via onUpdateStats
   
   return (
-    <Card className="absolute top-4 right-4 w-40 bg-black/40 backdrop-blur-md border-white/5 p-2 text-white pointer-events-none select-none">
+    <Card className="absolute top-[180px] left-4 w-40 bg-black/40 backdrop-blur-md border-white/5 p-2 text-white pointer-events-none select-none">
       <h3 className="font-bold text-[10px] text-gray-500 mb-1 uppercase tracking-wider">Leaderboard</h3>
       <ul className="space-y-0.5 text-xs font-medium">
         {players.slice(0, 5).map((p, i) => (

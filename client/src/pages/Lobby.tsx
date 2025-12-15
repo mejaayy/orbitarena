@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle } from 'lucide-react';
 import solanaLogo from '@assets/generated_images/solana_crypto_coin_logo_icon.png';
-import { connectPhantom, disconnectPhantom, isPhantomInstalled, getConnectedWallet, shortenAddress, ENTRY_FEE_USDC } from '@/lib/phantom';
+import { connectPhantom, disconnectPhantom, isPhantomInstalled, getConnectedWallet, shortenAddress, ENTRY_FEE_USDC, getUSDCBalance } from '@/lib/phantom';
+import { Palette } from 'lucide-react';
 
 export default function Lobby() {
   const [nickname, setNickname] = useState('');
@@ -18,7 +19,20 @@ export default function Lobby() {
   const [serverStatus, setServerStatus] = useState<{ playerCount: number; maxPlayers: number; roomCount: number } | null>(null);
   const [showTerms, setShowTerms] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [selectedColor, setSelectedColor] = useState('#D40046');
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [, setLocation] = useLocation();
+
+  const AVATAR_COLORS = [
+    { name: 'Red', hex: '#D40046' },
+    { name: 'Green', hex: '#00CC7A' },
+    { name: 'Blue', hex: '#00A3CC' },
+    { name: 'Orange', hex: '#CC7A00' },
+    { name: 'Purple', hex: '#A300CC' },
+    { name: 'Yellow', hex: '#CCCC00' },
+    { name: 'Pink', hex: '#FF69B4' },
+    { name: 'Cyan', hex: '#00FFFF' },
+  ];
 
   useEffect(() => {
     const savedNickname = localStorage.getItem('orbit-arena-nickname');
@@ -32,7 +46,13 @@ export default function Lobby() {
     }
     
     const connected = getConnectedWallet();
-    if (connected) setWalletAddress(connected);
+    if (connected) {
+      setWalletAddress(connected);
+      getUSDCBalance(connected).then(setWalletBalance);
+    }
+    
+    const savedColor = localStorage.getItem('orbit-arena-color');
+    if (savedColor) setSelectedColor(savedColor);
 
     const fetchStatus = async () => {
       try {
@@ -53,6 +73,10 @@ export default function Lobby() {
     try {
       const address = await connectPhantom();
       setWalletAddress(address);
+      if (address) {
+        const balance = await getUSDCBalance(address);
+        setWalletBalance(balance);
+      }
     } finally {
       setIsConnecting(false);
     }
@@ -61,6 +85,7 @@ export default function Lobby() {
   const handleDisconnectWallet = async () => {
     await disconnectPhantom();
     setWalletAddress(null);
+    setWalletBalance(null);
     setIsStakeMode(false);
   };
 
@@ -78,10 +103,12 @@ export default function Lobby() {
     }
     
     localStorage.setItem('orbit-arena-nickname', nickname);
+    localStorage.setItem('orbit-arena-color', selectedColor);
     
     const params = new URLSearchParams({
       name: nickname,
-      stake: String(isStakeMode)
+      stake: String(isStakeMode),
+      color: selectedColor
     });
     if (walletAddress) {
       params.set('wallet', walletAddress);
@@ -145,6 +172,28 @@ export default function Lobby() {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                <Palette className="w-3 h-3" />
+                Avatar Color
+              </Label>
+              <div className="flex flex-wrap gap-2 p-3 bg-black/20 rounded-lg border border-white/10">
+                {AVATAR_COLORS.map((color) => (
+                  <button
+                    key={color.hex}
+                    type="button"
+                    onClick={() => setSelectedColor(color.hex)}
+                    className={`w-8 h-8 rounded-full transition-all hover:scale-110 ${
+                      selectedColor === color.hex ? 'ring-2 ring-white ring-offset-2 ring-offset-black scale-110' : ''
+                    }`}
+                    style={{ backgroundColor: color.hex }}
+                    title={color.name}
+                    data-testid={`color-${color.name.toLowerCase()}`}
+                  />
+                ))}
+              </div>
+            </div>
+
             <div className="bg-black/30 p-4 rounded-xl border border-white/5 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -174,21 +223,28 @@ export default function Lobby() {
               {isStakeMode && (
                 <div className="space-y-3">
                   {walletAddress ? (
-                    <div className="flex items-center justify-between bg-accent/10 p-3 rounded-lg border border-accent/20">
-                      <div className="flex items-center gap-2">
-                        <img src={solanaLogo} className="w-5 h-5" alt="SOL" />
-                        <span className="text-sm font-mono text-accent">{shortenAddress(walletAddress)}</span>
+                    <div className="flex flex-col gap-2 bg-accent/10 p-3 rounded-lg border border-accent/20">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <img src={solanaLogo} className="w-5 h-5" alt="SOL" />
+                          <span className="text-sm font-mono text-accent">{shortenAddress(walletAddress)}</span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleDisconnectWallet}
+                          className="text-xs text-gray-400 hover:text-white"
+                          data-testid="button-disconnect-wallet"
+                        >
+                          Disconnect
+                        </Button>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleDisconnectWallet}
-                        className="text-xs text-gray-400 hover:text-white"
-                        data-testid="button-disconnect-wallet"
-                      >
-                        Disconnect
-                      </Button>
+                      {walletBalance !== null && (
+                        <div className="text-sm text-accent/80 font-mono" data-testid="wallet-balance">
+                          Balance: {walletBalance.toFixed(2)} USDC
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <Button
@@ -222,6 +278,15 @@ export default function Lobby() {
             >
               Enter Arena
             </Button>
+            
+            <button
+              type="button"
+              onClick={() => setLocation('/terms')}
+              className="w-full text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              data-testid="link-terms"
+            >
+              Terms & Conditions
+            </button>
           </form>
         </CardContent>
       </Card>

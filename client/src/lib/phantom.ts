@@ -76,3 +76,23 @@ export function getConnectedWallet(): string | null {
 export function shortenAddress(address: string, chars = 4): string {
   return `${address.slice(0, chars)}...${address.slice(-chars)}`;
 }
+
+export async function getUSDCBalance(walletAddress: string): Promise<number> {
+  try {
+    const connection = getConnection();
+    const wallet = new PublicKey(walletAddress);
+    
+    const { getAssociatedTokenAddress } = await import('@solana/spl-token');
+    const tokenAccount = await getAssociatedTokenAddress(USDC_MINT_DEVNET, wallet);
+    
+    try {
+      const accountInfo = await connection.getTokenAccountBalance(tokenAccount);
+      return parseFloat(accountInfo.value.uiAmountString || '0');
+    } catch {
+      return 0;
+    }
+  } catch (error) {
+    console.error('Failed to fetch USDC balance:', error);
+    return 0;
+  }
+}

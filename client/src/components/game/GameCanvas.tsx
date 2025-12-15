@@ -5,6 +5,7 @@ interface GameCanvasProps {
   playerName: string;
   isStakeMode: boolean;
   walletAddress?: string;
+  playerColor?: string;
   onGameOver: (stats: any) => void;
   onUpdateStats: (stats: any) => void;
   onEngineInit: (engine: GameEngine) => void;
@@ -14,6 +15,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   playerName, 
   isStakeMode, 
   walletAddress,
+  playerColor,
   onGameOver, 
   onUpdateStats,
   onEngineInit
@@ -33,7 +35,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     engineRef.current = engine;
     onEngineInit(engine);
     
-    engine.start(playerName, isStakeMode, walletAddress);
+    engine.start(playerName, isStakeMode, walletAddress, playerColor);
 
     return () => {
       engine.stop();
