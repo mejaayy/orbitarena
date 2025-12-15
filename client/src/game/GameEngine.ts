@@ -469,6 +469,23 @@ export class GameEngine {
     this.ctx.strokeRect(0, 0, GameEngine.WORLD_SIZE, GameEngine.WORLD_SIZE);
   }
 
+  private getContrastColor(hexColor: string): string {
+    // Parse hex color to RGB
+    let hex = hexColor.replace('#', '');
+    if (hex.length === 3) {
+      hex = hex.split('').map(c => c + c).join('');
+    }
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    // Calculate luminance
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    
+    // Return black for light colors, white for dark colors
+    return luminance > 0.5 ? '#000000' : '#FFFFFF';
+  }
+
   drawPlayer(player: Player) {
     this.ctx.beginPath();
     this.ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
@@ -485,10 +502,22 @@ export class GameEngine {
     
     this.ctx.shadowBlur = 0;
     
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = `bold ${Math.max(12, player.radius * 0.4)}px Outfit`;
+    // Use contrasting color for text
+    const textColor = this.getContrastColor(player.color);
+    this.ctx.fillStyle = textColor;
+    
+    const fontSize = Math.max(12, player.radius * 0.35);
+    this.ctx.font = `bold ${fontSize}px Outfit`;
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
-    this.ctx.fillText(player.name, player.x, player.y);
+    
+    // Draw name
+    this.ctx.fillText(player.name, player.x, player.y - fontSize * 0.4);
+    
+    // Draw balance below name
+    if (player.balance !== undefined && player.balance > 0) {
+      this.ctx.font = `bold ${fontSize * 0.8}px Outfit`;
+      this.ctx.fillText(`$${player.balance.toFixed(2)}`, player.x, player.y + fontSize * 0.5);
+    }
   }
 }
