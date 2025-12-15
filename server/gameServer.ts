@@ -21,6 +21,7 @@ interface Player {
   balance: number;
   lastCombatTime: number;
   inputVector: Point;
+  isSpectator: boolean;
 }
 
 interface Food {
@@ -43,9 +44,11 @@ interface ClientMessage {
 }
 
 interface ServerMessage {
-  type: 'STATE' | 'JOINED' | 'ELIMINATED' | 'PLAYER_LEFT' | 'ERROR' | 'ROOM_INFO' | 'FOOD_DELTA';
+  type: 'STATE' | 'JOINED' | 'ELIMINATED' | 'PLAYER_LEFT' | 'ERROR' | 'ROOM_INFO' | 'FOOD_DELTA' | 'ROUND_STATUS' | 'ROUND_END';
   payload: any;
 }
+
+type RoundState = 'LOBBY' | 'COUNTDOWN' | 'PLAYING' | 'ENDED';
 
 const WORLD_SIZE = 4000;
 const INITIAL_RADIUS = 20;
@@ -56,14 +59,24 @@ const MAX_ROOMS = 10;
 const TICK_RATE = 30;
 const COMBAT_COOLDOWN = 3000;
 
+// Stake mode constants
+const ENTRY_FEE = 1.00;
+const PLATFORM_FEE = 0.10;
+const PRIZE_CONTRIBUTION = 0.90;
+const ROUND_DURATION = 120000; // 2 minutes in ms
+const COUNTDOWN_DURATION = 3000; // 3 seconds
+const PRIZE_1ST = 6.00;
+const PRIZE_2ND = 4.50;
+const PRIZE_3RD = 3.00;
+
 class GameRoom {
   id: string;
   isStakeMode: boolean;
-  private gameState: GameState;
-  private clients: Map<string, WebSocket> = new Map();
-  private tickInterval: NodeJS.Timeout | null = null;
-  private spawnedFoods: Food[] = [];
-  private eatenFoodIds: string[] = [];
+  protected gameState: GameState;
+  protected clients: Map<string, WebSocket> = new Map();
+  protected tickInterval: NodeJS.Timeout | null = null;
+  protected spawnedFoods: Food[] = [];
+  protected eatenFoodIds: string[] = [];
 
   constructor(id: string, isStakeMode: boolean = false) {
     this.id = id;
@@ -77,13 +90,13 @@ class GameRoom {
     log(`Game room ${id} created (${isStakeMode ? 'stake' : 'free'} mode)`, 'room');
   }
 
-  private initFood() {
+  protected initFood() {
     for (let i = 0; i < FOOD_COUNT; i++) {
       this.spawnFood(false);
     }
   }
 
-  private spawnFood(trackDelta: boolean = true): Food {
+  protected spawnFood(trackDelta: boolean = true): Food {
     const food: Food = {
       id: `food-${Math.random().toString(36).substr(2, 9)}`,
       x: Math.random() * WORLD_SIZE,
@@ -99,7 +112,7 @@ class GameRoom {
     return food;
   }
 
-  private startGameLoop() {
+  protected startGameLoop() {
     this.tickInterval = setInterval(() => {
       this.update();
       this.broadcastState();
@@ -134,14 +147,6 @@ class GameRoom {
       return false;
     }
 
-    let balance = 1;
-    if (payload.walletAddress) {
-      const depositResult = escrowService.deposit(payload.walletAddress);
-      if (depositResult.success) {
-        balance = depositResult.balance;
-      }
-    }
-
     const defaultColors = ['#D40046', '#00CC7A', '#00A3CC', '#CC7A00', '#A300CC', '#CCCC00'];
     const player: Player = {
       id: playerId,
@@ -153,9 +158,10 @@ class GameRoom {
       score: 10,
       velocity: { x: 0, y: 0 },
       walletAddress: payload.walletAddress,
-      balance,
+      balance: 0,
       lastCombatTime: 0,
-      inputVector: { x: 0, y: 0 }
+      inputVector: { x: 0, y: 0 },
+      isSpectator: false
     };
 
     this.gameState.players.set(playerId, player);
@@ -177,7 +183,7 @@ class GameRoom {
 
   handleInput(playerId: string, payload: { x: number; y: number }) {
     const player = this.gameState.players.get(playerId);
-    if (!player) return;
+    if (!player || player.isSpectator) return;
 
     const length = Math.sqrt(payload.x * payload.x + payload.y * payload.y);
     if (length > 1) {
@@ -203,13 +209,6 @@ class GameRoom {
       return false;
     }
 
-    if (player.walletAddress) {
-      const withdrawResult = escrowService.withdraw(player.walletAddress);
-      if (withdrawResult.success) {
-        log(`Player ${player.name} withdrew ${withdrawResult.netAmount.toFixed(4)} USDC (fee: ${withdrawResult.fee.toFixed(4)})`, 'room');
-      }
-    }
-
     this.removePlayer(playerId, 'left');
     return true;
   }
@@ -222,7 +221,7 @@ class GameRoom {
     return this.gameState.players.has(playerId);
   }
 
-  private removePlayer(playerId: string, reason: string) {
+  protected removePlayer(playerId: string, reason: string) {
     const player = this.gameState.players.get(playerId);
     if (player) {
       log(`Player ${player.name} (${playerId}) ${reason} from room ${this.id}. Room total: ${this.gameState.players.size - 1}`, 'room');
@@ -236,10 +235,12 @@ class GameRoom {
     });
   }
 
-  private update() {
+  protected update() {
     const dt = 1 / TICK_RATE;
 
     this.gameState.players.forEach(player => {
+      if (player.isSpectator) return;
+      
       const { inputVector } = player;
       const length = Math.sqrt(inputVector.x * inputVector.x + inputVector.y * inputVector.y);
       
@@ -247,11 +248,9 @@ class GameRoom {
         const speedFactor = Math.max(0.5, 1 - (player.radius / 200));
         const speed = MAX_SPEED * speedFactor;
         
-        // Instant direction and full speed - no momentum
         player.velocity.x = (inputVector.x / length) * speed;
         player.velocity.y = (inputVector.y / length) * speed;
       } else {
-        // Instant stop - no sliding
         player.velocity.x = 0;
         player.velocity.y = 0;
       }
@@ -265,6 +264,8 @@ class GameRoom {
     });
 
     this.gameState.players.forEach(player => {
+      if (player.isSpectator) return;
+      
       for (let i = this.gameState.foods.length - 1; i >= 0; i--) {
         const food = this.gameState.foods[i];
         const dx = player.x - food.x;
@@ -280,7 +281,7 @@ class GameRoom {
       }
     });
 
-    const players = Array.from(this.gameState.players.values());
+    const players = Array.from(this.gameState.players.values()).filter(p => !p.isSpectator);
     const sortedPlayers = players.sort((a, b) => b.radius - a.radius);
 
     for (let i = 0; i < sortedPlayers.length; i++) {
@@ -288,8 +289,8 @@ class GameRoom {
       for (let j = i + 1; j < sortedPlayers.length; j++) {
         const prey = sortedPlayers[j];
 
-        if (!this.gameState.players.has(prey.id)) continue;
-        if (!this.gameState.players.has(predator.id)) continue;
+        if (!this.gameState.players.has(prey.id) || prey.isSpectator) continue;
+        if (!this.gameState.players.has(predator.id) || predator.isSpectator) continue;
 
         const dx = predator.x - prey.x;
         const dy = predator.y - prey.y;
@@ -302,25 +303,12 @@ class GameRoom {
     }
   }
 
-  private handleElimination(predator: Player, prey: Player) {
+  protected handleElimination(predator: Player, prey: Player) {
     const now = Date.now();
     predator.lastCombatTime = now;
     prey.lastCombatTime = now;
 
     this.growPlayer(predator, prey.score);
-
-    if (predator.walletAddress && prey.walletAddress) {
-      const result = escrowService.transferOnKill(predator.walletAddress, prey.walletAddress);
-      if (result.success) {
-        predator.balance = result.killerBalance;
-        prey.balance = result.victimBalance;
-      }
-    } else if (prey.balance > 0 && predator.walletAddress) {
-      const transfer = Math.min(1, prey.balance);
-      prey.balance -= transfer;
-      predator.balance += transfer;
-      log(`In-memory transfer: ${transfer} USDC from ${prey.name} to ${predator.name}`, 'game');
-    }
 
     const preyWs = this.clients.get(prey.id);
     if (preyWs) {
@@ -339,12 +327,12 @@ class GameRoom {
     this.clients.delete(prey.id);
   }
 
-  private growPlayer(player: Player, amount: number) {
+  protected growPlayer(player: Player, amount: number) {
     player.score += Math.floor(amount);
     player.radius = INITIAL_RADIUS + Math.sqrt(player.score) * 2;
   }
 
-  private broadcastState() {
+  protected broadcastState() {
     const playersArray = Array.from(this.gameState.players.values()).map(p => ({
       id: p.id,
       name: p.name,
@@ -353,7 +341,8 @@ class GameRoom {
       radius: p.radius,
       color: p.color,
       score: p.score,
-      balance: p.balance
+      balance: p.balance,
+      isSpectator: p.isSpectator
     }));
 
     const stateMessage: ServerMessage = {
@@ -379,13 +368,13 @@ class GameRoom {
     }
   }
 
-  private send(ws: WebSocket, message: ServerMessage) {
+  protected send(ws: WebSocket, message: ServerMessage) {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(message));
     }
   }
 
-  private broadcast(message: ServerMessage) {
+  protected broadcast(message: ServerMessage) {
     const data = JSON.stringify(message);
     this.clients.forEach(ws => {
       if (ws.readyState === WebSocket.OPEN) {
@@ -395,10 +384,475 @@ class GameRoom {
   }
 }
 
+// Stake room with round-based tournament system
+class StakeGameRoom extends GameRoom {
+  private roundState: RoundState = 'LOBBY';
+  private roundStartTime: number = 0;
+  private countdownStartTime: number = 0;
+  private countdownTimeout: NodeJS.Timeout | null = null;
+  private roundEndTimeout: NodeJS.Timeout | null = null;
+  private prizePool: number = 0;
+  private lobbyPlayers: Map<string, { ws: WebSocket; name: string; walletAddress?: string; playerColor?: string }> = new Map();
+
+  constructor(id: string) {
+    super(id, true);
+    this.stopGameLoop(); // Don't run game loop until round starts
+    log(`Stake room ${id} created - waiting for players in lobby`, 'room');
+  }
+
+  getPlayerCount(): number {
+    if (this.roundState === 'LOBBY' || this.roundState === 'COUNTDOWN') {
+      return this.lobbyPlayers.size;
+    }
+    return this.gameState.players.size;
+  }
+
+  isFull(): boolean {
+    return this.lobbyPlayers.size >= MAX_PLAYERS_PER_ROOM;
+  }
+
+  isEmpty(): boolean {
+    return this.lobbyPlayers.size === 0 && this.gameState.players.size === 0;
+  }
+
+  getClientCount(): number {
+    return this.lobbyPlayers.size + this.clients.size;
+  }
+
+  getRoundState(): RoundState {
+    return this.roundState;
+  }
+
+  addPlayer(playerId: string, ws: WebSocket, payload: { name: string; walletAddress?: string; playerColor?: string }): boolean {
+    // Only allow joining during LOBBY phase
+    if (this.roundState !== 'LOBBY' && this.roundState !== 'COUNTDOWN') {
+      this.send(ws, {
+        type: 'ERROR',
+        payload: { message: 'Round in progress. Please wait for the next round.' }
+      });
+      return false;
+    }
+
+    if (this.lobbyPlayers.size >= MAX_PLAYERS_PER_ROOM) {
+      return false;
+    }
+
+    // Require wallet for stake mode
+    if (!payload.walletAddress) {
+      this.send(ws, {
+        type: 'ERROR',
+        payload: { message: 'Wallet connection required for stake mode.' }
+      });
+      return false;
+    }
+
+    // Process entry fee
+    const depositResult = escrowService.deposit(payload.walletAddress);
+    if (!depositResult.success) {
+      this.send(ws, {
+        type: 'ERROR',
+        payload: { message: 'Failed to process entry fee.' }
+      });
+      return false;
+    }
+
+    // Add to lobby
+    this.lobbyPlayers.set(playerId, {
+      ws,
+      name: payload.name,
+      walletAddress: payload.walletAddress,
+      playerColor: payload.playerColor
+    });
+
+    // Send lobby info
+    this.send(ws, {
+      type: 'JOINED',
+      payload: { 
+        playerId, 
+        roomId: this.id, 
+        isLobby: true,
+        playerCount: this.lobbyPlayers.size,
+        maxPlayers: MAX_PLAYERS_PER_ROOM,
+        prizePool: this.lobbyPlayers.size * PRIZE_CONTRIBUTION
+      }
+    });
+
+    this.broadcastRoundStatus();
+
+    log(`Player ${payload.name} joined stake lobby ${this.id}. Lobby: ${this.lobbyPlayers.size}/${MAX_PLAYERS_PER_ROOM}`, 'room');
+
+    // Check if lobby is full
+    if (this.lobbyPlayers.size >= MAX_PLAYERS_PER_ROOM) {
+      this.startCountdown();
+    }
+
+    return true;
+  }
+
+  private startCountdown() {
+    if (this.roundState !== 'LOBBY') return;
+
+    this.roundState = 'COUNTDOWN';
+    this.countdownStartTime = Date.now();
+    this.prizePool = this.lobbyPlayers.size * PRIZE_CONTRIBUTION;
+
+    log(`Starting ${COUNTDOWN_DURATION/1000}s countdown for stake room ${this.id}. Prize pool: $${this.prizePool.toFixed(2)}`, 'room');
+
+    this.broadcastRoundStatus();
+
+    this.countdownTimeout = setTimeout(() => {
+      this.startRound();
+    }, COUNTDOWN_DURATION);
+  }
+
+  private cancelCountdown() {
+    if (this.countdownTimeout) {
+      clearTimeout(this.countdownTimeout);
+      this.countdownTimeout = null;
+    }
+    this.roundState = 'LOBBY';
+    this.broadcastRoundStatus();
+    log(`Countdown cancelled for stake room ${this.id} - player left`, 'room');
+  }
+
+  private startRound() {
+    this.roundState = 'PLAYING';
+    this.roundStartTime = Date.now();
+    this.prizePool = this.lobbyPlayers.size * PRIZE_CONTRIBUTION;
+
+    // Reset food
+    this.gameState.foods = [];
+    this.initFood();
+
+    // Create players from lobby
+    const defaultColors = ['#D40046', '#00CC7A', '#00A3CC', '#CC7A00', '#A300CC', '#CCCC00'];
+    
+    this.lobbyPlayers.forEach((data, playerId) => {
+      const player: Player = {
+        id: playerId,
+        name: data.name || 'Anonymous',
+        x: Math.random() * WORLD_SIZE,
+        y: Math.random() * WORLD_SIZE,
+        radius: INITIAL_RADIUS,
+        color: data.playerColor || defaultColors[Math.floor(Math.random() * defaultColors.length)],
+        score: 10,
+        velocity: { x: 0, y: 0 },
+        walletAddress: data.walletAddress,
+        balance: ENTRY_FEE,
+        lastCombatTime: 0,
+        inputVector: { x: 0, y: 0 },
+        isSpectator: false
+      };
+
+      this.gameState.players.set(playerId, player);
+      this.clients.set(playerId, data.ws);
+
+      // Send game start message
+      this.send(data.ws, {
+        type: 'JOINED',
+        payload: { 
+          playerId, 
+          player, 
+          roomId: this.id, 
+          foods: this.gameState.foods,
+          roundStartTime: this.roundStartTime,
+          roundDuration: ROUND_DURATION,
+          prizePool: this.prizePool
+        }
+      });
+    });
+
+    // Clear lobby
+    this.lobbyPlayers.clear();
+
+    // Start game loop
+    this.startGameLoop();
+    this.broadcastRoundStatus();
+
+    log(`Round started in stake room ${this.id}. ${this.gameState.players.size} players. Prize pool: $${this.prizePool.toFixed(2)}`, 'room');
+
+    // Set round end timer
+    this.roundEndTimeout = setTimeout(() => {
+      this.endRound();
+    }, ROUND_DURATION);
+  }
+
+  private endRound() {
+    this.roundState = 'ENDED';
+    this.stopGameLoop();
+
+    if (this.roundEndTimeout) {
+      clearTimeout(this.roundEndTimeout);
+      this.roundEndTimeout = null;
+    }
+
+    // Calculate final standings
+    const allPlayers = Array.from(this.gameState.players.values());
+    const sortedByScore = allPlayers.sort((a, b) => b.score - a.score);
+
+    // Assign prizes
+    const payouts: { playerId: string; name: string; rank: number; prize: number; walletAddress?: string }[] = [];
+
+    sortedByScore.forEach((player, index) => {
+      let prize = 0;
+      if (index === 0) prize = PRIZE_1ST;
+      else if (index === 1) prize = PRIZE_2ND;
+      else if (index === 2) prize = PRIZE_3RD;
+
+      payouts.push({
+        playerId: player.id,
+        name: player.name,
+        rank: index + 1,
+        prize,
+        walletAddress: player.walletAddress
+      });
+
+      // Process payout via escrow
+      if (prize > 0 && player.walletAddress) {
+        escrowService.payout(player.walletAddress, prize);
+        log(`Payout: ${player.name} (rank ${index + 1}) receives $${prize.toFixed(2)}`, 'room');
+      }
+    });
+
+    // Broadcast round end to all players
+    this.broadcast({
+      type: 'ROUND_END',
+      payload: {
+        standings: sortedByScore.map((p, i) => ({
+          rank: i + 1,
+          playerId: p.id,
+          name: p.name,
+          score: p.score,
+          prize: i === 0 ? PRIZE_1ST : i === 1 ? PRIZE_2ND : i === 2 ? PRIZE_3RD : 0
+        })),
+        prizePool: this.prizePool
+      }
+    });
+
+    log(`Round ended in stake room ${this.id}. Winner: ${sortedByScore[0]?.name || 'N/A'}`, 'room');
+
+    // Reset for next round after a delay
+    setTimeout(() => {
+      this.resetForNextRound();
+    }, 5000);
+  }
+
+  private resetForNextRound() {
+    // Clear escrows for all players who were in the round
+    this.gameState.players.forEach(player => {
+      if (player.walletAddress) {
+        escrowService.clearEscrow(player.walletAddress);
+      }
+    });
+    
+    // Clear all players
+    this.gameState.players.clear();
+    this.clients.clear();
+    this.lobbyPlayers.clear();
+    
+    // Reset state
+    this.roundState = 'LOBBY';
+    this.prizePool = 0;
+    this.roundStartTime = 0;
+    
+    // Reset food
+    this.gameState.foods = [];
+    this.initFood();
+
+    log(`Stake room ${this.id} reset for next round`, 'room');
+  }
+
+  handleInput(playerId: string, payload: { x: number; y: number }) {
+    if (this.roundState !== 'PLAYING') return;
+    super.handleInput(playerId, payload);
+  }
+
+  handleLeave(playerId: string): boolean {
+    // Handle lobby leave
+    if (this.lobbyPlayers.has(playerId)) {
+      const playerData = this.lobbyPlayers.get(playerId);
+      
+      // Refund entry fee
+      if (playerData?.walletAddress) {
+        escrowService.refund(playerData.walletAddress, ENTRY_FEE);
+      }
+      
+      this.lobbyPlayers.delete(playerId);
+      log(`Player left stake lobby ${this.id}. Lobby: ${this.lobbyPlayers.size}/${MAX_PLAYERS_PER_ROOM}`, 'room');
+      
+      // Cancel countdown if in countdown phase
+      if (this.roundState === 'COUNTDOWN') {
+        this.cancelCountdown();
+      }
+      
+      this.broadcastRoundStatus();
+      return true;
+    }
+
+    // During game, leaving is not allowed (they become spectator on death)
+    if (this.roundState === 'PLAYING') {
+      const ws = this.clients.get(playerId);
+      if (ws) {
+        this.send(ws, {
+          type: 'ERROR',
+          payload: { message: 'Cannot leave during an active round.' }
+        });
+      }
+      return false;
+    }
+
+    return super.handleLeave(playerId);
+  }
+
+  handleDisconnect(playerId: string) {
+    // Handle lobby disconnect
+    if (this.lobbyPlayers.has(playerId)) {
+      const playerData = this.lobbyPlayers.get(playerId);
+      
+      // Refund entry fee
+      if (playerData?.walletAddress) {
+        escrowService.refund(playerData.walletAddress, ENTRY_FEE);
+      }
+      
+      this.lobbyPlayers.delete(playerId);
+      log(`Player disconnected from stake lobby ${this.id}. Lobby: ${this.lobbyPlayers.size}/${MAX_PLAYERS_PER_ROOM}`, 'room');
+      
+      // Cancel countdown if in countdown phase
+      if (this.roundState === 'COUNTDOWN') {
+        this.cancelCountdown();
+      }
+      
+      this.broadcastRoundStatus();
+      return;
+    }
+
+    // During game, disconnecting forfeits (become spectator or removed)
+    if (this.roundState === 'PLAYING') {
+      const player = this.gameState.players.get(playerId);
+      if (player && !player.isSpectator) {
+        player.isSpectator = true;
+        log(`Player ${player.name} disconnected during round in ${this.id} - forfeited`, 'room');
+      }
+      this.clients.delete(playerId);
+      return;
+    }
+
+    super.handleDisconnect(playerId);
+  }
+
+  protected handleElimination(predator: Player, prey: Player) {
+    const now = Date.now();
+    predator.lastCombatTime = now;
+    prey.lastCombatTime = now;
+
+    // Add prey's score to predator
+    this.growPlayer(predator, prey.score);
+
+    // Convert prey to spectator (no player-to-player money transfer)
+    prey.isSpectator = true;
+    prey.inputVector = { x: 0, y: 0 };
+    prey.velocity = { x: 0, y: 0 };
+
+    const preyWs = this.clients.get(prey.id);
+    if (preyWs) {
+      this.send(preyWs, {
+        type: 'ELIMINATED',
+        payload: {
+          killerName: predator.name,
+          score: prey.score,
+          isSpectating: true,
+          timeRemaining: Math.max(0, ROUND_DURATION - (Date.now() - this.roundStartTime))
+        }
+      });
+    }
+
+    log(`${predator.name} eliminated ${prey.name} in stake room ${this.id} - prey now spectating`, 'room');
+    
+    // Check if only one active player remains
+    const activePlayers = Array.from(this.gameState.players.values()).filter(p => !p.isSpectator);
+    if (activePlayers.length <= 1) {
+      // End round early if only one player left
+      this.endRound();
+    }
+  }
+
+  protected broadcastState() {
+    if (this.roundState !== 'PLAYING') return;
+
+    const playersArray = Array.from(this.gameState.players.values()).map(p => ({
+      id: p.id,
+      name: p.name,
+      x: p.x,
+      y: p.y,
+      radius: p.radius,
+      color: p.color,
+      score: p.score,
+      balance: p.balance,
+      isSpectator: p.isSpectator
+    }));
+
+    const timeRemaining = Math.max(0, ROUND_DURATION - (Date.now() - this.roundStartTime));
+
+    const stateMessage: ServerMessage = {
+      type: 'STATE',
+      payload: {
+        players: playersArray,
+        roundState: this.roundState,
+        timeRemaining,
+        prizePool: this.prizePool
+      }
+    };
+
+    this.broadcast(stateMessage);
+
+    if (this.spawnedFoods.length > 0 || this.eatenFoodIds.length > 0) {
+      const deltaMessage: ServerMessage = {
+        type: 'FOOD_DELTA',
+        payload: {
+          spawned: this.spawnedFoods,
+          eaten: this.eatenFoodIds
+        }
+      };
+      this.broadcast(deltaMessage);
+      this.spawnedFoods = [];
+      this.eatenFoodIds = [];
+    }
+  }
+
+  private broadcastRoundStatus() {
+    const status = {
+      roundState: this.roundState,
+      playerCount: this.lobbyPlayers.size,
+      maxPlayers: MAX_PLAYERS_PER_ROOM,
+      prizePool: this.lobbyPlayers.size * PRIZE_CONTRIBUTION,
+      countdownRemaining: this.roundState === 'COUNTDOWN' 
+        ? Math.max(0, COUNTDOWN_DURATION - (Date.now() - this.countdownStartTime))
+        : 0,
+      prizes: { first: PRIZE_1ST, second: PRIZE_2ND, third: PRIZE_3RD }
+    };
+
+    // Broadcast to lobby players
+    this.lobbyPlayers.forEach(({ ws }) => {
+      this.send(ws, {
+        type: 'ROUND_STATUS',
+        payload: status
+      });
+    });
+
+    // Broadcast to game clients (for spectators)
+    this.clients.forEach(ws => {
+      this.send(ws, {
+        type: 'ROUND_STATUS',
+        payload: status
+      });
+    });
+  }
+}
+
 export class GameServer {
   private wss: WebSocketServer;
   private freeRooms: Map<string, GameRoom> = new Map();
-  private stakeRooms: Map<string, GameRoom> = new Map();
+  private stakeRooms: Map<string, StakeGameRoom> = new Map();
   private playerToRoom: Map<string, string> = new Map();
   private playerStakeMode: Map<string, boolean> = new Map();
   private roomIdCounter: number = 0;
@@ -407,7 +861,7 @@ export class GameServer {
     this.wss = new WebSocketServer({ server: httpServer, path: '/ws' });
     
     this.createRoom(false);
-    this.createRoom(true);
+    this.createStakeRoom();
 
     this.wss.on('connection', (ws) => {
       const playerId = `player-${Math.random().toString(36).substr(2, 9)}`;
@@ -434,12 +888,19 @@ export class GameServer {
   }
 
   private createRoom(isStakeMode: boolean): GameRoom {
-    const pool = isStakeMode ? this.stakeRooms : this.freeRooms;
-    const prefix = isStakeMode ? 'stake' : 'free';
+    const pool = this.freeRooms;
     this.roomIdCounter++;
-    const roomId = `${prefix}-room-${this.roomIdCounter}`;
-    const room = new GameRoom(roomId, isStakeMode);
+    const roomId = `free-room-${this.roomIdCounter}`;
+    const room = new GameRoom(roomId, false);
     pool.set(roomId, room);
+    return room;
+  }
+
+  private createStakeRoom(): StakeGameRoom {
+    this.roomIdCounter++;
+    const roomId = `stake-room-${this.roomIdCounter}`;
+    const room = new StakeGameRoom(roomId);
+    this.stakeRooms.set(roomId, room);
     return room;
   }
 
@@ -447,17 +908,32 @@ export class GameServer {
     return this.freeRooms.size + this.stakeRooms.size;
   }
 
-  private findAvailableRoom(isStakeMode: boolean): GameRoom | null {
-    const pool = isStakeMode ? this.stakeRooms : this.freeRooms;
-    const rooms = Array.from(pool.values());
-    for (const room of rooms) {
+  private findAvailableRoom(isStakeMode: boolean): GameRoom | StakeGameRoom | null {
+    if (isStakeMode) {
+      // For stake mode, find a room in LOBBY state
+      for (const room of this.stakeRooms.values()) {
+        if (!room.isFull() && (room.getRoundState() === 'LOBBY' || room.getRoundState() === 'COUNTDOWN')) {
+          return room;
+        }
+      }
+      
+      // Create new stake room if needed
+      if (this.getTotalRoomCount() < MAX_ROOMS) {
+        return this.createStakeRoom();
+      }
+      
+      return null;
+    }
+
+    // For free mode
+    for (const room of this.freeRooms.values()) {
       if (!room.isFull()) {
         return room;
       }
     }
     
     if (this.getTotalRoomCount() < MAX_ROOMS) {
-      return this.createRoom(isStakeMode);
+      return this.createRoom(false);
     }
     
     return null;
@@ -477,7 +953,7 @@ export class GameServer {
     }
   }
 
-  private handleJoin(playerId: string, ws: WebSocket, payload: { name: string; isStakeMode?: boolean; walletAddress?: string }) {
+  private handleJoin(playerId: string, ws: WebSocket, payload: { name: string; isStakeMode?: boolean; walletAddress?: string; playerColor?: string }) {
     const isStakeMode = payload.isStakeMode ?? false;
     const room = this.findAvailableRoom(isStakeMode);
     
@@ -497,12 +973,14 @@ export class GameServer {
     }
   }
 
-  private getRoom(playerId: string): GameRoom | undefined {
+  private getRoom(playerId: string): GameRoom | StakeGameRoom | undefined {
     const roomId = this.playerToRoom.get(playerId);
     if (!roomId) return undefined;
     const isStakeMode = this.playerStakeMode.get(playerId) ?? false;
-    const pool = isStakeMode ? this.stakeRooms : this.freeRooms;
-    return pool.get(roomId);
+    if (isStakeMode) {
+      return this.stakeRooms.get(roomId);
+    }
+    return this.freeRooms.get(roomId);
   }
 
   private handleInput(playerId: string, payload: { x: number; y: number }) {
@@ -528,23 +1006,19 @@ export class GameServer {
   }
 
   private cleanupEmptyRooms() {
-    const cleanupPool = (pool: Map<string, GameRoom>) => {
-      if (pool.size <= 1) return;
-      
-      const entries = Array.from(pool.entries());
-      for (const [roomId, room] of entries) {
-        const playersInRoom = Array.from(this.playerToRoom.values()).filter(r => r === roomId).length;
-        if (room.isEmpty() && room.getClientCount() === 0 && playersInRoom === 0 && pool.size > 1) {
-          room.stopGameLoop();
-          pool.delete(roomId);
-          log(`Room ${roomId} removed (no players or clients)`, 'room');
-          break;
-        }
-      }
-    };
+    // Only cleanup free rooms, keep at least one stake room
+    if (this.freeRooms.size <= 1) return;
     
-    cleanupPool(this.freeRooms);
-    cleanupPool(this.stakeRooms);
+    const entries = Array.from(this.freeRooms.entries());
+    for (const [roomId, room] of entries) {
+      const playersInRoom = Array.from(this.playerToRoom.values()).filter(r => r === roomId).length;
+      if (room.isEmpty() && room.getClientCount() === 0 && playersInRoom === 0 && this.freeRooms.size > 1) {
+        room.stopGameLoop();
+        this.freeRooms.delete(roomId);
+        log(`Room ${roomId} removed (no players or clients)`, 'room');
+        break;
+      }
+    }
   }
 
   getTotalPlayerCount(): number {
@@ -566,8 +1040,8 @@ export class GameServer {
     return MAX_ROOMS * MAX_PLAYERS_PER_ROOM;
   }
 
-  getRoomStats(): { id: string; players: number; maxPlayers: number; isStakeMode: boolean }[] {
-    const stats: { id: string; players: number; maxPlayers: number; isStakeMode: boolean }[] = [];
+  getRoomStats(): { id: string; players: number; maxPlayers: number; isStakeMode: boolean; roundState?: RoundState }[] {
+    const stats: { id: string; players: number; maxPlayers: number; isStakeMode: boolean; roundState?: RoundState }[] = [];
     for (const room of this.freeRooms.values()) {
       stats.push({
         id: room.id,
@@ -581,7 +1055,8 @@ export class GameServer {
         id: room.id,
         players: room.getPlayerCount(),
         maxPlayers: MAX_PLAYERS_PER_ROOM,
-        isStakeMode: true
+        isStakeMode: true,
+        roundState: room.getRoundState()
       });
     }
     return stats;

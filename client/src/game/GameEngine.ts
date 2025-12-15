@@ -36,6 +36,23 @@ interface ServerState {
   players: Player[];
 }
 
+export type RoundState = 'LOBBY' | 'COUNTDOWN' | 'PLAYING' | 'ENDED';
+
+export interface RoundStatus {
+  roundState: RoundState;
+  playerCount: number;
+  maxPlayers: number;
+  prizePool: number;
+  countdownRemaining: number;
+  timeRemaining?: number;
+  prizes: { first: number; second: number; third: number };
+}
+
+export interface RoundEndData {
+  standings: { rank: number; playerId: string; name: string; score: number; prize: number }[];
+  prizePool: number;
+}
+
 export class GameEngine {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
@@ -50,6 +67,8 @@ export class GameEngine {
   
   isRunning: boolean = false;
   isStakeMode: boolean = false;
+  isSpectating: boolean = false;
+  roundStatus: RoundStatus | null = null;
   lastTime: number = 0;
   camera: Point = { x: 0, y: 0 };
   baseZoom: number = 0.8;
@@ -64,6 +83,8 @@ export class GameEngine {
   onGameOver: (stats: { score: number, killer?: string, balance?: number }) => void;
   onUpdateStats: (stats: { fps: number, population: number, balance?: number }) => void;
   onConnectionChange?: (connected: boolean) => void;
+  onRoundStatusChange?: (status: RoundStatus) => void;
+  onRoundEnd?: (data: RoundEndData) => void;
 
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
@@ -151,12 +172,27 @@ export class GameEngine {
         break;
 
       case 'ELIMINATED':
-        this.onGameOver({
-          score: message.payload.score,
-          killer: message.payload.killerName,
-          balance: message.payload.balance
-        });
-        this.stop();
+        if (message.payload.isSpectating) {
+          // Stake mode - become spectator
+          this.isSpectating = true;
+        } else {
+          // Free mode - game over
+          this.onGameOver({
+            score: message.payload.score,
+            killer: message.payload.killerName,
+            balance: message.payload.balance
+          });
+          this.stop();
+        }
+        break;
+
+      case 'ROUND_STATUS':
+        this.roundStatus = message.payload;
+        this.onRoundStatusChange?.(message.payload);
+        break;
+
+      case 'ROUND_END':
+        this.onRoundEnd?.(message.payload);
         break;
 
       case 'PLAYER_LEFT':
@@ -179,7 +215,14 @@ export class GameEngine {
     }
   }
 
-  private applyServerState(state: ServerState) {
+  private applyServerState(state: ServerState & { roundState?: RoundState; timeRemaining?: number; prizePool?: number }) {
+    // Update round status from state if present
+    if (state.roundState && this.roundStatus) {
+      this.roundStatus.roundState = state.roundState;
+      this.roundStatus.timeRemaining = state.timeRemaining;
+      this.roundStatus.prizePool = state.prizePool || this.roundStatus.prizePool;
+      this.onRoundStatusChange?.(this.roundStatus);
+    }
     const now = performance.now();
     const existingIds = new Set(state.players.map(p => p.id));
     

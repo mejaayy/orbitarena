@@ -2,7 +2,9 @@
 
 ## Overview
 
-Orbit Arena is a real-time multiplayer browser game similar to agar.io, where players control circular avatars in an arena, consume food to grow, and eliminate smaller players. The game features an optional "stake mode" that integrates with Solana blockchain via Phantom wallet for USDC-based entry fees and rewards.
+Orbit Arena is a real-time multiplayer browser game similar to agar.io, where players control circular avatars in an arena, consume food to grow, and eliminate smaller players. The game features two modes:
+- **Free Mode**: Casual play with instant join/leave
+- **Stake Mode**: Tournament-based rounds with USDC entry fees and prize payouts via Solana/Phantom wallet
 
 The application uses a React frontend with canvas-based game rendering, an Express backend with WebSocket support for real-time multiplayer synchronization, and PostgreSQL for data persistence.
 
@@ -35,15 +37,42 @@ Preferred communication style: Simple, everyday language.
 ### Game Architecture
 - **World Size**: 4000x4000 pixel arena
 - **Network Model**: Server sends authoritative state updates; clients send input vectors
-- **Message Types**: JOIN, INPUT, LEAVE (client); STATE, JOINED, ELIMINATED, PLAYER_LEFT, ERROR (server)
-- **Escrow Service**: Server-side balance tracking for stake mode with deposit/transfer/withdraw operations
+- **Message Types**: JOIN, INPUT, LEAVE (client); STATE, JOINED, ELIMINATED, PLAYER_LEFT, ERROR, ROUND_STATUS, ROUND_END (server)
+- **Escrow Service**: Server-side balance tracking for stake mode with deposit/payout/refund operations
+
+### Stake Mode Tournament System
+
+Stake mode uses a round-based tournament structure (StakeGameRoom class):
+
+**Round States:**
+- `LOBBY`: Waiting for 15 players, shows player count and prize pool
+- `COUNTDOWN`: 3-second countdown after lobby fills (resets if anyone leaves)
+- `PLAYING`: 2-minute active game round
+- `ENDED`: Shows standings and payouts, then resets to LOBBY
+
+**Entry & Prize Pool:**
+- $1 USDC entry fee per player
+- $0.10 platform fee (kept by platform)
+- $0.90 per player goes to prize pool
+- Prize pool = numberOfPlayers × $0.90 = $13.50 for 15 players
+
+**Payouts (Fixed Amounts):**
+- 1st Place: $6.00
+- 2nd Place: $4.50
+- 3rd Place: $3.00
+
+**Key Rules:**
+- No mid-round joining - players must wait for next round
+- Death converts to spectator mode (can watch but not play)
+- No re-entry after elimination
+- No player-to-player balance transfers
+- All scoring is deterministic (based on points from eating food/players)
 
 ### Blockchain Integration
 - **Network**: Solana Devnet
 - **Wallet**: Phantom wallet integration for authentication and transactions
 - **Token**: USDC (SPL token) for entry fees and rewards
 - **Entry Fee**: 1 USDC to join stake mode
-- **Exit Fee**: 10% platform fee on withdrawals
 
 ## External Dependencies
 

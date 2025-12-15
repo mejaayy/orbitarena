@@ -145,6 +145,28 @@ class EscrowService {
     };
   }
 
+  payout(walletAddress: string, amount: number): { success: boolean; amount: number; error?: string } {
+    // Record the payout - in production this would trigger an actual USDC transfer
+    const escrow = this.escrows.get(walletAddress);
+    if (escrow) {
+      escrow.balance += amount;
+      escrow.totalEarned += amount;
+    }
+    log(`Payout: ${amount.toFixed(2)} USDC to ${walletAddress.slice(0,8)}...`, 'solana');
+    return { success: true, amount };
+  }
+
+  refund(walletAddress: string, amount: number): { success: boolean; amount: number; error?: string } {
+    // Full refund - remove from escrow tracking
+    this.escrows.delete(walletAddress);
+    log(`Refund: ${amount.toFixed(2)} USDC to ${walletAddress.slice(0,8)}...`, 'solana');
+    return { success: true, amount };
+  }
+  
+  clearEscrow(walletAddress: string) {
+    this.escrows.delete(walletAddress);
+  }
+
   getBalance(walletAddress: string): number {
     return this.escrows.get(walletAddress)?.balance || 0;
   }
