@@ -49,6 +49,7 @@ export class GameEngine {
   static MAX_SPEED = 2.3;
   
   isRunning: boolean = false;
+  isStakeMode: boolean = false;
   lastTime: number = 0;
   camera: Point = { x: 0, y: 0 };
   baseZoom: number = 0.8;
@@ -247,6 +248,7 @@ export class GameEngine {
 
   start(playerName: string, isStakeMode: boolean, walletAddress?: string, playerColor?: string) {
     this.isRunning = true;
+    this.isStakeMode = isStakeMode;
     this.players.clear();
     this.foods = [];
     this.localPlayerId = null;
@@ -511,13 +513,15 @@ export class GameEngine {
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
     
-    // Draw name
-    this.ctx.fillText(player.name, player.x, player.y - fontSize * 0.4);
+    // Draw name (centered if no balance, offset if stake mode with balance)
+    const hasStakeBalance = this.isStakeMode && player.balance !== undefined && player.balance > 0;
     
-    // Draw balance below name
-    if (player.balance !== undefined && player.balance > 0) {
+    if (hasStakeBalance) {
+      this.ctx.fillText(player.name, player.x, player.y - fontSize * 0.4);
       this.ctx.font = `bold ${fontSize * 0.8}px Outfit`;
-      this.ctx.fillText(`$${player.balance.toFixed(2)}`, player.x, player.y + fontSize * 0.5);
+      this.ctx.fillText(`$${player.balance!.toFixed(2)}`, player.x, player.y + fontSize * 0.5);
+    } else {
+      this.ctx.fillText(player.name, player.x, player.y);
     }
   }
 }

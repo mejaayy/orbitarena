@@ -245,23 +245,15 @@ class GameRoom {
       
       if (length > 0) {
         const speedFactor = Math.max(0.5, 1 - (player.radius / 200));
-        const targetSpeed = MAX_SPEED * speedFactor;
+        const speed = MAX_SPEED * speedFactor;
         
-        // Get current speed magnitude
-        const currentSpeed = Math.sqrt(player.velocity.x * player.velocity.x + player.velocity.y * player.velocity.y);
-        
-        // Blend speed (momentum) but use instant direction
-        const blendedSpeed = currentSpeed + (targetSpeed - currentSpeed) * 0.15;
-        
-        // Apply instant direction with blended speed
-        player.velocity.x = (inputVector.x / length) * blendedSpeed;
-        player.velocity.y = (inputVector.y / length) * blendedSpeed;
+        // Instant direction and full speed - no momentum
+        player.velocity.x = (inputVector.x / length) * speed;
+        player.velocity.y = (inputVector.y / length) * speed;
       } else {
-        // Decelerate with momentum when no input
-        player.velocity.x *= 0.85;
-        player.velocity.y *= 0.85;
-        if (Math.abs(player.velocity.x) < 0.01) player.velocity.x = 0;
-        if (Math.abs(player.velocity.y) < 0.01) player.velocity.y = 0;
+        // Instant stop - no sliding
+        player.velocity.x = 0;
+        player.velocity.y = 0;
       }
 
       const timeScale = dt * 60;
