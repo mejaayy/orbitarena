@@ -113,6 +113,7 @@ export default function Game() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'q' || e.key === 'Q') {
+        e.preventDefault();
         if (!isHoldingQRef.current && !gameOverStats && !roundEndData) {
           isHoldingQRef.current = true;
           handleLeaveStart();
@@ -122,6 +123,7 @@ export default function Game() {
     
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'q' || e.key === 'Q') {
+        e.preventDefault();
         isHoldingQRef.current = false;
         handleLeaveEnd();
       }
