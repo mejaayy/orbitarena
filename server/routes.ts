@@ -5,10 +5,14 @@ import { initGameServer, getGameServer } from "./gameServer";
 import { balanceService } from "./balanceService";
 import { z } from "zod";
 
-const depositSchema = z.object({
+const depositRequestSchema = z.object({
   walletAddress: z.string().min(32),
   amountCents: z.number().positive().int(),
-  externalRef: z.string().optional(),
+});
+
+const depositConfirmSchema = z.object({
+  depositToken: z.string().min(10),
+  onChainTxSignature: z.string().optional(),
 });
 
 const withdrawalSchema = z.object({
@@ -84,16 +88,62 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/balance/deposit", async (req, res) => {
+  app.post("/api/balance/deposit/request", async (req, res) => {
     try {
-      const result = depositSchema.safeParse(req.body);
+      const result = depositRequestSchema.safeParse(req.body);
       if (!result.success) {
         return res.status(400).json({ error: "Invalid request", details: result.error.issues });
       }
 
-      const { walletAddress, amountCents, externalRef } = result.data;
+      const { walletAddress, amountCents } = result.data;
+      const { depositToken } = await balanceService.createDepositRequest(walletAddress, amountCents);
 
-      const depositResult = await balanceService.deposit(walletAddress, amountCents, externalRef);
+      res.json({
+        success: true,
+        depositToken,
+        amountCents,
+        message: `Deposit request created. Use depositToken to confirm after on-chain transfer.`,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/balance/deposit/confirm", async (req, res) => {
+    try {
+      const result = depositConfirmSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid request", details: result.error.issues });
+      }
+
+      const { depositToken, onChainTxSignature } = result.data;
+      const depositResult = await balanceService.confirmDeposit(depositToken, onChainTxSignature);
+
+      if (!depositResult.success) {
+        return res.status(400).json({ error: depositResult.error });
+      }
+
+      res.json({
+        success: true,
+        message: "Deposit confirmed",
+        transactionId: depositResult.transactionId,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/balance/deposit", async (req, res) => {
+    try {
+      const result = depositRequestSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid request", details: result.error.issues });
+      }
+
+      const { walletAddress, amountCents } = result.data;
+
+      const { depositToken } = await balanceService.createDepositRequest(walletAddress, amountCents);
+      const depositResult = await balanceService.confirmDeposit(depositToken);
       if (!depositResult.success) {
         return res.status(400).json({ error: depositResult.error });
       }

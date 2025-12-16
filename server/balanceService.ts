@@ -61,11 +61,46 @@ class BalanceService {
     };
   }
 
-  async deposit(walletAddress: string, amountCents: number, externalRef?: string): Promise<TransactionResult> {
-    try {
-      const balance = await this.getOrCreateBalance(walletAddress);
+  private pendingDeposits = new Map<string, { walletAddress: string; amountCents: number; createdAt: Date }>();
 
-      await db.transaction(async (tx) => {
+  async createDepositRequest(walletAddress: string, amountCents: number): Promise<{ depositToken: string }> {
+    const depositToken = `deposit_${walletAddress.slice(0, 8)}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    this.pendingDeposits.set(depositToken, {
+      walletAddress,
+      amountCents,
+      createdAt: new Date(),
+    });
+
+    setTimeout(() => {
+      this.pendingDeposits.delete(depositToken);
+    }, 10 * 60 * 1000);
+
+    log(`Created deposit request: ${depositToken} for ${amountCents} cents to ${walletAddress.slice(0, 8)}...`);
+    return { depositToken };
+  }
+
+  async confirmDeposit(depositToken: string, onChainTxSignature?: string): Promise<TransactionResult> {
+    try {
+      const pendingDeposit = this.pendingDeposits.get(depositToken);
+      if (!pendingDeposit) {
+        return { success: false, error: 'Invalid or expired deposit token' };
+      }
+
+      const { walletAddress, amountCents } = pendingDeposit;
+      const externalRef = `confirmed_${depositToken}`;
+
+      const existingDeposit = await db.query.balanceTransactions.findFirst({
+        where: eq(balanceTransactions.externalRef, externalRef),
+      });
+      if (existingDeposit) {
+        this.pendingDeposits.delete(depositToken);
+        log(`Deposit already processed: ${externalRef}`);
+        return { success: true, transactionId: existingDeposit.id };
+      }
+
+      await this.getOrCreateBalance(walletAddress);
+
+      const [transaction] = await db.transaction(async (tx) => {
         await tx.update(playerBalances)
           .set({
             availableCents: sql`${playerBalances.availableCents} + ${amountCents}`,
@@ -74,19 +109,25 @@ class BalanceService {
           })
           .where(eq(playerBalances.walletAddress, walletAddress));
 
-        await tx.insert(balanceTransactions).values({
+        return tx.insert(balanceTransactions).values({
           walletAddress,
           transactionType: 'DEPOSIT' as TransactionType,
           deltaAvailableCents: amountCents,
           deltaLockedCents: 0,
           externalRef,
-          metadata: { source: 'on_chain_deposit' },
-        });
+          metadata: { source: 'on_chain_deposit', onChainTxSignature, depositToken },
+        }).returning();
       });
 
-      log(`Deposit: ${amountCents} cents to ${walletAddress.slice(0, 8)}...`);
-      return { success: true };
+      this.pendingDeposits.delete(depositToken);
+      log(`Deposit confirmed: ${amountCents} cents to ${walletAddress.slice(0, 8)}...`);
+      return { success: true, transactionId: transaction.id };
     } catch (error: any) {
+      if (error.code === '23505' && error.constraint?.includes('external_ref')) {
+        this.pendingDeposits.delete(depositToken);
+        log(`Deposit idempotency caught via unique constraint`);
+        return { success: true };
+      }
       log(`Deposit failed: ${error.message}`, 'error');
       return { success: false, error: error.message };
     }
@@ -194,36 +235,9 @@ class BalanceService {
         return { success: true };
       }
 
+      let platformRevenueCents = 0;
+
       await db.transaction(async (tx) => {
-        for (const standing of standings) {
-          let prizeCents = 0;
-          if (standing.rank === 1) prizeCents = PRIZE_1ST_CENTS;
-          else if (standing.rank === 2) prizeCents = PRIZE_2ND_CENTS;
-          else if (standing.rank === 3) prizeCents = PRIZE_3RD_CENTS;
-
-          await tx.update(playerBalances)
-            .set({
-              lockedCents: sql`GREATEST(${playerBalances.lockedCents} - ${ENTRY_FEE_CENTS}, 0)`,
-              availableCents: sql`${playerBalances.availableCents} + ${prizeCents}`,
-              lifetimePrizeCents: sql`${playerBalances.lifetimePrizeCents} + ${prizeCents}`,
-              updatedAt: new Date(),
-            })
-            .where(eq(playerBalances.walletAddress, standing.walletAddress));
-
-          if (prizeCents > 0) {
-            await tx.insert(balanceTransactions).values({
-              walletAddress: standing.walletAddress,
-              transactionType: 'PRIZE_PAYOUT' as TransactionType,
-              deltaAvailableCents: prizeCents,
-              deltaLockedCents: -ENTRY_FEE_CENTS,
-              externalRef: `match_prize_${matchId}_${standing.walletAddress}`,
-              metadata: { matchId, rank: standing.rank, prize: prizeCents, name: standing.name },
-            });
-
-            log(`Prize payout: ${prizeCents} cents to ${standing.walletAddress.slice(0, 8)}... (rank ${standing.rank})`);
-          }
-        }
-
         await tx.insert(balanceTransactions).values({
           walletAddress: 'SYSTEM',
           transactionType: 'PRIZE_PAYOUT' as TransactionType,
@@ -232,9 +246,81 @@ class BalanceService {
           externalRef: `match_settle_${matchId}`,
           metadata: { matchId, playerCount: standings.length, settled: true },
         });
+
+        for (const standing of standings) {
+          const lockRef = `match_lock_${matchId}_${standing.walletAddress}`;
+          const existingLock = await tx.query.balanceTransactions.findFirst({
+            where: eq(balanceTransactions.externalRef, lockRef),
+          });
+
+          if (!existingLock) {
+            log(`No lock found for ${standing.walletAddress.slice(0, 8)}... in match ${matchId} - skipping`);
+            continue;
+          }
+
+          const prizeRef = `match_prize_${matchId}_${standing.walletAddress}`;
+          const existingPrize = await tx.query.balanceTransactions.findFirst({
+            where: eq(balanceTransactions.externalRef, prizeRef),
+          });
+
+          if (existingPrize) {
+            continue;
+          }
+
+          let prizeCents = 0;
+          if (standing.rank === 1) prizeCents = PRIZE_1ST_CENTS;
+          else if (standing.rank === 2) prizeCents = PRIZE_2ND_CENTS;
+          else if (standing.rank === 3) prizeCents = PRIZE_3RD_CENTS;
+
+          const currentBalance = await tx.query.playerBalances.findFirst({
+            where: eq(playerBalances.walletAddress, standing.walletAddress),
+          });
+
+          if (!currentBalance || currentBalance.lockedCents < ENTRY_FEE_CENTS) {
+            log(`Insufficient locked balance for ${standing.walletAddress.slice(0, 8)}... - skipping`);
+            continue;
+          }
+
+          await tx.update(playerBalances)
+            .set({
+              lockedCents: sql`${playerBalances.lockedCents} - ${ENTRY_FEE_CENTS}`,
+              availableCents: sql`${playerBalances.availableCents} + ${prizeCents}`,
+              lifetimePrizeCents: sql`${playerBalances.lifetimePrizeCents} + ${prizeCents}`,
+              updatedAt: new Date(),
+            })
+            .where(eq(playerBalances.walletAddress, standing.walletAddress));
+
+          platformRevenueCents += ENTRY_FEE_CENTS - prizeCents;
+
+          await tx.insert(balanceTransactions).values({
+            walletAddress: standing.walletAddress,
+            transactionType: prizeCents > 0 ? 'PRIZE_PAYOUT' as TransactionType : 'MATCH_UNLOCK' as TransactionType,
+            deltaAvailableCents: prizeCents,
+            deltaLockedCents: -ENTRY_FEE_CENTS,
+            externalRef: prizeRef,
+            metadata: { matchId, rank: standing.rank, prize: prizeCents, name: standing.name },
+          });
+
+          if (prizeCents > 0) {
+            log(`Prize payout: ${prizeCents} cents to ${standing.walletAddress.slice(0, 8)}... (rank ${standing.rank})`);
+          } else {
+            log(`Entry fee consumed for ${standing.walletAddress.slice(0, 8)}... (rank ${standing.rank})`);
+          }
+        }
+
+        if (platformRevenueCents > 0) {
+          await tx.insert(balanceTransactions).values({
+            walletAddress: 'PLATFORM',
+            transactionType: 'PRIZE_PAYOUT' as TransactionType,
+            deltaAvailableCents: platformRevenueCents,
+            deltaLockedCents: 0,
+            externalRef: `match_platform_${matchId}`,
+            metadata: { matchId, revenue: platformRevenueCents },
+          });
+        }
       });
 
-      log(`Match ${matchId} settled - ${standings.length} players`);
+      log(`Match ${matchId} settled - ${standings.length} players, platform revenue: ${platformRevenueCents} cents`);
       return { success: true };
     } catch (error: any) {
       log(`Settlement failed: ${error.message}`, 'error');

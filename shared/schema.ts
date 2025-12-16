@@ -45,7 +45,7 @@ export const balanceTransactions = pgTable("balance_transactions", {
   transactionType: varchar("transaction_type").notNull(),
   deltaAvailableCents: integer("delta_available_cents").notNull().default(0),
   deltaLockedCents: integer("delta_locked_cents").notNull().default(0),
-  externalRef: varchar("external_ref"),
+  externalRef: varchar("external_ref").unique(),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

@@ -6,9 +6,30 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle } from 'lucide-react';
+import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, History } from 'lucide-react';
 import solanaLogo from '@assets/generated_images/solana_crypto_coin_logo_icon.png';
 import { connectPhantom, disconnectPhantom, isPhantomInstalled, getConnectedWallet, shortenAddress, ENTRY_FEE_USDC, getUSDCBalance } from '@/lib/phantom';
+
+interface InternalBalance {
+  availableCents: number;
+  lockedCents: number;
+  availableUsd: string;
+  lockedUsd: string;
+  lifetime: {
+    deposited: string;
+    withdrawn: string;
+    prizes: string;
+  };
+}
+
+interface Transaction {
+  id: string;
+  type: string;
+  deltaAvailable: number;
+  deltaLocked: number;
+  createdAt: string;
+  metadata: any;
+}
 
 export default function Lobby() {
   const [nickname, setNickname] = useState('');
@@ -20,6 +41,14 @@ export default function Lobby() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [selectedColor, setSelectedColor] = useState('#D40046');
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [internalBalance, setInternalBalance] = useState<InternalBalance | null>(null);
+  const [showDeposit, setShowDeposit] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('5');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [, setLocation] = useLocation();
 
   const AVATAR_COLORS = [
@@ -32,6 +61,30 @@ export default function Lobby() {
     { name: 'Pink', hex: '#FF69B4' },
     { name: 'Cyan', hex: '#00FFFF' },
   ];
+
+  const fetchInternalBalance = async (address: string) => {
+    try {
+      const res = await fetch(`/api/balance/${address}`);
+      if (res.ok) {
+        const data = await res.json();
+        setInternalBalance(data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch internal balance');
+    }
+  };
+
+  const fetchTransactions = async (address: string) => {
+    try {
+      const res = await fetch(`/api/balance/${address}/transactions?limit=20`);
+      if (res.ok) {
+        const data = await res.json();
+        setTransactions(data.transactions || []);
+      }
+    } catch (e) {
+      console.error('Failed to fetch transactions');
+    }
+  };
 
   useEffect(() => {
     const savedNickname = localStorage.getItem('orbit-arena-nickname');
@@ -48,6 +101,7 @@ export default function Lobby() {
     if (connected) {
       setWalletAddress(connected);
       getUSDCBalance(connected).then(setWalletBalance);
+      fetchInternalBalance(connected);
     }
     
     const savedColor = localStorage.getItem('orbit-arena-color');
@@ -75,6 +129,7 @@ export default function Lobby() {
       if (address) {
         const balance = await getUSDCBalance(address);
         setWalletBalance(balance);
+        await fetchInternalBalance(address);
       }
     } finally {
       setIsConnecting(false);
@@ -85,7 +140,79 @@ export default function Lobby() {
     await disconnectPhantom();
     setWalletAddress(null);
     setWalletBalance(null);
+    setInternalBalance(null);
     setIsStakeMode(false);
+  };
+
+  const handleDeposit = async () => {
+    if (!walletAddress || !depositAmount) return;
+    const amount = parseFloat(depositAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      const amountCents = Math.round(amount * 100);
+      const res = await fetch('/api/balance/deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress, amountCents }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        await fetchInternalBalance(walletAddress);
+        setShowDeposit(false);
+        setDepositAmount('5');
+      } else {
+        alert(data.error || 'Deposit failed');
+      }
+    } catch (e) {
+      alert('Network error, please try again');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    if (!walletAddress || !withdrawAmount) return;
+    const amount = parseFloat(withdrawAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
+    if (internalBalance && amount * 100 > internalBalance.availableCents) {
+      alert('Insufficient balance');
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      const amountCents = Math.round(amount * 100);
+      const res = await fetch('/api/balance/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress, amountCents }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        await fetchInternalBalance(walletAddress);
+        setShowWithdraw(false);
+        setWithdrawAmount('');
+      } else {
+        alert(data.error || 'Withdrawal failed');
+      }
+    } catch (e) {
+      alert('Network error, please try again');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleShowHistory = async () => {
+    if (walletAddress) {
+      await fetchTransactions(walletAddress);
+      setShowHistory(true);
+    }
   };
 
   const handlePlay = (e: React.FormEvent) => {
@@ -219,7 +346,7 @@ export default function Lobby() {
               {isStakeMode && (
                 <div className="space-y-3">
                   {walletAddress ? (
-                    <div className="flex flex-col gap-2 bg-accent/10 p-3 rounded-lg border border-accent/20">
+                    <div className="flex flex-col gap-3 bg-accent/10 p-3 rounded-lg border border-accent/20">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <img src={solanaLogo} className="w-5 h-5" alt="SOL" />
@@ -236,11 +363,57 @@ export default function Lobby() {
                           Disconnect
                         </Button>
                       </div>
-                      {walletBalance !== null && (
-                        <div className="text-sm text-accent/80 font-mono" data-testid="wallet-balance">
-                          Balance: {walletBalance.toFixed(2)} USDC
+                      
+                      <div className="bg-black/30 p-2 rounded-lg space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-400">Game Balance</span>
+                          <span className="text-lg font-bold text-accent" data-testid="game-balance">
+                            ${internalBalance?.availableUsd || '0.00'}
+                          </span>
                         </div>
-                      )}
+                        {internalBalance && internalBalance.lockedCents > 0 && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-500">Locked in match</span>
+                            <span className="text-yellow-500">${internalBalance.lockedUsd}</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowDeposit(true)}
+                          className="flex-1 gap-1 text-xs"
+                          data-testid="button-deposit"
+                        >
+                          <ArrowDownToLine className="w-3 h-3" />
+                          Deposit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowWithdraw(true)}
+                          className="flex-1 gap-1 text-xs"
+                          disabled={!internalBalance || internalBalance.availableCents === 0}
+                          data-testid="button-withdraw"
+                        >
+                          <ArrowUpFromLine className="w-3 h-3" />
+                          Withdraw
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleShowHistory}
+                          className="gap-1 text-xs"
+                          data-testid="button-history"
+                        >
+                          <History className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <Button
@@ -258,8 +431,8 @@ export default function Lobby() {
                   )}
                   
                   <div className="text-xs text-gray-500 space-y-1">
-                    <p>Devnet USDC required. Eliminate players to earn.</p>
-                    <p>10% exit fee applies when leaving.</p>
+                    <p>Deposit USDC to play. Top 3 win prizes!</p>
+                    <p>1st: $6 | 2nd: $4.50 | 3rd: $3</p>
                   </div>
                 </div>
               )}
@@ -320,6 +493,168 @@ export default function Lobby() {
               I Accept
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeposit} onOpenChange={setShowDeposit}>
+        <DialogContent className="bg-card/95 backdrop-blur-xl border-white/10 sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowDownToLine className="w-5 h-5 text-accent" />
+              Deposit USDC
+            </DialogTitle>
+            <DialogDescription>
+              Add funds to your game balance
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label>Amount (USDC)</Label>
+              <div className="flex gap-2">
+                {['1', '5', '10', '20'].map(amt => (
+                  <Button
+                    key={amt}
+                    type="button"
+                    variant={depositAmount === amt ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setDepositAmount(amt)}
+                    className="flex-1"
+                  >
+                    ${amt}
+                  </Button>
+                ))}
+              </div>
+              <Input
+                type="number"
+                value={depositAmount}
+                onChange={(e) => setDepositAmount(e.target.value)}
+                placeholder="Custom amount"
+                min="1"
+                step="0.01"
+                className="mt-2"
+                data-testid="input-deposit-amount"
+              />
+            </div>
+            
+            <div className="text-xs text-gray-500">
+              Funds will be added to your game balance instantly.
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={handleDeposit}
+              disabled={isProcessing || !depositAmount || !Number.isFinite(parseFloat(depositAmount)) || parseFloat(depositAmount) <= 0}
+              className="w-full"
+              data-testid="button-confirm-deposit"
+            >
+              {isProcessing ? 'Processing...' : `Deposit $${depositAmount || '0'}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showWithdraw} onOpenChange={setShowWithdraw}>
+        <DialogContent className="bg-card/95 backdrop-blur-xl border-white/10 sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowUpFromLine className="w-5 h-5 text-accent" />
+              Withdraw USDC
+            </DialogTitle>
+            <DialogDescription>
+              Transfer funds to your wallet
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            <div className="bg-black/30 p-3 rounded-lg">
+              <div className="text-xs text-gray-400">Available Balance</div>
+              <div className="text-xl font-bold text-accent">
+                ${internalBalance?.availableUsd || '0.00'}
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Amount to withdraw (USDC)</Label>
+              <Input
+                type="number"
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(e.target.value)}
+                placeholder="Enter amount"
+                max={internalBalance?.availableCents ? internalBalance.availableCents / 100 : 0}
+                min="0.01"
+                step="0.01"
+                data-testid="input-withdraw-amount"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setWithdrawAmount(internalBalance?.availableUsd || '0')}
+                className="text-xs text-accent"
+              >
+                Withdraw All
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={handleWithdraw}
+              disabled={isProcessing || !withdrawAmount || !Number.isFinite(parseFloat(withdrawAmount)) || parseFloat(withdrawAmount) <= 0}
+              className="w-full"
+              data-testid="button-confirm-withdraw"
+            >
+              {isProcessing ? 'Processing...' : `Withdraw $${withdrawAmount || '0'}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showHistory} onOpenChange={setShowHistory}>
+        <DialogContent className="bg-card/95 backdrop-blur-xl border-white/10 sm:max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="w-5 h-5 text-accent" />
+              Transaction History
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {transactions.length === 0 ? (
+              <div className="text-center text-gray-500 py-8">
+                No transactions yet
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {transactions.map(tx => (
+                  <div key={tx.id} className="bg-black/30 p-3 rounded-lg border border-white/5">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                        tx.type === 'DEPOSIT' ? 'bg-green-500/20 text-green-400' :
+                        tx.type === 'WITHDRAWAL' ? 'bg-red-500/20 text-red-400' :
+                        tx.type === 'PRIZE_PAYOUT' ? 'bg-yellow-500/20 text-yellow-400' :
+                        tx.type === 'MATCH_LOCK' ? 'bg-blue-500/20 text-blue-400' :
+                        'bg-gray-500/20 text-gray-400'
+                      }`}>
+                        {tx.type.replace('_', ' ')}
+                      </span>
+                      <span className={`font-mono text-sm ${
+                        tx.deltaAvailable > 0 ? 'text-green-400' : 
+                        tx.deltaAvailable < 0 ? 'text-red-400' : 'text-gray-400'
+                      }`}>
+                        {tx.deltaAvailable > 0 ? '+' : ''}{(tx.deltaAvailable / 100).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {new Date(tx.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -30,9 +30,37 @@ Preferred communication style: Simple, everyday language.
 
 ### Data Storage
 - **Database**: PostgreSQL with Drizzle ORM
-- **Schema**: Currently minimal - users table with id, username, password
-- **In-Memory State**: Game state (players, food, escrows) stored in memory on the server for real-time performance
+- **Schema**: 
+  - `users`: Basic user accounts (id, username, password)
+  - `player_balances`: Internal custodial balances (walletAddress, availableCents, lockedCents, lifetime stats)
+  - `balance_transactions`: Transaction ledger with unique externalRef for idempotency
+- **In-Memory State**: Game state (players, food, pending deposits) stored in memory on the server for real-time performance
 - **Session Storage**: MemStorage class for user sessions (can be upgraded to PostgreSQL)
+
+### Internal Custodial Balance System
+The game uses an off-chain balance ledger for stake mode:
+
+**Architecture:**
+- Players deposit USDC to their internal game balance
+- Match entry fees are locked from internal balance (no on-chain tx during play)
+- Prizes are credited to internal balance
+- Players withdraw from internal balance when desired
+
+**Key Components:**
+- `BalanceService`: Handles deposits, locks, payouts, withdrawals with atomic DB transactions
+- `player_balances` table: Tracks available + locked cents per wallet
+- `balance_transactions` table: Immutable ledger with idempotency via unique externalRef
+
+**Security Features:**
+- Server-generated deposit tokens (production would verify on-chain tx)
+- Unique constraint on externalRef prevents double-crediting
+- Lock verification before settlement (can't debit more than locked)
+- Platform revenue tracked separately
+
+**Production Requirements:**
+- Deposit confirmation should verify on-chain transaction signatures
+- Withdrawal should trigger actual on-chain USDC transfer
+- Consider adding admin authentication for deposit endpoints
 
 ### Game Architecture
 - **World Size**: 4000x4000 pixel arena
