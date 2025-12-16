@@ -296,7 +296,7 @@ class GameRoom {
         const dy = predator.y - prey.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist < predator.radius && predator.radius > prey.radius) {
+        if (dist + prey.radius <= predator.radius && predator.radius > prey.radius * 1.1) {
           this.handleElimination(predator, prey);
         }
       }

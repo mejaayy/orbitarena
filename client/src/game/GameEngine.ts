@@ -378,15 +378,13 @@ export class GameEngine {
           player.x = Math.max(player.radius, Math.min(GameEngine.WORLD_SIZE - player.radius, player.x));
           player.y = Math.max(player.radius, Math.min(GameEngine.WORLD_SIZE - player.radius, player.y));
         }
-        
-        player.x += (player.targetX - player.x) * 0.05;
-        player.y += (player.targetY - player.y) * 0.05;
       } else {
         const elapsed = timestamp - player.interpStartTime;
         const t = Math.min(1, elapsed / GameEngine.INTERP_DURATION);
+        const smoothT = t * t * (3 - 2 * t);
         
-        player.x = player.prevX + (player.targetX - player.prevX) * t;
-        player.y = player.prevY + (player.targetY - player.prevY) * t;
+        player.x = player.prevX + (player.targetX - player.prevX) * smoothT;
+        player.y = player.prevY + (player.targetY - player.prevY) * smoothT;
       }
     });
   }
@@ -556,15 +554,6 @@ export class GameEngine {
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
     
-    // Draw name (centered if no balance, offset if stake mode with balance)
-    const hasStakeBalance = this.isStakeMode && player.balance !== undefined && player.balance > 0;
-    
-    if (hasStakeBalance) {
-      this.ctx.fillText(player.name, player.x, player.y - fontSize * 0.4);
-      this.ctx.font = `bold ${fontSize * 0.8}px Outfit`;
-      this.ctx.fillText(`$${player.balance!.toFixed(2)}`, player.x, player.y + fontSize * 0.5);
-    } else {
-      this.ctx.fillText(player.name, player.x, player.y);
-    }
+    this.ctx.fillText(player.name, player.x, player.y);
   }
 }
