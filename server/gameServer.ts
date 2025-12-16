@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
 import { log } from './index';
-import { escrowService } from './escrowService';
+import { balanceService } from './balanceService';
 
 interface Point {
   x: number;
@@ -392,11 +392,13 @@ class StakeGameRoom extends GameRoom {
   private countdownTimeout: NodeJS.Timeout | null = null;
   private roundEndTimeout: NodeJS.Timeout | null = null;
   private prizePool: number = 0;
+  private matchId: string = '';
   private lobbyPlayers: Map<string, { ws: WebSocket; name: string; walletAddress?: string; playerColor?: string }> = new Map();
 
   constructor(id: string) {
     super(id, true);
     this.stopGameLoop(); // Don't run game loop until round starts
+    this.matchId = `${id}_${Date.now()}`;
     log(`Stake room ${id} created - waiting for players in lobby`, 'room');
   }
 
@@ -423,7 +425,7 @@ class StakeGameRoom extends GameRoom {
     return this.roundState;
   }
 
-  addPlayer(playerId: string, ws: WebSocket, payload: { name: string; walletAddress?: string; playerColor?: string }): boolean {
+  async addPlayer(playerId: string, ws: WebSocket, payload: { name: string; walletAddress?: string; playerColor?: string }): Promise<boolean> {
     // Only allow joining during LOBBY phase
     if (this.roundState !== 'LOBBY' && this.roundState !== 'COUNTDOWN') {
       this.send(ws, {
@@ -446,12 +448,12 @@ class StakeGameRoom extends GameRoom {
       return false;
     }
 
-    // Process entry fee
-    const depositResult = escrowService.deposit(payload.walletAddress);
-    if (!depositResult.success) {
+    // Lock entry fee from internal balance
+    const lockResult = await balanceService.lockForMatch(payload.walletAddress, this.matchId);
+    if (!lockResult.success) {
       this.send(ws, {
         type: 'ERROR',
-        payload: { message: 'Failed to process entry fee.' }
+        payload: { message: lockResult.error || 'Insufficient balance for entry fee.' }
       });
       return false;
     }
@@ -577,7 +579,7 @@ class StakeGameRoom extends GameRoom {
     }, ROUND_DURATION);
   }
 
-  private endRound() {
+  private async endRound() {
     this.roundState = 'ENDED';
     this.stopGameLoop();
 
@@ -590,29 +592,18 @@ class StakeGameRoom extends GameRoom {
     const allPlayers = Array.from(this.gameState.players.values());
     const sortedByScore = allPlayers.sort((a, b) => b.score - a.score);
 
-    // Assign prizes
-    const payouts: { playerId: string; name: string; rank: number; prize: number; walletAddress?: string }[] = [];
-
-    sortedByScore.forEach((player, index) => {
-      let prize = 0;
-      if (index === 0) prize = PRIZE_1ST;
-      else if (index === 1) prize = PRIZE_2ND;
-      else if (index === 2) prize = PRIZE_3RD;
-
-      payouts.push({
-        playerId: player.id,
-        name: player.name,
+    // Build standings for payout
+    const standings = sortedByScore
+      .filter(p => p.walletAddress)
+      .map((player, index) => ({
+        walletAddress: player.walletAddress!,
         rank: index + 1,
-        prize,
-        walletAddress: player.walletAddress
-      });
+        name: player.name,
+        score: player.score
+      }));
 
-      // Process payout via escrow
-      if (prize > 0 && player.walletAddress) {
-        escrowService.payout(player.walletAddress, prize);
-        log(`Payout: ${player.name} (rank ${index + 1}) receives $${prize.toFixed(2)}`, 'room');
-      }
-    });
+    // Process payouts via balance service (idempotent)
+    await balanceService.settlePayouts(this.matchId, standings);
 
     // Broadcast round end to all players
     this.broadcast({
@@ -638,13 +629,6 @@ class StakeGameRoom extends GameRoom {
   }
 
   private resetForNextRound() {
-    // Clear escrows for all players who were in the round
-    this.gameState.players.forEach(player => {
-      if (player.walletAddress) {
-        escrowService.clearEscrow(player.walletAddress);
-      }
-    });
-    
     // Clear all players
     this.gameState.players.clear();
     this.clients.clear();
@@ -654,6 +638,7 @@ class StakeGameRoom extends GameRoom {
     this.roundState = 'LOBBY';
     this.prizePool = 0;
     this.roundStartTime = 0;
+    this.matchId = `${this.id}_${Date.now()}`;
     
     // Reset food
     this.gameState.foods = [];
@@ -667,14 +652,14 @@ class StakeGameRoom extends GameRoom {
     super.handleInput(playerId, payload);
   }
 
-  handleLeave(playerId: string): boolean {
+  async handleLeave(playerId: string): Promise<boolean> {
     // Handle lobby leave
     if (this.lobbyPlayers.has(playerId)) {
       const playerData = this.lobbyPlayers.get(playerId);
       
-      // Refund entry fee
+      // Release locked entry fee back to available balance
       if (playerData?.walletAddress) {
-        escrowService.refund(playerData.walletAddress, ENTRY_FEE);
+        await balanceService.releaseLock(playerData.walletAddress, this.matchId);
       }
       
       this.lobbyPlayers.delete(playerId);
@@ -704,14 +689,14 @@ class StakeGameRoom extends GameRoom {
     return super.handleLeave(playerId);
   }
 
-  handleDisconnect(playerId: string) {
+  async handleDisconnect(playerId: string) {
     // Handle lobby disconnect
     if (this.lobbyPlayers.has(playerId)) {
       const playerData = this.lobbyPlayers.get(playerId);
       
-      // Refund entry fee
+      // Release locked entry fee back to available balance
       if (playerData?.walletAddress) {
-        escrowService.refund(playerData.walletAddress, ENTRY_FEE);
+        await balanceService.releaseLock(playerData.walletAddress, this.matchId);
       }
       
       this.lobbyPlayers.delete(playerId);
