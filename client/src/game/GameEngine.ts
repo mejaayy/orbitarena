@@ -96,7 +96,7 @@ export class GameEngine {
   private inputSequence: number = 0;
   private inputBuffer: InputRecord[] = [];
   private snapshotBuffer: ServerSnapshot[] = [];
-  private maxSnapshotBufferSize: number = 8;
+  private maxSnapshotBufferSize: number = 12;
   private predictedX: number = 0;
   private predictedY: number = 0;
   private lastAckedSeq: number = 0;
@@ -317,12 +317,12 @@ export class GameEngine {
           const dy = replayY - existing.y;
           const drift = Math.sqrt(dx * dx + dy * dy);
           
-          if (drift < 10) {
+          if (drift <= 6) {
             existing.x = replayX;
             existing.y = replayY;
-          } else if (drift < 50) {
-            existing.x = existing.x + dx * 0.8;
-            existing.y = existing.y + dy * 0.8;
+          } else if (drift <= 35) {
+            existing.x = existing.x + dx * 0.65;
+            existing.y = existing.y + dy * 0.65;
           } else {
             existing.x = replayX;
             existing.y = replayY;
@@ -511,7 +511,7 @@ export class GameEngine {
         }
       } else {
         if (this.snapshotBuffer.length >= 2) {
-          const renderDelay = 100;
+          const renderDelay = 95;
           const renderTime = timestamp - renderDelay;
           const bufLen = this.snapshotBuffer.length;
           
@@ -560,8 +560,8 @@ export class GameEngine {
   private updateCamera() {
     const localPlayer = this.players.get(this.localPlayerId!);
     if (localPlayer) {
-      this.camera.x += (localPlayer.x - this.camera.x) * 0.15;
-      this.camera.y += (localPlayer.y - this.camera.y) * 0.15;
+      this.camera.x += (localPlayer.x - this.camera.x) * 0.6;
+      this.camera.y += (localPlayer.y - this.camera.y) * 0.6;
     }
   }
 
