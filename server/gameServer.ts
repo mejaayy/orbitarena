@@ -193,7 +193,7 @@ class GameRoom {
       payload.y /= length;
     }
     player.inputVector = { x: payload.x, y: payload.y };
-    player.isBoosting = payload.boost === true && player.score > 10;
+    player.isBoosting = payload.boost === true && player.score > 15;
   }
 
   handleLeave(playerId: string): boolean {
@@ -244,15 +244,8 @@ class GameRoom {
     this.gameState.players.forEach(player => {
       if (player.isSpectator) return;
       
-      // Apply boost drain regardless of movement
-      if (player.isBoosting && player.score > 10) {
-        player.score -= 3;
-        player.radius = INITIAL_RADIUS + Math.sqrt(player.score) * 2;
-        // Stop boosting if score drops too low
-        if (player.score <= 10) {
-          player.isBoosting = false;
-        }
-      }
+      // Check boost eligibility BEFORE draining
+      const canBoost = player.isBoosting && player.score > 15;
       
       const { inputVector } = player;
       const length = Math.sqrt(inputVector.x * inputVector.x + inputVector.y * inputVector.y);
@@ -262,7 +255,7 @@ class GameRoom {
         let speed = MAX_SPEED * speedFactor;
         
         // Apply 30% speed boost when boosting
-        if (player.isBoosting && player.score > 10) {
+        if (canBoost) {
           speed *= 1.3;
         }
         
@@ -271,6 +264,16 @@ class GameRoom {
       } else {
         player.velocity.x = 0;
         player.velocity.y = 0;
+      }
+      
+      // Apply boost drain AFTER movement (0.5 points per tick = ~15 pts/sec)
+      if (canBoost) {
+        player.score -= 0.5;
+        player.radius = INITIAL_RADIUS + Math.sqrt(player.score) * 2;
+        // Stop boosting if score drops too low
+        if (player.score <= 15) {
+          player.isBoosting = false;
+        }
       }
 
       const timeScale = dt * 60;
