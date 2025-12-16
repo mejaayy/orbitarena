@@ -13,6 +13,7 @@ export interface Player {
   score: number;
   velocity: Point;
   balance?: number;
+  isBoosting?: boolean;
 }
 
 interface InterpolatedPlayer extends Player {
@@ -79,6 +80,7 @@ export class GameEngine {
   private localInputVector: Point = { x: 0, y: 0 };
   private lastInputSendTime: number = 0;
   private inputSendInterval: number = 33;
+  private isBoosting: boolean = false;
   
   onGameOver: (stats: { score: number, killer?: string, balance?: number }) => void;
   onUpdateStats: (stats: { fps: number, population: number, balance?: number }) => void;
@@ -103,6 +105,35 @@ export class GameEngine {
 
     window.addEventListener('resize', this.handleResize);
     this.handleResize();
+    
+    // Mouse tracking for boost
+    this.canvas.addEventListener('mousedown', this.handleMouseDown);
+    this.canvas.addEventListener('mouseup', this.handleMouseUp);
+    this.canvas.addEventListener('mouseleave', this.handleMouseUp);
+    // Touch support for boost
+    this.canvas.addEventListener('touchstart', this.handleMouseDown);
+    this.canvas.addEventListener('touchend', this.handleMouseUp);
+    this.canvas.addEventListener('touchcancel', this.handleMouseUp);
+  }
+  
+  private handleMouseDown = () => {
+    this.isBoosting = true;
+    this.sendInputWithBoost();
+  };
+  
+  private handleMouseUp = () => {
+    this.isBoosting = false;
+    this.sendInputWithBoost();
+  };
+  
+  private sendInputWithBoost() {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        type: 'INPUT',
+        payload: { x: this.localInputVector.x, y: this.localInputVector.y, boost: this.isBoosting }
+      }));
+      this.lastInputSendTime = performance.now();
+    }
   }
 
   private connectWebSocket() {
@@ -244,6 +275,7 @@ export class GameEngine {
         existing.score = p.score;
         existing.color = p.color;
         existing.balance = p.balance;
+        existing.isBoosting = p.isBoosting;
       } else {
         this.players.set(p.id, {
           ...p,
@@ -271,7 +303,7 @@ export class GameEngine {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({
         type: 'INPUT',
-        payload: { x: vector.x, y: vector.y }
+        payload: { x: vector.x, y: vector.y, boost: this.isBoosting }
       }));
     }
   }
@@ -541,10 +573,29 @@ export class GameEngine {
   }
 
   drawPlayer(player: Player) {
+    // Boosting glow effect
+    if (player.isBoosting) {
+      const glowIntensity = 0.5 + 0.5 * Math.sin(performance.now() / 100);
+      this.ctx.save();
+      this.ctx.shadowBlur = 30 + glowIntensity * 20;
+      this.ctx.shadowColor = '#00FFFF';
+      
+      // Outer glow ring
+      this.ctx.beginPath();
+      this.ctx.arc(player.x, player.y, player.radius + 5, 0, Math.PI * 2);
+      this.ctx.strokeStyle = `rgba(0, 255, 255, ${0.3 + glowIntensity * 0.3})`;
+      this.ctx.lineWidth = 3;
+      this.ctx.stroke();
+      this.ctx.restore();
+    }
+    
     this.ctx.beginPath();
     this.ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
     
-    if (player.id === this.localPlayerId) {
+    if (player.isBoosting) {
+      this.ctx.shadowBlur = 25;
+      this.ctx.shadowColor = '#00FFFF';
+    } else if (player.id === this.localPlayerId) {
        this.ctx.shadowBlur = 15;
        this.ctx.shadowColor = player.color;
     } else {

@@ -22,6 +22,7 @@ interface Player {
   lastCombatTime: number;
   inputVector: Point;
   isSpectator: boolean;
+  isBoosting: boolean;
 }
 
 interface Food {
@@ -161,7 +162,8 @@ class GameRoom {
       balance: 0,
       lastCombatTime: 0,
       inputVector: { x: 0, y: 0 },
-      isSpectator: false
+      isSpectator: false,
+      isBoosting: false
     };
 
     this.gameState.players.set(playerId, player);
@@ -181,7 +183,7 @@ class GameRoom {
     return true;
   }
 
-  handleInput(playerId: string, payload: { x: number; y: number }) {
+  handleInput(playerId: string, payload: { x: number; y: number; boost?: boolean }) {
     const player = this.gameState.players.get(playerId);
     if (!player || player.isSpectator) return;
 
@@ -191,6 +193,7 @@ class GameRoom {
       payload.y /= length;
     }
     player.inputVector = { x: payload.x, y: payload.y };
+    player.isBoosting = payload.boost === true && player.score > 10;
   }
 
   handleLeave(playerId: string): boolean {
@@ -241,12 +244,27 @@ class GameRoom {
     this.gameState.players.forEach(player => {
       if (player.isSpectator) return;
       
+      // Apply boost drain regardless of movement
+      if (player.isBoosting && player.score > 10) {
+        player.score -= 3;
+        player.radius = INITIAL_RADIUS + Math.sqrt(player.score) * 2;
+        // Stop boosting if score drops too low
+        if (player.score <= 10) {
+          player.isBoosting = false;
+        }
+      }
+      
       const { inputVector } = player;
       const length = Math.sqrt(inputVector.x * inputVector.x + inputVector.y * inputVector.y);
       
       if (length > 0) {
         const speedFactor = Math.max(0.5, 1 - (player.radius / 200));
-        const speed = MAX_SPEED * speedFactor;
+        let speed = MAX_SPEED * speedFactor;
+        
+        // Apply 30% speed boost when boosting
+        if (player.isBoosting && player.score > 10) {
+          speed *= 1.3;
+        }
         
         player.velocity.x = (inputVector.x / length) * speed;
         player.velocity.y = (inputVector.y / length) * speed;
@@ -342,7 +360,8 @@ class GameRoom {
       color: p.color,
       score: p.score,
       balance: p.balance,
-      isSpectator: p.isSpectator
+      isSpectator: p.isSpectator,
+      isBoosting: p.isBoosting
     }));
 
     const stateMessage: ServerMessage = {
@@ -543,7 +562,8 @@ class StakeGameRoom extends GameRoom {
         balance: ENTRY_FEE,
         lastCombatTime: 0,
         inputVector: { x: 0, y: 0 },
-        isSpectator: false
+        isSpectator: false,
+        isBoosting: false
       };
 
       this.gameState.players.set(playerId, player);
@@ -773,7 +793,8 @@ class StakeGameRoom extends GameRoom {
       color: p.color,
       score: p.score,
       balance: p.balance,
-      isSpectator: p.isSpectator
+      isSpectator: p.isSpectator,
+      isBoosting: p.isBoosting
     }));
 
     const timeRemaining = Math.max(0, ROUND_DURATION - (Date.now() - this.roundStartTime));
