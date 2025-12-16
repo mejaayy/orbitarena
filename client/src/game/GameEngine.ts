@@ -62,7 +62,7 @@ export class GameEngine {
   
   static WORLD_SIZE = 4000;
   static INITIAL_RADIUS = 20;
-  static INTERP_DURATION = 50;
+  static INTERP_DURATION = 100;
   static MAX_SPEED = 2.3;
   
   isRunning: boolean = false;
@@ -361,15 +361,42 @@ export class GameEngine {
   };
 
   private updateInterpolation(timestamp: number, dt: number) {
-    // Server-authoritative: All players (including local) interpolate to server positions
-    // This ensures competitive fairness - everyone sees the same game state
     this.players.forEach(player => {
-      const elapsed = timestamp - player.interpStartTime;
-      const t = Math.min(1, elapsed / GameEngine.INTERP_DURATION);
-      const smoothT = t * t * (3 - 2 * t);
-      
-      player.x = player.prevX + (player.targetX - player.prevX) * smoothT;
-      player.y = player.prevY + (player.targetY - player.prevY) * smoothT;
+      if (player.id === this.localPlayerId) {
+        const input = this.localInputVector;
+        const length = Math.sqrt(input.x * input.x + input.y * input.y);
+        
+        if (length > 0) {
+          const speedFactor = Math.max(0.5, 1 - (player.radius / 200));
+          const speed = GameEngine.MAX_SPEED * speedFactor;
+          const vx = (input.x / length) * speed;
+          const vy = (input.y / length) * speed;
+          
+          player.x += vx * dt * 60;
+          player.y += vy * dt * 60;
+          
+          player.x = Math.max(player.radius, Math.min(GameEngine.WORLD_SIZE - player.radius, player.x));
+          player.y = Math.max(player.radius, Math.min(GameEngine.WORLD_SIZE - player.radius, player.y));
+        }
+        
+        // Gently correct toward server position to prevent drift (only when significant)
+        const dx = player.targetX - player.x;
+        const dy = player.targetY - player.y;
+        const drift = Math.sqrt(dx * dx + dy * dy);
+        if (drift > 20) {
+          // Apply gentle correction when drifted more than 20 pixels
+          const correction = Math.min(0.15, drift / 200);
+          player.x += dx * correction;
+          player.y += dy * correction;
+        }
+      } else {
+        const elapsed = timestamp - player.interpStartTime;
+        const t = Math.min(1, elapsed / GameEngine.INTERP_DURATION);
+        const smoothT = t * t * (3 - 2 * t);
+        
+        player.x = player.prevX + (player.targetX - player.prevX) * smoothT;
+        player.y = player.prevY + (player.targetY - player.prevY) * smoothT;
+      }
     });
   }
 
