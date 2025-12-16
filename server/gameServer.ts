@@ -56,7 +56,7 @@ const MAX_SPEED = 2.3;
 const FOOD_COUNT = 300;
 const MAX_PLAYERS_PER_ROOM = 15;
 const MAX_ROOMS = 10;
-const TICK_RATE = 30;
+const TICK_RATE = 60;
 const COMBAT_COOLDOWN = 3000;
 
 // Stake mode constants
