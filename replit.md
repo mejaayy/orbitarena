@@ -64,29 +64,9 @@ The game uses an off-chain balance ledger for stake mode:
 
 ### Game Architecture
 - **World Size**: 4000x4000 pixel arena
-- **Network Model**: Server-authoritative with client-side prediction and reconciliation
-- **Server Tick Rate**: 60 Hz for precise physics and collision detection
-- **Message Types**: JOIN, INPUT (with sequence number), LEAVE (client); STATE (with timestamp and per-player lastInputSeq), JOINED, ELIMINATED, PLAYER_LEFT, ERROR, ROUND_STATUS, ROUND_END (server)
+- **Network Model**: Server sends authoritative state updates; clients send input vectors
+- **Message Types**: JOIN, INPUT, LEAVE (client); STATE, JOINED, ELIMINATED, PLAYER_LEFT, ERROR, ROUND_STATUS, ROUND_END (server)
 - **Escrow Service**: Server-side balance tracking for stake mode with deposit/payout/refund operations
-
-### Network Reconciliation System
-The game uses a sophisticated reconciliation system for smooth, accurate competitive gameplay:
-
-**Server-Side:**
-- Tracks lastInputSeq per player to acknowledge processed inputs
-- Includes timestamp and sequence numbers in STATE broadcasts
-- 60 Hz tick rate ensures precise position updates
-
-**Client-Side:**
-- **Input Buffering**: Stores sent inputs with sequence numbers for replay
-- **Snapshot Buffering**: Maintains 8 recent server states for interpolation
-- **Rewind/Replay**: On each server update, filters to unacknowledged inputs, then replays them from server position to get predicted position
-- **Smooth Correction**: < 30px drift uses gentle lerp; >= 30px snaps to prevent desync
-
-**Remote Player Interpolation:**
-- Uses 50ms render delay for buffer stability
-- Cubic smoothing (t²(3-2t)) between snapshot pairs
-- Defaults to newest snapshot pair when render time exceeds buffer
 
 ### Stake Mode Tournament System
 
