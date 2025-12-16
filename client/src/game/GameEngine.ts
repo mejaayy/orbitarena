@@ -437,18 +437,20 @@ export class GameEngine {
       
       // Update trail - only when boosting
       const isBoosting = player.id === this.localPlayerId ? this.isBoosting : player.isBoosting;
-      if (isBoosting) {
+      if (isBoosting && player.score > 15) {
         const movedX = player.x - prevX;
         const movedY = player.y - prevY;
-        if (movedX * movedX + movedY * movedY > 4) {
+        if (movedX * movedX + movedY * movedY > 2) {
           player.trail.push({ x: player.x, y: player.y });
-          if (player.trail.length > 8) {
+          if (player.trail.length > 15) {
             player.trail.shift();
           }
         }
       } else {
-        // Clear trail when not boosting
-        player.trail = [];
+        // Clear trail immediately when not boosting or out of points
+        if (player.trail.length > 0) {
+          player.trail = [];
+        }
       }
     });
   }
@@ -597,25 +599,29 @@ export class GameEngine {
   drawTrail(player: InterpolatedPlayer) {
     if (player.trail.length < 2) return;
     
-    // Draw simple fading trail using player's color
-    for (let i = 0; i < player.trail.length - 1; i++) {
-      const alpha = (i / player.trail.length) * 0.4;
-      const size = player.radius * (0.3 + (i / player.trail.length) * 0.5);
+    // Check if still boosting - don't draw if not
+    const isBoosting = player.id === this.localPlayerId ? this.isBoosting : player.isBoosting;
+    if (!isBoosting) return;
+    
+    // Parse color once
+    let r = 255, g = 255, b = 255;
+    if (player.color.startsWith('#')) {
+      let hex = player.color.replace('#', '');
+      if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+      r = parseInt(hex.substring(0, 2), 16);
+      g = parseInt(hex.substring(2, 4), 16);
+      b = parseInt(hex.substring(4, 6), 16);
+    }
+    
+    // Draw fading trail - bigger circles, higher opacity
+    for (let i = 0; i < player.trail.length; i++) {
+      const progress = i / player.trail.length;
+      const alpha = progress * 0.6;
+      const size = player.radius * (0.5 + progress * 0.5);
       
       this.ctx.beginPath();
       this.ctx.arc(player.trail[i].x, player.trail[i].y, size, 0, Math.PI * 2);
-      this.ctx.fillStyle = player.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba').replace('#', '');
-      
-      // Handle hex colors
-      if (player.color.startsWith('#')) {
-        let hex = player.color.replace('#', '');
-        if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-        const r = parseInt(hex.substring(0, 2), 16);
-        const g = parseInt(hex.substring(2, 4), 16);
-        const b = parseInt(hex.substring(4, 6), 16);
-        this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-      }
-      
+      this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
       this.ctx.fill();
     }
   }
