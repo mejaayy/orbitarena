@@ -33,7 +33,20 @@ export interface Food {
 }
 
 interface ServerState {
-  players: Player[];
+  players: (Player & { lastInputSeq?: number })[];
+  timestamp?: number;
+}
+
+interface InputRecord {
+  seq: number;
+  time: number;
+  vector: Point;
+}
+
+interface ServerSnapshot {
+  players: (Player & { lastInputSeq?: number })[];
+  timestamp: number;
+  localPlayerState?: { x: number; y: number; radius: number; ackedSeq: number };
 }
 
 export type RoundState = 'LOBBY' | 'COUNTDOWN' | 'PLAYING' | 'ENDED';
@@ -78,7 +91,15 @@ export class GameEngine {
   private currentFps: number = 60;
   private localInputVector: Point = { x: 0, y: 0 };
   private lastInputSendTime: number = 0;
-  private inputSendInterval: number = 33;
+  private inputSendInterval: number = 16;
+  
+  private inputSequence: number = 0;
+  private inputBuffer: InputRecord[] = [];
+  private snapshotBuffer: ServerSnapshot[] = [];
+  private maxSnapshotBufferSize: number = 8;
+  private predictedX: number = 0;
+  private predictedY: number = 0;
+  private lastAckedSeq: number = 0;
   
   onGameOver: (stats: { score: number, killer?: string, balance?: number }) => void;
   onUpdateStats: (stats: { fps: number, population: number, balance?: number }) => void;
@@ -216,14 +237,32 @@ export class GameEngine {
   }
 
   private applyServerState(state: ServerState & { roundState?: RoundState; timeRemaining?: number; prizePool?: number }) {
-    // Update round status from state if present
     if (state.roundState && this.roundStatus) {
       this.roundStatus.roundState = state.roundState;
       this.roundStatus.timeRemaining = state.timeRemaining;
       this.roundStatus.prizePool = state.prizePool || this.roundStatus.prizePool;
       this.onRoundStatusChange?.(this.roundStatus);
     }
+    
     const now = performance.now();
+    
+    const localPlayerData = state.players.find(p => p.id === this.localPlayerId);
+    const snapshot: ServerSnapshot = {
+      players: state.players,
+      timestamp: now,
+      localPlayerState: localPlayerData ? {
+        x: localPlayerData.x,
+        y: localPlayerData.y,
+        radius: localPlayerData.radius,
+        ackedSeq: localPlayerData.lastInputSeq || 0
+      } : undefined
+    };
+    
+    this.snapshotBuffer.push(snapshot);
+    if (this.snapshotBuffer.length > this.maxSnapshotBufferSize) {
+      this.snapshotBuffer.shift();
+    }
+    
     const existingIds = new Set(state.players.map(p => p.id));
     
     this.players.forEach((_, id) => {
@@ -234,26 +273,92 @@ export class GameEngine {
 
     state.players.forEach(p => {
       const existing = this.players.get(p.id);
-      if (existing) {
-        existing.prevX = existing.x;
-        existing.prevY = existing.y;
-        existing.targetX = p.x;
-        existing.targetY = p.y;
-        existing.interpStartTime = now;
-        existing.radius = p.radius;
-        existing.score = p.score;
-        existing.color = p.color;
-        existing.balance = p.balance;
+      
+      if (p.id === this.localPlayerId) {
+        const ackedSeq = p.lastInputSeq || 0;
+        
+        this.inputBuffer = this.inputBuffer.filter(input => input.seq > ackedSeq);
+        this.lastAckedSeq = ackedSeq;
+        
+        let replayX = p.x;
+        let replayY = p.y;
+        const radius = p.radius;
+        
+        for (const input of this.inputBuffer) {
+          const length = Math.sqrt(input.vector.x * input.vector.x + input.vector.y * input.vector.y);
+          if (length > 0) {
+            const speedFactor = Math.max(0.5, 1 - (radius / 200));
+            const speed = GameEngine.MAX_SPEED * speedFactor;
+            const dt = 1 / 60;
+            
+            replayX += (input.vector.x / length) * speed * dt * 60;
+            replayY += (input.vector.y / length) * speed * dt * 60;
+            
+            replayX = Math.max(radius, Math.min(GameEngine.WORLD_SIZE - radius, replayX));
+            replayY = Math.max(radius, Math.min(GameEngine.WORLD_SIZE - radius, replayY));
+          }
+        }
+        
+        this.predictedX = replayX;
+        this.predictedY = replayY;
+        
+        if (existing) {
+          existing.prevX = existing.x;
+          existing.prevY = existing.y;
+          existing.targetX = replayX;
+          existing.targetY = replayY;
+          existing.interpStartTime = now;
+          existing.radius = p.radius;
+          existing.score = p.score;
+          existing.color = p.color;
+          existing.balance = p.balance;
+          
+          const dx = replayX - existing.x;
+          const dy = replayY - existing.y;
+          const drift = Math.sqrt(dx * dx + dy * dy);
+          
+          if (drift < 30) {
+            existing.x = existing.x + dx * 0.3;
+            existing.y = existing.y + dy * 0.3;
+          } else {
+            existing.x = replayX;
+            existing.y = replayY;
+          }
+        } else {
+          this.players.set(p.id, {
+            ...p,
+            velocity: { x: 0, y: 0 },
+            prevX: p.x,
+            prevY: p.y,
+            targetX: replayX,
+            targetY: replayY,
+            interpStartTime: now
+          });
+          this.predictedX = p.x;
+          this.predictedY = p.y;
+        }
       } else {
-        this.players.set(p.id, {
-          ...p,
-          velocity: { x: 0, y: 0 },
-          prevX: p.x,
-          prevY: p.y,
-          targetX: p.x,
-          targetY: p.y,
-          interpStartTime: now
-        });
+        if (existing) {
+          existing.prevX = existing.x;
+          existing.prevY = existing.y;
+          existing.targetX = p.x;
+          existing.targetY = p.y;
+          existing.interpStartTime = now;
+          existing.radius = p.radius;
+          existing.score = p.score;
+          existing.color = p.color;
+          existing.balance = p.balance;
+        } else {
+          this.players.set(p.id, {
+            ...p,
+            velocity: { x: 0, y: 0 },
+            prevX: p.x,
+            prevY: p.y,
+            targetX: p.x,
+            targetY: p.y,
+            interpStartTime: now
+          });
+        }
       }
     });
   }
@@ -269,9 +374,22 @@ export class GameEngine {
 
   private sendInput(vector: Point) {
     if (this.ws?.readyState === WebSocket.OPEN) {
+      this.inputSequence++;
+      const now = performance.now();
+      
+      this.inputBuffer.push({
+        seq: this.inputSequence,
+        time: now,
+        vector: { x: vector.x, y: vector.y }
+      });
+      
+      if (this.inputBuffer.length > 120) {
+        this.inputBuffer = this.inputBuffer.slice(-60);
+      }
+      
       this.ws.send(JSON.stringify({
         type: 'INPUT',
-        payload: { x: vector.x, y: vector.y }
+        payload: { x: vector.x, y: vector.y, seq: this.inputSequence }
       }));
     }
   }
@@ -295,6 +413,13 @@ export class GameEngine {
     this.players.clear();
     this.foods = [];
     this.localPlayerId = null;
+    
+    this.inputSequence = 0;
+    this.inputBuffer = [];
+    this.snapshotBuffer = [];
+    this.predictedX = 0;
+    this.predictedY = 0;
+    this.lastAckedSeq = 0;
     
     this.pendingJoin = { name: playerName, isStakeMode, walletAddress, playerColor };
     this.connectWebSocket();
@@ -377,25 +502,54 @@ export class GameEngine {
           
           player.x = Math.max(player.radius, Math.min(GameEngine.WORLD_SIZE - player.radius, player.x));
           player.y = Math.max(player.radius, Math.min(GameEngine.WORLD_SIZE - player.radius, player.y));
-        }
-        
-        // Gently correct toward server position to prevent drift (only when significant)
-        const dx = player.targetX - player.x;
-        const dy = player.targetY - player.y;
-        const drift = Math.sqrt(dx * dx + dy * dy);
-        if (drift > 20) {
-          // Apply gentle correction when drifted more than 20 pixels
-          const correction = Math.min(0.15, drift / 200);
-          player.x += dx * correction;
-          player.y += dy * correction;
+          
+          this.predictedX = player.x;
+          this.predictedY = player.y;
         }
       } else {
-        const elapsed = timestamp - player.interpStartTime;
-        const t = Math.min(1, elapsed / GameEngine.INTERP_DURATION);
-        const smoothT = t * t * (3 - 2 * t);
-        
-        player.x = player.prevX + (player.targetX - player.prevX) * smoothT;
-        player.y = player.prevY + (player.targetY - player.prevY) * smoothT;
+        if (this.snapshotBuffer.length >= 2) {
+          const renderDelay = 50;
+          const renderTime = timestamp - renderDelay;
+          const bufLen = this.snapshotBuffer.length;
+          
+          let snap1 = this.snapshotBuffer[bufLen - 2];
+          let snap2 = this.snapshotBuffer[bufLen - 1];
+          
+          for (let i = 0; i < bufLen - 1; i++) {
+            if (this.snapshotBuffer[i].timestamp <= renderTime && 
+                this.snapshotBuffer[i + 1].timestamp >= renderTime) {
+              snap1 = this.snapshotBuffer[i];
+              snap2 = this.snapshotBuffer[i + 1];
+              break;
+            }
+          }
+          
+          const p1 = snap1.players.find(p => p.id === player.id);
+          const p2 = snap2.players.find(p => p.id === player.id);
+          
+          if (p1 && p2 && snap2.timestamp !== snap1.timestamp) {
+            let t = (renderTime - snap1.timestamp) / (snap2.timestamp - snap1.timestamp);
+            t = Math.max(0, Math.min(1, t));
+            const smoothT = t * t * (3 - 2 * t);
+            
+            player.x = p1.x + (p2.x - p1.x) * smoothT;
+            player.y = p1.y + (p2.y - p1.y) * smoothT;
+          } else {
+            const elapsed = timestamp - player.interpStartTime;
+            const t = Math.min(1, elapsed / GameEngine.INTERP_DURATION);
+            const smoothT = t * t * (3 - 2 * t);
+            
+            player.x = player.prevX + (player.targetX - player.prevX) * smoothT;
+            player.y = player.prevY + (player.targetY - player.prevY) * smoothT;
+          }
+        } else {
+          const elapsed = timestamp - player.interpStartTime;
+          const t = Math.min(1, elapsed / GameEngine.INTERP_DURATION);
+          const smoothT = t * t * (3 - 2 * t);
+          
+          player.x = player.prevX + (player.targetX - player.prevX) * smoothT;
+          player.y = player.prevY + (player.targetY - player.prevY) * smoothT;
+        }
       }
     });
   }

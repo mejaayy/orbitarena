@@ -22,6 +22,7 @@ interface Player {
   lastCombatTime: number;
   inputVector: Point;
   isSpectator: boolean;
+  lastInputSeq: number;
 }
 
 interface Food {
@@ -56,7 +57,7 @@ const MAX_SPEED = 2.3;
 const FOOD_COUNT = 300;
 const MAX_PLAYERS_PER_ROOM = 15;
 const MAX_ROOMS = 10;
-const TICK_RATE = 30;
+const TICK_RATE = 60;
 const COMBAT_COOLDOWN = 3000;
 
 // Stake mode constants
@@ -161,7 +162,8 @@ class GameRoom {
       balance: 0,
       lastCombatTime: 0,
       inputVector: { x: 0, y: 0 },
-      isSpectator: false
+      isSpectator: false,
+      lastInputSeq: 0
     };
 
     this.gameState.players.set(playerId, player);
@@ -181,9 +183,13 @@ class GameRoom {
     return true;
   }
 
-  handleInput(playerId: string, payload: { x: number; y: number }) {
+  handleInput(playerId: string, payload: { x: number; y: number; seq?: number }) {
     const player = this.gameState.players.get(playerId);
     if (!player || player.isSpectator) return;
+
+    if (payload.seq !== undefined && payload.seq > player.lastInputSeq) {
+      player.lastInputSeq = payload.seq;
+    }
 
     const length = Math.sqrt(payload.x * payload.x + payload.y * payload.y);
     if (length > 1) {
@@ -333,6 +339,7 @@ class GameRoom {
   }
 
   protected broadcastState() {
+    const timestamp = Date.now();
     const playersArray = Array.from(this.gameState.players.values()).map(p => ({
       id: p.id,
       name: p.name,
@@ -342,13 +349,15 @@ class GameRoom {
       color: p.color,
       score: p.score,
       balance: p.balance,
-      isSpectator: p.isSpectator
+      isSpectator: p.isSpectator,
+      lastInputSeq: p.lastInputSeq
     }));
 
     const stateMessage: ServerMessage = {
       type: 'STATE',
       payload: {
-        players: playersArray
+        players: playersArray,
+        timestamp
       }
     };
 
@@ -543,7 +552,8 @@ class StakeGameRoom extends GameRoom {
         balance: ENTRY_FEE,
         lastCombatTime: 0,
         inputVector: { x: 0, y: 0 },
-        isSpectator: false
+        isSpectator: false,
+        lastInputSeq: 0
       };
 
       this.gameState.players.set(playerId, player);
