@@ -435,14 +435,20 @@ export class GameEngine {
         player.y = player.prevY + (player.targetY - player.prevY) * smoothT;
       }
       
-      // Update trail - add position if moved enough
-      const movedX = player.x - prevX;
-      const movedY = player.y - prevY;
-      if (movedX * movedX + movedY * movedY > 4) {
-        player.trail.push({ x: player.x, y: player.y });
-        if (player.trail.length > 8) {
-          player.trail.shift();
+      // Update trail - only when boosting
+      const isBoosting = player.id === this.localPlayerId ? this.isBoosting : player.isBoosting;
+      if (isBoosting) {
+        const movedX = player.x - prevX;
+        const movedY = player.y - prevY;
+        if (movedX * movedX + movedY * movedY > 4) {
+          player.trail.push({ x: player.x, y: player.y });
+          if (player.trail.length > 8) {
+            player.trail.shift();
+          }
         }
+      } else {
+        // Clear trail when not boosting
+        player.trail = [];
       }
     });
   }
@@ -615,29 +621,10 @@ export class GameEngine {
   }
 
   drawPlayer(player: Player) {
-    // Boosting glow effect
-    if (player.isBoosting) {
-      const glowIntensity = 0.5 + 0.5 * Math.sin(performance.now() / 100);
-      this.ctx.save();
-      this.ctx.shadowBlur = 30 + glowIntensity * 20;
-      this.ctx.shadowColor = '#00FFFF';
-      
-      // Outer glow ring
-      this.ctx.beginPath();
-      this.ctx.arc(player.x, player.y, player.radius + 5, 0, Math.PI * 2);
-      this.ctx.strokeStyle = `rgba(0, 255, 255, ${0.3 + glowIntensity * 0.3})`;
-      this.ctx.lineWidth = 3;
-      this.ctx.stroke();
-      this.ctx.restore();
-    }
-    
     this.ctx.beginPath();
     this.ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
     
-    if (player.isBoosting) {
-      this.ctx.shadowBlur = 25;
-      this.ctx.shadowColor = '#00FFFF';
-    } else if (player.id === this.localPlayerId) {
+    if (player.id === this.localPlayerId) {
        this.ctx.shadowBlur = 15;
        this.ctx.shadowColor = player.color;
     } else {
