@@ -437,7 +437,11 @@ export class GameEngine {
       
       // Update trail - only when boosting
       const isBoosting = player.id === this.localPlayerId ? this.isBoosting : player.isBoosting;
-      if (isBoosting && player.score > 7) {
+      if (isBoosting && player.score > 5) {
+        // Initialize trail instantly when starting to boost
+        if (player.trail.length === 0) {
+          player.trail.push({ x: player.x, y: player.y });
+        }
         const movedX = player.x - prevX;
         const movedY = player.y - prevY;
         if (movedX * movedX + movedY * movedY > 2) {
@@ -597,7 +601,7 @@ export class GameEngine {
   }
 
   drawTrail(player: InterpolatedPlayer) {
-    if (player.trail.length < 2) return;
+    if (player.trail.length < 1) return;
     
     // Check if still boosting - don't draw if not
     const isBoosting = player.id === this.localPlayerId ? this.isBoosting : player.isBoosting;

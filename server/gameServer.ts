@@ -195,7 +195,7 @@ class GameRoom {
       payload.y /= length;
     }
     player.inputVector = { x: payload.x, y: payload.y };
-    player.isBoosting = payload.boost === true && player.score > 7;
+    player.isBoosting = payload.boost === true && player.score > 5;
   }
 
   handleLeave(playerId: string): boolean {
@@ -247,7 +247,7 @@ class GameRoom {
       if (player.isSpectator) return;
       
       // Check boost eligibility BEFORE draining
-      const canBoost = player.isBoosting && player.score > 7;
+      const canBoost = player.isBoosting && player.score > 5;
       
       const { inputVector } = player;
       const length = Math.sqrt(inputVector.x * inputVector.x + inputVector.y * inputVector.y);
@@ -273,7 +273,7 @@ class GameRoom {
         player.score -= 0.5;
         player.radius = INITIAL_RADIUS + Math.sqrt(player.score) * 2;
         // Stop boosting if score drops too low
-        if (player.score <= 7) {
+        if (player.score <= 5) {
           player.isBoosting = false;
         }
         
