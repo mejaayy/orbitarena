@@ -317,9 +317,12 @@ export class GameEngine {
           const dy = replayY - existing.y;
           const drift = Math.sqrt(dx * dx + dy * dy);
           
-          if (drift < 30) {
-            existing.x = existing.x + dx * 0.3;
-            existing.y = existing.y + dy * 0.3;
+          if (drift < 10) {
+            existing.x = replayX;
+            existing.y = replayY;
+          } else if (drift < 50) {
+            existing.x = existing.x + dx * 0.8;
+            existing.y = existing.y + dy * 0.8;
           } else {
             existing.x = replayX;
             existing.y = replayY;
@@ -508,7 +511,7 @@ export class GameEngine {
         }
       } else {
         if (this.snapshotBuffer.length >= 2) {
-          const renderDelay = 50;
+          const renderDelay = 100;
           const renderTime = timestamp - renderDelay;
           const bufLen = this.snapshotBuffer.length;
           
@@ -557,8 +560,8 @@ export class GameEngine {
   private updateCamera() {
     const localPlayer = this.players.get(this.localPlayerId!);
     if (localPlayer) {
-      this.camera.x += (localPlayer.x - this.camera.x) * 0.3;
-      this.camera.y += (localPlayer.y - this.camera.y) * 0.3;
+      this.camera.x += (localPlayer.x - this.camera.x) * 0.15;
+      this.camera.y += (localPlayer.y - this.camera.y) * 0.15;
     }
   }
 
