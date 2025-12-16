@@ -437,7 +437,7 @@ export class GameEngine {
       
       // Update trail - only when boosting
       const isBoosting = player.id === this.localPlayerId ? this.isBoosting : player.isBoosting;
-      if (isBoosting && player.score > 15) {
+      if (isBoosting && player.score > 7) {
         const movedX = player.x - prevX;
         const movedY = player.y - prevY;
         if (movedX * movedX + movedY * movedY > 2) {

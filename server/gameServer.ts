@@ -23,6 +23,7 @@ interface Player {
   inputVector: Point;
   isSpectator: boolean;
   isBoosting: boolean;
+  lastBoostOrbTime: number;
 }
 
 interface Food {
@@ -163,7 +164,8 @@ class GameRoom {
       lastCombatTime: 0,
       inputVector: { x: 0, y: 0 },
       isSpectator: false,
-      isBoosting: false
+      isBoosting: false,
+      lastBoostOrbTime: 0
     };
 
     this.gameState.players.set(playerId, player);
@@ -193,7 +195,7 @@ class GameRoom {
       payload.y /= length;
     }
     player.inputVector = { x: payload.x, y: payload.y };
-    player.isBoosting = payload.boost === true && player.score > 15;
+    player.isBoosting = payload.boost === true && player.score > 7;
   }
 
   handleLeave(playerId: string): boolean {
@@ -245,7 +247,7 @@ class GameRoom {
       if (player.isSpectator) return;
       
       // Check boost eligibility BEFORE draining
-      const canBoost = player.isBoosting && player.score > 15;
+      const canBoost = player.isBoosting && player.score > 7;
       
       const { inputVector } = player;
       const length = Math.sqrt(inputVector.x * inputVector.x + inputVector.y * inputVector.y);
@@ -254,9 +256,9 @@ class GameRoom {
         const speedFactor = Math.max(0.5, 1 - (player.radius / 200));
         let speed = MAX_SPEED * speedFactor;
         
-        // Apply 60% speed boost when boosting
+        // Apply 70% speed boost when boosting
         if (canBoost) {
-          speed *= 1.6;
+          speed *= 1.7;
         }
         
         player.velocity.x = (inputVector.x / length) * speed;
@@ -271,8 +273,24 @@ class GameRoom {
         player.score -= 0.5;
         player.radius = INITIAL_RADIUS + Math.sqrt(player.score) * 2;
         // Stop boosting if score drops too low
-        if (player.score <= 15) {
+        if (player.score <= 7) {
           player.isBoosting = false;
+        }
+        
+        // Spawn grey orb every second while boosting
+        const now = Date.now();
+        if (now - player.lastBoostOrbTime >= 1000) {
+          player.lastBoostOrbTime = now;
+          const boostOrb: Food = {
+            id: `boost-orb-${Math.random().toString(36).substr(2, 9)}`,
+            x: player.x - player.velocity.x * 10,
+            y: player.y - player.velocity.y * 10,
+            radius: 6,
+            color: '#888888',
+            value: 3
+          };
+          this.gameState.foods.push(boostOrb);
+          this.spawnedFoods.push(boostOrb);
         }
       }
 
@@ -566,7 +584,8 @@ class StakeGameRoom extends GameRoom {
         lastCombatTime: 0,
         inputVector: { x: 0, y: 0 },
         isSpectator: false,
-        isBoosting: false
+        isBoosting: false,
+        lastBoostOrbTime: 0
       };
 
       this.gameState.players.set(playerId, player);
