@@ -378,6 +378,17 @@ export class GameEngine {
           player.x = Math.max(player.radius, Math.min(GameEngine.WORLD_SIZE - player.radius, player.x));
           player.y = Math.max(player.radius, Math.min(GameEngine.WORLD_SIZE - player.radius, player.y));
         }
+        
+        // Gently correct toward server position to prevent drift (only when significant)
+        const dx = player.targetX - player.x;
+        const dy = player.targetY - player.y;
+        const drift = Math.sqrt(dx * dx + dy * dy);
+        if (drift > 20) {
+          // Apply gentle correction when drifted more than 20 pixels
+          const correction = Math.min(0.15, drift / 200);
+          player.x += dx * correction;
+          player.y += dy * correction;
+        }
       } else {
         const elapsed = timestamp - player.interpStartTime;
         const t = Math.min(1, elapsed / GameEngine.INTERP_DURATION);

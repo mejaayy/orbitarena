@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,8 @@ interface Transaction {
 export default function Lobby() {
   const [nickname, setNickname] = useState('');
   const [isStakeMode, setIsStakeMode] = useState(false);
+  const mountTimeRef = useRef(Date.now());
+  const inputRef = useRef<HTMLInputElement>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [serverStatus, setServerStatus] = useState<{ playerCount: number; maxPlayers: number; roomCount: number } | null>(null);
@@ -291,7 +293,15 @@ export default function Lobby() {
                 data-testid="input-nickname"
                 placeholder="Enter your handle..."
                 value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Block 'q' characters for 500ms after mount (from holding Q to leave game)
+                  if (Date.now() - mountTimeRef.current < 500) {
+                    setNickname(value.replace(/[qQ]/g, ''));
+                  } else {
+                    setNickname(value);
+                  }
+                }}
                 className="bg-black/20 border-white/10 h-12 text-lg font-medium focus-visible:ring-primary/50 transition-all hover:border-white/20"
                 autoFocus
                 autoComplete="off"
