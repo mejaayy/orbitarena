@@ -22,6 +22,7 @@ interface InterpolatedPlayer extends Player {
   targetX: number;
   targetY: number;
   interpStartTime: number;
+  trail: { x: number; y: number }[];
 }
 
 export interface Food {
@@ -284,7 +285,8 @@ export class GameEngine {
           prevY: p.y,
           targetX: p.x,
           targetY: p.y,
-          interpStartTime: now
+          interpStartTime: now,
+          trail: []
         });
       }
     });
@@ -394,6 +396,9 @@ export class GameEngine {
 
   private updateInterpolation(timestamp: number, dt: number) {
     this.players.forEach(player => {
+      const prevX = player.x;
+      const prevY = player.y;
+      
       if (player.id === this.localPlayerId) {
         const input = this.localInputVector;
         const length = Math.sqrt(input.x * input.x + input.y * input.y);
@@ -428,6 +433,16 @@ export class GameEngine {
         
         player.x = player.prevX + (player.targetX - player.prevX) * smoothT;
         player.y = player.prevY + (player.targetY - player.prevY) * smoothT;
+      }
+      
+      // Update trail - add position if moved enough
+      const movedX = player.x - prevX;
+      const movedY = player.y - prevY;
+      if (movedX * movedX + movedY * movedY > 4) {
+        player.trail.push({ x: player.x, y: player.y });
+        if (player.trail.length > 8) {
+          player.trail.shift();
+        }
       }
     });
   }
@@ -477,6 +492,7 @@ export class GameEngine {
       if (player.x + player.radius < viewLeft || player.x - player.radius > viewRight || 
           player.y + player.radius < viewTop || player.y - player.radius > viewBottom) return;
 
+      this.drawTrail(player);
       this.drawPlayer(player);
     });
 
@@ -570,6 +586,32 @@ export class GameEngine {
     
     // Return black for light colors, white for dark colors
     return luminance > 0.5 ? '#000000' : '#FFFFFF';
+  }
+
+  drawTrail(player: InterpolatedPlayer) {
+    if (player.trail.length < 2) return;
+    
+    // Draw simple fading trail using player's color
+    for (let i = 0; i < player.trail.length - 1; i++) {
+      const alpha = (i / player.trail.length) * 0.4;
+      const size = player.radius * (0.3 + (i / player.trail.length) * 0.5);
+      
+      this.ctx.beginPath();
+      this.ctx.arc(player.trail[i].x, player.trail[i].y, size, 0, Math.PI * 2);
+      this.ctx.fillStyle = player.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba').replace('#', '');
+      
+      // Handle hex colors
+      if (player.color.startsWith('#')) {
+        let hex = player.color.replace('#', '');
+        if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+      
+      this.ctx.fill();
+    }
   }
 
   drawPlayer(player: Player) {
