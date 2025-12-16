@@ -254,9 +254,9 @@ class GameRoom {
         const speedFactor = Math.max(0.5, 1 - (player.radius / 200));
         let speed = MAX_SPEED * speedFactor;
         
-        // Apply 30% speed boost when boosting
+        // Apply 60% speed boost when boosting
         if (canBoost) {
-          speed *= 1.3;
+          speed *= 1.6;
         }
         
         player.velocity.x = (inputVector.x / length) * speed;
