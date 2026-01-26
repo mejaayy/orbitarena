@@ -102,6 +102,8 @@ export class GameEngine {
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
+    // Disable smoothing for crisp rendering
+    this.ctx.imageSmoothingEnabled = false;
     this.onGameOver = onGameOver;
     this.onUpdateStats = onUpdateStats;
 
@@ -494,20 +496,24 @@ export class GameEngine {
       if (food.x < viewLeft || food.x > viewRight || food.y < viewTop || food.y > viewBottom) return;
 
       this.ctx.fillStyle = food.color;
-      this.ctx.beginPath();
+      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+      this.ctx.lineWidth = 1.5;
       
       if (food.shape === 'square') {
         // Draw square centered at food position
         const size = food.radius * 1.5;
         this.ctx.fillRect(food.x - size / 2, food.y - size / 2, size, size);
+        this.ctx.strokeRect(food.x - size / 2, food.y - size / 2, size, size);
       } else {
         // Draw triangle centered at food position
         const size = food.radius * 1.8;
+        this.ctx.beginPath();
         this.ctx.moveTo(food.x, food.y - size / 2);
         this.ctx.lineTo(food.x + size / 2, food.y + size / 2);
         this.ctx.lineTo(food.x - size / 2, food.y + size / 2);
         this.ctx.closePath();
         this.ctx.fill();
+        this.ctx.stroke();
       }
     });
 
@@ -674,17 +680,13 @@ export class GameEngine {
     this.ctx.beginPath();
     this.ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
     
-    if (player.id === this.localPlayerId) {
-       this.ctx.shadowBlur = 15;
-       this.ctx.shadowColor = player.color;
-    } else {
-       this.ctx.shadowBlur = 0;
-    }
-    
     this.ctx.fillStyle = player.color;
     this.ctx.fill();
     
-    this.ctx.shadowBlur = 0;
+    // Add crisp outline
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
     
     // Get local player for comparison
     const localPlayer = this.players.get(this.localPlayerId!);
