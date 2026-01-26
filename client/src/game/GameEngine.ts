@@ -32,7 +32,7 @@ export interface Food {
   radius: number;
   color: string;
   value: number;
-  shape: 'square' | 'triangle';
+  shape: 'square' | 'triangle' | 'pentagon';
 }
 
 interface ServerState {
@@ -514,6 +514,19 @@ export class GameEngine {
         // Draw square centered at food position
         const size = food.radius * 1.5;
         this.ctx.fillRect(food.x - size / 2, food.y - size / 2, size, size);
+      } else if (food.shape === 'pentagon') {
+        // Draw pentagon centered at food position
+        const size = food.radius * 1.6;
+        this.ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+          const angle = (i * 2 * Math.PI / 5) - Math.PI / 2;
+          const px = food.x + size * Math.cos(angle);
+          const py = food.y + size * Math.sin(angle);
+          if (i === 0) this.ctx.moveTo(px, py);
+          else this.ctx.lineTo(px, py);
+        }
+        this.ctx.closePath();
+        this.ctx.fill();
       } else {
         // Draw triangle centered at food position
         const size = food.radius * 1.8;

@@ -33,7 +33,7 @@ interface Food {
   radius: number;
   color: string;
   value: number;
-  shape: 'square' | 'triangle';
+  shape: 'square' | 'triangle' | 'pentagon';
 }
 
 interface GameState {
@@ -94,32 +94,62 @@ class GameRoom {
   }
 
   protected initFood() {
+    // Distribution: 50% triangles, 30% squares, 20% pentagons
+    const triangleCount = Math.floor(FOOD_COUNT * 0.5);  // 188
+    const squareCount = Math.floor(FOOD_COUNT * 0.3);    // 112
+    const pentagonCount = FOOD_COUNT - triangleCount - squareCount; // 75
+    
     // Use grid-based spawning for even distribution
     const gridSize = Math.ceil(Math.sqrt(FOOD_COUNT));
     const cellSize = WORLD_SIZE / gridSize;
     let count = 0;
     
+    // Create ordered list of shapes for even distribution
+    const shapes: ('triangle' | 'square' | 'pentagon')[] = [];
+    for (let i = 0; i < triangleCount; i++) shapes.push('triangle');
+    for (let i = 0; i < squareCount; i++) shapes.push('square');
+    for (let i = 0; i < pentagonCount; i++) shapes.push('pentagon');
+    
+    // Shuffle for random but even distribution
+    for (let i = shapes.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shapes[i], shapes[j]] = [shapes[j], shapes[i]];
+    }
+    
     for (let row = 0; row < gridSize && count < FOOD_COUNT; row++) {
       for (let col = 0; col < gridSize && count < FOOD_COUNT; col++) {
-        // Random position within the grid cell
         const x = col * cellSize + Math.random() * cellSize;
         const y = row * cellSize + Math.random() * cellSize;
-        // Alternate between squares and triangles for balance
-        const isSquare = (row + col) % 2 === 0;
-        this.spawnFoodAt(x, y, isSquare ? 'square' : 'triangle', false);
+        this.spawnFoodAt(x, y, shapes[count], false);
         count++;
       }
     }
   }
 
-  protected spawnFoodAt(x: number, y: number, shape: 'square' | 'triangle', trackDelta: boolean = true): Food {
+  protected spawnFoodAt(x: number, y: number, shape: 'square' | 'triangle' | 'pentagon', trackDelta: boolean = true): Food {
+    let radius: number, color: string, value: number;
+    
+    if (shape === 'pentagon') {
+      radius = 7;
+      color = '#60a5fa'; // Blue
+      value = 5;
+    } else if (shape === 'square') {
+      radius = 8;
+      color = '#4ade80'; // Green
+      value = 4;
+    } else {
+      radius = 6;
+      color = '#f472b6'; // Pink
+      value = 3;
+    }
+    
     const food: Food = {
       id: `food-${Math.random().toString(36).substr(2, 9)}`,
       x,
       y,
-      radius: shape === 'square' ? 8 : 6,
-      color: shape === 'square' ? '#4ade80' : '#f472b6',
-      value: shape === 'square' ? 4 : 3,
+      radius,
+      color,
+      value,
       shape
     };
     this.gameState.foods.push(food);
@@ -129,8 +159,20 @@ class GameRoom {
     return food;
   }
 
+  protected spawnFoodOfType(shape: 'square' | 'triangle' | 'pentagon', trackDelta: boolean = true): Food {
+    const x = Math.random() * WORLD_SIZE;
+    const y = Math.random() * WORLD_SIZE;
+    return this.spawnFoodAt(x, y, shape, trackDelta);
+  }
+
   protected spawnFood(trackDelta: boolean = true): Food {
-    const shape: 'square' | 'triangle' = Math.random() < 0.5 ? 'square' : 'triangle';
+    // Random spawn maintains distribution: 50% triangle, 30% square, 20% pentagon
+    const rand = Math.random();
+    let shape: 'square' | 'triangle' | 'pentagon';
+    if (rand < 0.5) shape = 'triangle';
+    else if (rand < 0.8) shape = 'square';
+    else shape = 'pentagon';
+    
     const x = Math.random() * WORLD_SIZE;
     const y = Math.random() * WORLD_SIZE;
     return this.spawnFoodAt(x, y, shape, trackDelta);
@@ -340,10 +382,11 @@ class GameRoom {
 
         // More forgiving collision - player just needs to touch the food
         if (dist < player.radius) {
+          const eatenShape = food.shape;
           this.eatenFoodIds.push(food.id);
           this.gameState.foods.splice(i, 1);
           this.growPlayer(player, food.value);
-          this.spawnFood();
+          this.spawnFoodOfType(eatenShape);
         }
       }
     });
