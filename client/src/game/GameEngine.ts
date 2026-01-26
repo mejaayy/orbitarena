@@ -646,15 +646,30 @@ export class GameEngine {
     
     this.ctx.shadowBlur = 0;
     
-    // Use contrasting color for text
-    const textColor = this.getContrastColor(player.color);
-    this.ctx.fillStyle = textColor;
+    // Get local player for comparison
+    const localPlayer = this.players.get(this.localPlayerId!);
+    
+    // Determine name color based on relative mass
+    let textColor: string;
+    if (player.id === this.localPlayerId) {
+      textColor = '#FFFFFF';
+    } else if (localPlayer) {
+      if (player.score > localPlayer.score) {
+        textColor = '#FF4444'; // Red - bigger than you (danger)
+      } else {
+        textColor = '#44FF44'; // Green - smaller than you (safe to eat)
+      }
+    } else {
+      textColor = '#FFFFFF';
+    }
     
     const fontSize = Math.max(12, player.radius * 0.35);
     this.ctx.font = `bold ${fontSize}px Outfit`;
     this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
+    this.ctx.textBaseline = 'top';
     
-    this.ctx.fillText(player.name, player.x, player.y);
+    // Draw name below the player
+    this.ctx.fillStyle = textColor;
+    this.ctx.fillText(player.name, player.x, player.y + player.radius + 5);
   }
 }
