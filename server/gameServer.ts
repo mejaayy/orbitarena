@@ -311,7 +311,8 @@ class GameRoom {
         const dy = player.y - food.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist < player.radius + food.radius) {
+        // More forgiving collision - player just needs to touch the food
+        if (dist < player.radius) {
           this.eatenFoodIds.push(food.id);
           this.gameState.foods.splice(i, 1);
           this.growPlayer(player, food.value);
