@@ -1,28 +1,42 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Card } from '@/components/ui/card';
 
 interface LeaderboardProps {
-  players: any[]; // Simplified for now
+  players: any[];
+  localPlayerId: string | null;
+  timeRemaining?: number;
 }
 
-export const Leaderboard: React.FC<LeaderboardProps> = ({ players }) => {
-  // Mock data or real data from engine
-  // Since engine runs on animation loop and React on state, we might need to sync
-  // For prototype, we can poll engine or pass data via onUpdateStats
+export const Leaderboard: React.FC<LeaderboardProps> = ({ players, localPlayerId, timeRemaining }) => {
+  // Calculate your rank (1-indexed)
+  const yourRank = players.findIndex(p => p.id === localPlayerId) + 1;
+  const aliveCount = players.length;
+  
+  // Format time remaining
+  const formatTime = (ms?: number) => {
+    if (ms === undefined || ms <= 0) return '--:--';
+    const totalSeconds = Math.ceil(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
   
   return (
-    <Card className="absolute top-[180px] left-4 w-40 bg-black/40 backdrop-blur-md border-white/5 p-2 text-white pointer-events-none select-none">
-      <h3 className="font-bold text-[10px] text-gray-500 mb-1 uppercase tracking-wider">Leaderboard</h3>
-      <ul className="space-y-0.5 text-xs font-medium">
-        {players.slice(0, 5).map((p, i) => (
-          <li key={p.id} className="flex justify-between items-center">
-            <span className={`truncate max-w-[80px] ${i === 0 ? "text-yellow-400" : "text-gray-300"}`}>
-              {i+1}. {p.name}
-            </span>
-            <span className="text-gray-600 text-[10px]">{Math.floor(p.score)}</span>
-          </li>
-        ))}
-      </ul>
+    <Card className="absolute top-[180px] left-4 w-36 bg-black/40 backdrop-blur-md border-white/5 p-3 text-white pointer-events-none select-none">
+      <div className="space-y-2 text-sm font-medium">
+        <div className="flex justify-between items-center">
+          <span className="text-gray-400">You:</span>
+          <span className="text-yellow-400 font-bold">#{yourRank || '--'}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-400">Alive:</span>
+          <span className="text-green-400 font-bold">{aliveCount}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-400">Time left:</span>
+          <span className="text-cyan-400 font-bold">{formatTime(timeRemaining)}</span>
+        </div>
+      </div>
     </Card>
   );
 };
