@@ -322,8 +322,19 @@ export class GameEngine {
   }
 
   handleResize = () => {
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
+    const dpr = window.devicePixelRatio || 1;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    
+    // Set canvas size accounting for device pixel ratio for crisp rendering
+    this.canvas.width = width * dpr;
+    this.canvas.height = height * dpr;
+    this.canvas.style.width = `${width}px`;
+    this.canvas.style.height = `${height}px`;
+    
+    // Scale context to match DPR
+    this.ctx.scale(dpr, dpr);
+    this.ctx.imageSmoothingEnabled = false;
   };
 
   start(playerName: string, isStakeMode: boolean, walletAddress?: string, playerColor?: string) {
@@ -471,7 +482,9 @@ export class GameEngine {
   }
 
   render() {
-    const { width, height } = this.canvas;
+    // Use CSS dimensions (not canvas.width which includes DPR scaling)
+    const width = window.innerWidth;
+    const height = window.innerHeight;
     const cx = width / 2;
     const cy = height / 2;
 
@@ -564,7 +577,8 @@ export class GameEngine {
   }
 
   drawGrid() {
-    const { width, height } = this.canvas;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
     const cx = width / 2;
     const cy = height / 2;
     
