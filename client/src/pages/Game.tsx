@@ -278,7 +278,7 @@ export default function Game() {
         )}
       </div>
 
-      {!isInLobby && <Leaderboard players={leaderboard} localPlayerId={engine?.localPlayerId || null} timeRemaining={roundStatus?.timeRemaining} />}
+      {!isInLobby && <Leaderboard players={leaderboard} localPlayerId={engine?.localPlayerId || null} timeRemaining={roundStatus?.timeRemaining} isStakeMode={isStakeMode} />}
       {!isSpectating && !isInLobby && <Joystick engine={engine} />}
 
       <Dialog open={!!gameOverStats} onOpenChange={() => {}}>

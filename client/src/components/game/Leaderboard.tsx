@@ -5,9 +5,10 @@ interface LeaderboardProps {
   players: any[];
   localPlayerId: string | null;
   timeRemaining?: number;
+  isStakeMode?: boolean;
 }
 
-export const Leaderboard: React.FC<LeaderboardProps> = ({ players, localPlayerId, timeRemaining }) => {
+export const Leaderboard: React.FC<LeaderboardProps> = ({ players, localPlayerId, timeRemaining, isStakeMode }) => {
   // Calculate your rank (1-indexed)
   const yourRank = players.findIndex(p => p.id === localPlayerId) + 1;
   const aliveCount = players.length;
@@ -32,10 +33,12 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ players, localPlayerId
           <span className="text-gray-400">Alive:</span>
           <span className="text-green-400 font-bold">{aliveCount}</span>
         </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-400">Time left:</span>
-          <span className="text-cyan-400 font-bold">{formatTime(timeRemaining)}</span>
-        </div>
+        {isStakeMode && (
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400">Time left:</span>
+            <span className="text-cyan-400 font-bold">{formatTime(timeRemaining)}</span>
+          </div>
+        )}
       </div>
     </Card>
   );
