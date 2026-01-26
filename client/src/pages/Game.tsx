@@ -112,34 +112,19 @@ export default function Game() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'q' || e.key === 'Q') {
+      if ((e.key === 'q' || e.key === 'Q') && !isStakeMode && !gameOverStats && !roundEndData) {
         e.preventDefault();
-        if (!isHoldingQRef.current && !gameOverStats && !roundEndData) {
-          isHoldingQRef.current = true;
-          handleLeaveStart();
-        }
-      }
-    };
-    
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'q' || e.key === 'Q') {
-        e.preventDefault();
-        isHoldingQRef.current = false;
-        handleLeaveEnd();
+        engine?.sendLeave();
+        setLocation('/');
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
     
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      if (leaveTimerRef.current) {
-        clearInterval(leaveTimerRef.current);
-      }
     };
-  }, [handleLeaveStart, handleLeaveEnd, gameOverStats, roundEndData]);
+  }, [engine, setLocation, isStakeMode, gameOverStats, roundEndData]);
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.ceil(ms / 1000);
@@ -243,38 +228,19 @@ export default function Game() {
         )}
         
         {!isStakeMode && (
-          <>
-            <div className="relative overflow-hidden rounded-md">
-              <Button
-                variant="outline"
-                size="sm"
-                className={`gap-2 border-destructive/50 text-destructive hover:bg-destructive/20 transition-all relative z-10`}
-                onMouseDown={handleLeaveStart}
-                onMouseUp={handleLeaveEnd}
-                onMouseLeave={handleLeaveEnd}
-                onTouchStart={handleLeaveStart}
-                onTouchEnd={handleLeaveEnd}
-                data-testid="button-leave"
-              >
-                <LogOut className="w-4 h-4" />
-                {isHoldingLeave ? 'Leaving...' : 'Hold to Leave (Q)'}
-              </Button>
-              <div 
-                className="absolute inset-0 bg-destructive/40 transition-all duration-75 ease-linear" 
-                style={{ 
-                  width: `${leaveProgress * 100}%`,
-                  opacity: isHoldingLeave ? 1 : 0
-                }} 
-              />
-            </div>
-            
-            {leaveError && (
-              <div className="flex items-center gap-1 text-xs text-destructive bg-destructive/10 px-2 py-1 rounded">
-                <AlertCircle className="w-3 h-3" />
-                {leaveError}
-              </div>
-            )}
-          </>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 border-destructive/50 text-destructive hover:bg-destructive/20"
+            onClick={() => {
+              engine?.sendLeave();
+              setLocation('/');
+            }}
+            data-testid="button-leave"
+          >
+            <LogOut className="w-4 h-4" />
+            Leave (Q)
+          </Button>
         )}
       </div>
 

@@ -119,7 +119,7 @@ class GameRoom {
       y,
       radius: shape === 'square' ? 8 : 6,
       color: shape === 'square' ? '#4ade80' : '#f472b6',
-      value: shape === 'square' ? 6 : 4,
+      value: shape === 'square' ? 4 : 3,
       shape
     };
     this.gameState.foods.push(food);
