@@ -33,6 +33,7 @@ interface Food {
   radius: number;
   color: string;
   value: number;
+  shape: 'square' | 'triangle';
 }
 
 interface GameState {
@@ -93,25 +94,46 @@ class GameRoom {
   }
 
   protected initFood() {
-    for (let i = 0; i < FOOD_COUNT; i++) {
-      this.spawnFood(false);
+    // Use grid-based spawning for even distribution
+    const gridSize = Math.ceil(Math.sqrt(FOOD_COUNT));
+    const cellSize = WORLD_SIZE / gridSize;
+    let count = 0;
+    
+    for (let row = 0; row < gridSize && count < FOOD_COUNT; row++) {
+      for (let col = 0; col < gridSize && count < FOOD_COUNT; col++) {
+        // Random position within the grid cell
+        const x = col * cellSize + Math.random() * cellSize;
+        const y = row * cellSize + Math.random() * cellSize;
+        // Alternate between squares and triangles for balance
+        const isSquare = (row + col) % 2 === 0;
+        this.spawnFoodAt(x, y, isSquare ? 'square' : 'triangle', false);
+        count++;
+      }
     }
   }
 
-  protected spawnFood(trackDelta: boolean = true): Food {
+  protected spawnFoodAt(x: number, y: number, shape: 'square' | 'triangle', trackDelta: boolean = true): Food {
     const food: Food = {
       id: `food-${Math.random().toString(36).substr(2, 9)}`,
-      x: Math.random() * WORLD_SIZE,
-      y: Math.random() * WORLD_SIZE,
-      radius: 4 + Math.random() * 4,
-      color: `hsl(${Math.random() * 360}, 60%, 50%)`,
-      value: 5
+      x,
+      y,
+      radius: shape === 'square' ? 8 : 6,
+      color: shape === 'square' ? '#4ade80' : '#f472b6',
+      value: shape === 'square' ? 6 : 4,
+      shape
     };
     this.gameState.foods.push(food);
     if (trackDelta) {
       this.spawnedFoods.push(food);
     }
     return food;
+  }
+
+  protected spawnFood(trackDelta: boolean = true): Food {
+    const shape: 'square' | 'triangle' = Math.random() < 0.5 ? 'square' : 'triangle';
+    const x = Math.random() * WORLD_SIZE;
+    const y = Math.random() * WORLD_SIZE;
+    return this.spawnFoodAt(x, y, shape, trackDelta);
   }
 
   protected startGameLoop() {
@@ -291,7 +313,8 @@ class GameRoom {
             y: player.y - player.velocity.y * 10,
             radius: 6,
             color: '#888888',
-            value: 3
+            value: 3,
+            shape: 'triangle'
           };
           this.gameState.foods.push(boostOrb);
           this.spawnedFoods.push(boostOrb);

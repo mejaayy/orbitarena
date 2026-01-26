@@ -32,6 +32,7 @@ export interface Food {
   radius: number;
   color: string;
   value: number;
+  shape: 'square' | 'triangle';
 }
 
 interface ServerState {
@@ -492,10 +493,22 @@ export class GameEngine {
     this.foods.forEach(food => {
       if (food.x < viewLeft || food.x > viewRight || food.y < viewTop || food.y > viewBottom) return;
 
-      this.ctx.beginPath();
-      this.ctx.arc(food.x, food.y, food.radius, 0, Math.PI * 2);
       this.ctx.fillStyle = food.color;
-      this.ctx.fill();
+      this.ctx.beginPath();
+      
+      if (food.shape === 'square') {
+        // Draw square centered at food position
+        const size = food.radius * 1.5;
+        this.ctx.fillRect(food.x - size / 2, food.y - size / 2, size, size);
+      } else {
+        // Draw triangle centered at food position
+        const size = food.radius * 1.8;
+        this.ctx.moveTo(food.x, food.y - size / 2);
+        this.ctx.lineTo(food.x + size / 2, food.y + size / 2);
+        this.ctx.lineTo(food.x - size / 2, food.y + size / 2);
+        this.ctx.closePath();
+        this.ctx.fill();
+      }
     });
 
     const sortedPlayers = Array.from(this.players.values()).sort((a, b) => a.radius - b.radius);
