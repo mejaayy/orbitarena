@@ -555,41 +555,47 @@ export class GameEngine {
     const viewTop = this.camera.y - (cy / this.baseZoom) - viewPadding;
     const viewBottom = this.camera.y + (cy / this.baseZoom) + viewPadding;
 
-    // Hexagon grid parameters
-    const hexRadius = 50;
-    const hexWidth = hexRadius * 2;
-    const hexHeight = Math.sqrt(3) * hexRadius;
-    const horizSpacing = hexWidth * 0.75;
-    const vertSpacing = hexHeight;
+    // Hexagon grid parameters (pointy-top hexagons for beehive pattern)
+    const hexSize = 50;
+    const hexHeight = hexSize * 2;
+    const hexWidth = Math.sqrt(3) * hexSize;
+    const vertSpacing = hexHeight * 0.75;
+    const horizSpacing = hexWidth;
 
     this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
 
     // Calculate grid bounds
-    const startCol = Math.floor(viewLeft / horizSpacing) - 1;
-    const endCol = Math.ceil(viewRight / horizSpacing) + 1;
     const startRow = Math.floor(viewTop / vertSpacing) - 1;
     const endRow = Math.ceil(viewBottom / vertSpacing) + 1;
+    const startCol = Math.floor(viewLeft / horizSpacing) - 1;
+    const endCol = Math.ceil(viewRight / horizSpacing) + 1;
 
-    // Draw hexagons
-    for (let col = startCol; col <= endCol; col++) {
-      for (let row = startRow; row <= endRow; row++) {
-        const centerX = col * horizSpacing;
-        const centerY = row * vertSpacing + (col % 2 === 0 ? 0 : vertSpacing / 2);
+    // Draw hexagons - only draw top-right 3 edges to avoid overlap
+    for (let row = startRow; row <= endRow; row++) {
+      for (let col = startCol; col <= endCol; col++) {
+        const offsetX = (row % 2 === 0) ? 0 : hexWidth / 2;
+        const centerX = col * horizSpacing + offsetX;
+        const centerY = row * vertSpacing;
         
         // Skip if outside world bounds
-        if (centerX < -hexRadius || centerX > GameEngine.WORLD_SIZE + hexRadius ||
-            centerY < -hexRadius || centerY > GameEngine.WORLD_SIZE + hexRadius) continue;
+        if (centerX < -hexSize || centerX > GameEngine.WORLD_SIZE + hexSize ||
+            centerY < -hexSize || centerY > GameEngine.WORLD_SIZE + hexSize) continue;
 
-        // Draw hexagon
-        for (let i = 0; i < 6; i++) {
-          const angle = (Math.PI / 3) * i - Math.PI / 6;
-          const nextAngle = (Math.PI / 3) * (i + 1) - Math.PI / 6;
-          const x1 = centerX + hexRadius * Math.cos(angle);
-          const y1 = centerY + hexRadius * Math.sin(angle);
-          const x2 = centerX + hexRadius * Math.cos(nextAngle);
-          const y2 = centerY + hexRadius * Math.sin(nextAngle);
+        // Draw only 3 edges per hexagon to avoid overlap (top, top-right, bottom-right)
+        const angles = [
+          -Math.PI / 2,      // top
+          -Math.PI / 6,      // top-right
+          Math.PI / 6,       // bottom-right
+          Math.PI / 2        // bottom (end point)
+        ];
+        
+        for (let i = 0; i < 3; i++) {
+          const x1 = centerX + hexSize * Math.cos(angles[i]);
+          const y1 = centerY + hexSize * Math.sin(angles[i]);
+          const x2 = centerX + hexSize * Math.cos(angles[i + 1]);
+          const y2 = centerY + hexSize * Math.sin(angles[i + 1]);
           
           this.ctx.moveTo(x1, y1);
           this.ctx.lineTo(x2, y2);
