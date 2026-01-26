@@ -271,7 +271,11 @@ class GameRoom {
       // Apply boost drain AFTER movement (0.5 points per tick = ~15 pts/sec)
       if (canBoost) {
         player.score -= 0.5;
-        player.radius = INITIAL_RADIUS + Math.sqrt(player.score) * 2;
+        // Ensure score never goes below minimum
+        if (player.score < 5) {
+          player.score = 5;
+        }
+        player.radius = INITIAL_RADIUS + Math.sqrt(Math.max(5, player.score)) * 2;
         // Stop boosting if score drops too low
         if (player.score <= 5) {
           player.isBoosting = false;
@@ -369,7 +373,11 @@ class GameRoom {
 
   protected growPlayer(player: Player, amount: number) {
     player.score += Math.floor(amount);
-    player.radius = INITIAL_RADIUS + Math.sqrt(player.score) * 2;
+    // Ensure score never goes below minimum
+    if (player.score < 5) {
+      player.score = 5;
+    }
+    player.radius = INITIAL_RADIUS + Math.sqrt(Math.max(5, player.score)) * 2;
   }
 
   protected broadcastState() {
