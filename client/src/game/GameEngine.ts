@@ -555,25 +555,46 @@ export class GameEngine {
     const viewTop = this.camera.y - (cy / this.baseZoom) - viewPadding;
     const viewBottom = this.camera.y + (cy / this.baseZoom) + viewPadding;
 
-    const gridSize = 100;
-    
-    const startX = Math.max(0, Math.floor(viewLeft / gridSize) * gridSize);
-    const startY = Math.max(0, Math.floor(viewTop / gridSize) * gridSize);
-    const endX = Math.min(GameEngine.WORLD_SIZE, Math.ceil(viewRight / gridSize) * gridSize);
-    const endY = Math.min(GameEngine.WORLD_SIZE, Math.ceil(viewBottom / gridSize) * gridSize);
+    // Hexagon grid parameters
+    const hexRadius = 50;
+    const hexWidth = hexRadius * 2;
+    const hexHeight = Math.sqrt(3) * hexRadius;
+    const horizSpacing = hexWidth * 0.75;
+    const vertSpacing = hexHeight;
 
     this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
 
-    for (let x = startX; x <= endX; x += gridSize) {
-      this.ctx.moveTo(x, Math.max(0, startY));
-      this.ctx.lineTo(x, Math.min(GameEngine.WORLD_SIZE, endY));
-    }
+    // Calculate grid bounds
+    const startCol = Math.floor(viewLeft / horizSpacing) - 1;
+    const endCol = Math.ceil(viewRight / horizSpacing) + 1;
+    const startRow = Math.floor(viewTop / vertSpacing) - 1;
+    const endRow = Math.ceil(viewBottom / vertSpacing) + 1;
 
-    for (let y = startY; y <= endY; y += gridSize) {
-      this.ctx.moveTo(Math.max(0, startX), y);
-      this.ctx.lineTo(Math.min(GameEngine.WORLD_SIZE, endX), y);
+    // Draw hexagons
+    for (let col = startCol; col <= endCol; col++) {
+      for (let row = startRow; row <= endRow; row++) {
+        const centerX = col * horizSpacing;
+        const centerY = row * vertSpacing + (col % 2 === 0 ? 0 : vertSpacing / 2);
+        
+        // Skip if outside world bounds
+        if (centerX < -hexRadius || centerX > GameEngine.WORLD_SIZE + hexRadius ||
+            centerY < -hexRadius || centerY > GameEngine.WORLD_SIZE + hexRadius) continue;
+
+        // Draw hexagon
+        for (let i = 0; i < 6; i++) {
+          const angle = (Math.PI / 3) * i - Math.PI / 6;
+          const nextAngle = (Math.PI / 3) * (i + 1) - Math.PI / 6;
+          const x1 = centerX + hexRadius * Math.cos(angle);
+          const y1 = centerY + hexRadius * Math.sin(angle);
+          const x2 = centerX + hexRadius * Math.cos(nextAngle);
+          const y2 = centerY + hexRadius * Math.sin(nextAngle);
+          
+          this.ctx.moveTo(x1, y1);
+          this.ctx.lineTo(x2, y2);
+        }
+      }
     }
     
     this.ctx.stroke();
