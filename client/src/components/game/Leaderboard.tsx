@@ -9,8 +9,10 @@ interface LeaderboardProps {
 }
 
 export const Leaderboard: React.FC<LeaderboardProps> = ({ players, localPlayerId, timeRemaining, isStakeMode }) => {
-  // Calculate your rank (1-indexed)
+  // Calculate your rank (1-indexed) and get your mass
+  const localPlayer = players.find(p => p.id === localPlayerId);
   const yourRank = players.findIndex(p => p.id === localPlayerId) + 1;
+  const yourMass = localPlayer ? Math.floor(localPlayer.score) : 0;
   const aliveCount = players.length;
   
   // Format time remaining
@@ -27,7 +29,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ players, localPlayerId
       <div className="space-y-2 text-sm font-medium">
         <div className="flex justify-between items-center">
           <span className="text-gray-400">You:</span>
-          <span className="text-yellow-400 font-bold">#{yourRank || '--'}</span>
+          <span className="text-yellow-400 font-bold">#{yourRank || '--'} ({yourMass})</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-gray-400">Alive:</span>
