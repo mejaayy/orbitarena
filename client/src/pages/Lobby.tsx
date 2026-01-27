@@ -6,9 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, History } from 'lucide-react';
+import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, History, Crown } from 'lucide-react';
 import solanaLogo from '@assets/generated_images/solana_crypto_coin_logo_icon.png';
 import { connectPhantom, disconnectPhantom, isPhantomInstalled, getConnectedWallet, shortenAddress, ENTRY_FEE_USDC, getUSDCBalance } from '@/lib/phantom';
+
+interface WeeklyPlayer {
+  name: string;
+  earnedUsd: string;
+}
 
 interface InternalBalance {
   availableCents: number;
@@ -51,6 +56,7 @@ export default function Lobby() {
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [weeklyLeaderboard, setWeeklyLeaderboard] = useState<WeeklyPlayer[]>([]);
   const [, setLocation] = useLocation();
 
   const AVATAR_COLORS = [
@@ -120,6 +126,21 @@ export default function Lobby() {
     };
     fetchStatus();
     const interval = setInterval(fetchStatus, 5000);
+    
+    // Fetch weekly leaderboard
+    const fetchWeeklyLeaderboard = async () => {
+      try {
+        const res = await fetch('/api/leaderboard/weekly');
+        if (res.ok) {
+          const data = await res.json();
+          setWeeklyLeaderboard(data.players || []);
+        }
+      } catch (e) {
+        console.error('Failed to fetch weekly leaderboard');
+      }
+    };
+    fetchWeeklyLeaderboard();
+    
     return () => clearInterval(interval);
   }, []);
 
@@ -262,6 +283,41 @@ export default function Lobby() {
       </div>
       
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/20 blur-[100px] rounded-full pointer-events-none animate-pulse" />
+
+      {weeklyLeaderboard.length > 0 && (
+        <div className="fixed top-4 left-4 z-20" data-testid="weekly-leaderboard">
+          <div className="bg-card/90 backdrop-blur-xl border border-white/10 rounded-lg p-4 w-64 shadow-xl">
+            <div className="flex items-center gap-2 mb-3">
+              <Crown className="w-4 h-4 text-yellow-400" />
+              <span className="text-sm font-bold text-white uppercase tracking-wide">Top Earners This Week</span>
+            </div>
+            <div className="space-y-2">
+              {weeklyLeaderboard.slice(0, 10).map((player, index) => (
+                <div 
+                  key={index}
+                  className="flex items-center justify-between text-sm"
+                  data-testid={`weekly-player-${index}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`w-5 text-center font-bold ${
+                      index === 0 ? 'text-yellow-400' : 
+                      index === 1 ? 'text-gray-300' : 
+                      index === 2 ? 'text-amber-600' : 'text-gray-500'
+                    }`}>
+                      {index + 1}
+                    </span>
+                    <span className="text-white truncate max-w-[120px]">{player.name}</span>
+                  </div>
+                  <span className="text-green-400 font-mono font-bold">${player.earnedUsd}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-500 mt-3 text-center italic">
+              Past results don't guarantee future performance
+            </p>
+          </div>
+        </div>
+      )}
 
       <Card className="w-full max-w-md bg-card/80 backdrop-blur-xl border-white/10 shadow-2xl relative z-10">
         <CardHeader className="text-center pb-2">

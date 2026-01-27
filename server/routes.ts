@@ -4,6 +4,9 @@ import { storage } from "./storage";
 import { initGameServer, getGameServer } from "./gameServer";
 import { balanceService } from "./balanceService";
 import { z } from "zod";
+import { db } from "./db";
+import { weeklyEarnings } from "@shared/schema";
+import { desc, sql, gte } from "drizzle-orm";
 
 const depositRequestSchema = z.object({
   walletAddress: z.string().min(32),
@@ -185,6 +188,38 @@ export async function registerRoutes(
           availableCents: balance.available,
           availableUsd: (balance.available / 100).toFixed(2),
         }
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get weekly top players leaderboard
+  app.get("/api/leaderboard/weekly", async (req, res) => {
+    try {
+      // Get start of current week (Sunday)
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - dayOfWeek);
+      weekStart.setHours(0, 0, 0, 0);
+
+      const topPlayers = await db
+        .select({
+          playerName: weeklyEarnings.playerName,
+          earnedCents: weeklyEarnings.earnedCents,
+        })
+        .from(weeklyEarnings)
+        .where(gte(weeklyEarnings.weekStart, weekStart))
+        .orderBy(desc(weeklyEarnings.earnedCents))
+        .limit(10);
+
+      res.json({
+        weekStart: weekStart.toISOString(),
+        players: topPlayers.map(p => ({
+          name: p.playerName,
+          earnedUsd: (p.earnedCents / 100).toFixed(2),
+        })),
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });

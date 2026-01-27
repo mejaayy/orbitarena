@@ -57,3 +57,14 @@ export const insertBalanceTransactionSchema = createInsertSchema(balanceTransact
 
 export type InsertBalanceTransaction = z.infer<typeof insertBalanceTransactionSchema>;
 export type BalanceTransaction = typeof balanceTransactions.$inferSelect;
+
+export const weeklyEarnings = pgTable("weekly_earnings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: varchar("wallet_address").notNull(),
+  playerName: varchar("player_name").notNull(),
+  weekStart: timestamp("week_start").notNull(),
+  earnedCents: integer("earned_cents").notNull().default(0),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type WeeklyEarning = typeof weeklyEarnings.$inferSelect;

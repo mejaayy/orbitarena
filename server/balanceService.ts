@@ -1,6 +1,6 @@
 import { db } from "./db";
-import { playerBalances, balanceTransactions, type TransactionType } from "@shared/schema";
-import { eq, sql } from "drizzle-orm";
+import { playerBalances, balanceTransactions, weeklyEarnings, type TransactionType } from "@shared/schema";
+import { eq, sql, and, gte } from "drizzle-orm";
 
 const ENTRY_FEE_CENTS = 100;
 const PLATFORM_FEE_CENTS = 10;
@@ -303,6 +303,9 @@ class BalanceService {
 
           if (prizeCents > 0) {
             log(`Prize payout: ${prizeCents} cents to ${standing.walletAddress.slice(0, 8)}... (rank ${standing.rank})`);
+            
+            // Record weekly earnings
+            await this.recordWeeklyEarning(standing.walletAddress, standing.name, prizeCents, tx);
           } else {
             log(`Entry fee consumed for ${standing.walletAddress.slice(0, 8)}... (rank ${standing.rank})`);
           }
@@ -387,6 +390,45 @@ class BalanceService {
       third: PRIZE_3RD_CENTS,
       contribution: PRIZE_CONTRIBUTION_CENTS,
     };
+  }
+
+  async recordWeeklyEarning(walletAddress: string, playerName: string, earnedCents: number, txn?: any) {
+    const dbInstance = txn || db;
+    
+    // Get start of current week (Sunday)
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - dayOfWeek);
+    weekStart.setHours(0, 0, 0, 0);
+
+    // Check if record exists for this wallet this week
+    const existing = await dbInstance.query.weeklyEarnings.findFirst({
+      where: and(
+        eq(weeklyEarnings.walletAddress, walletAddress),
+        gte(weeklyEarnings.weekStart, weekStart)
+      ),
+    });
+
+    if (existing) {
+      // Update existing record
+      await dbInstance
+        .update(weeklyEarnings)
+        .set({
+          earnedCents: sql`${weeklyEarnings.earnedCents} + ${earnedCents}`,
+          playerName: playerName,
+          updatedAt: new Date(),
+        })
+        .where(eq(weeklyEarnings.id, existing.id));
+    } else {
+      // Insert new record
+      await dbInstance.insert(weeklyEarnings).values({
+        walletAddress,
+        playerName,
+        weekStart,
+        earnedCents,
+      });
+    }
   }
 }
 
