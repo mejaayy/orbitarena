@@ -68,3 +68,33 @@ export const weeklyEarnings = pgTable("weekly_earnings", {
 });
 
 export type WeeklyEarning = typeof weeklyEarnings.$inferSelect;
+
+export const bannedWallets = pgTable("banned_wallets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: varchar("wallet_address").notNull().unique(),
+  reason: varchar("reason"),
+  bannedAt: timestamp("banned_at").notNull().defaultNow(),
+});
+
+export type BannedWallet = typeof bannedWallets.$inferSelect;
+
+export const adminSettings = pgTable("admin_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: varchar("key").notNull().unique(),
+  value: jsonb("value"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type AdminSetting = typeof adminSettings.$inferSelect;
+
+export const winStreaks = pgTable("win_streaks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: varchar("wallet_address").notNull().unique(),
+  playerName: varchar("player_name").notNull(),
+  currentStreak: integer("current_streak").notNull().default(0),
+  alertCount: integer("alert_count").notNull().default(0),
+  lastWinAt: timestamp("last_win_at"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type WinStreak = typeof winStreaks.$inferSelect;

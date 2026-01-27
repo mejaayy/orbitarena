@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { playerBalances, balanceTransactions, weeklyEarnings, type TransactionType } from "@shared/schema";
+import { playerBalances, balanceTransactions, weeklyEarnings, winStreaks, type TransactionType } from "@shared/schema";
 import { eq, sql, and, gte } from "drizzle-orm";
 
 const ENTRY_FEE_CENTS = 100;
@@ -306,8 +306,15 @@ class BalanceService {
             
             // Record weekly earnings
             await this.recordWeeklyEarning(standing.walletAddress, standing.name, prizeCents, tx);
+            
+            // Track win streaks for 1st place wins
+            if (standing.rank === 1) {
+              await this.recordWinStreak(standing.walletAddress, standing.name, tx);
+            }
           } else {
             log(`Entry fee consumed for ${standing.walletAddress.slice(0, 8)}... (rank ${standing.rank})`);
+            // Reset win streak for non-winners
+            await this.resetWinStreak(standing.walletAddress, tx);
           }
         }
 
@@ -429,6 +436,54 @@ class BalanceService {
         earnedCents,
       });
     }
+  }
+
+  async recordWinStreak(walletAddress: string, playerName: string, txn?: any) {
+    const dbInstance = txn || db;
+    
+    const existing = await dbInstance.query.winStreaks.findFirst({
+      where: eq(winStreaks.walletAddress, walletAddress),
+    });
+
+    if (existing) {
+      const newStreak = existing.currentStreak + 1;
+      const newAlertCount = newStreak >= 5 ? existing.alertCount + 1 : existing.alertCount;
+      
+      await dbInstance
+        .update(winStreaks)
+        .set({
+          currentStreak: newStreak,
+          alertCount: newAlertCount,
+          playerName: playerName,
+          lastWinAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(winStreaks.id, existing.id));
+      
+      if (newStreak >= 5) {
+        log(`ALERT: ${playerName} (${walletAddress.slice(0, 8)}...) has ${newStreak} wins in a row! Alert count: ${newAlertCount}`, 'alert');
+      }
+    } else {
+      await dbInstance.insert(winStreaks).values({
+        walletAddress,
+        playerName,
+        currentStreak: 1,
+        alertCount: 0,
+        lastWinAt: new Date(),
+      });
+    }
+  }
+
+  async resetWinStreak(walletAddress: string, txn?: any) {
+    const dbInstance = txn || db;
+    
+    await dbInstance
+      .update(winStreaks)
+      .set({
+        currentStreak: 0,
+        updatedAt: new Date(),
+      })
+      .where(eq(winStreaks.walletAddress, walletAddress));
   }
 }
 

@@ -5,8 +5,8 @@ import { initGameServer, getGameServer } from "./gameServer";
 import { balanceService } from "./balanceService";
 import { z } from "zod";
 import { db } from "./db";
-import { weeklyEarnings } from "@shared/schema";
-import { desc, sql, gte } from "drizzle-orm";
+import { weeklyEarnings, bannedWallets, adminSettings, winStreaks } from "@shared/schema";
+import { desc, sql, gte, eq } from "drizzle-orm";
 
 const depositRequestSchema = z.object({
   walletAddress: z.string().min(32),
@@ -221,6 +221,132 @@ export async function registerRoutes(
           earnedUsd: (p.earnedCents / 100).toFixed(2),
         })),
       });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Get banned wallets
+  app.get("/api/admin/banned", async (req, res) => {
+    try {
+      const banned = await db.select().from(bannedWallets).orderBy(desc(bannedWallets.bannedAt));
+      res.json({ wallets: banned });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Ban a wallet
+  app.post("/api/admin/ban", async (req, res) => {
+    try {
+      const { walletAddress, reason } = req.body;
+      if (!walletAddress || walletAddress.length < 32) {
+        return res.status(400).json({ error: "Invalid wallet address" });
+      }
+
+      await db.insert(bannedWallets)
+        .values({ walletAddress, reason: reason || "Banned by admin" })
+        .onConflictDoNothing();
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Unban a wallet
+  app.post("/api/admin/unban", async (req, res) => {
+    try {
+      const { walletAddress } = req.body;
+      await db.delete(bannedWallets).where(eq(bannedWallets.walletAddress, walletAddress));
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Check if wallet is banned
+  app.get("/api/admin/banned/:walletAddress", async (req, res) => {
+    try {
+      const { walletAddress } = req.params;
+      const banned = await db.query.bannedWallets.findFirst({
+        where: eq(bannedWallets.walletAddress, walletAddress),
+      });
+      res.json({ banned: !!banned });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Get leaderboard settings
+  app.get("/api/admin/settings", async (req, res) => {
+    try {
+      const settings = await db.select().from(adminSettings);
+      const settingsMap: Record<string, any> = {};
+      for (const s of settings) {
+        settingsMap[s.key] = s.value;
+      }
+      res.json(settingsMap);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Update setting
+  app.post("/api/admin/settings", async (req, res) => {
+    try {
+      const { key, value } = req.body;
+      await db.insert(adminSettings)
+        .values({ key, value, updatedAt: new Date() })
+        .onConflictDoUpdate({
+          target: adminSettings.key,
+          set: { value, updatedAt: new Date() },
+        });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Reset leaderboard
+  app.post("/api/admin/leaderboard/reset", async (req, res) => {
+    try {
+      await db.delete(weeklyEarnings);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Get win streak alerts
+  app.get("/api/admin/alerts", async (req, res) => {
+    try {
+      const alerts = await db
+        .select()
+        .from(winStreaks)
+        .where(gte(winStreaks.currentStreak, 5))
+        .orderBy(desc(winStreaks.currentStreak));
+      
+      res.json({
+        alerts: alerts.map(a => ({
+          walletAddress: a.walletAddress,
+          playerName: a.playerName,
+          streak: a.currentStreak,
+          alertCount: a.alertCount,
+          lastWinAt: a.lastWinAt,
+          isCritical: a.alertCount >= 2,
+        })),
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Clear alerts
+  app.post("/api/admin/alerts/clear", async (req, res) => {
+    try {
+      await db.update(winStreaks).set({ currentStreak: 0 });
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
