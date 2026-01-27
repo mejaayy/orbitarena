@@ -206,6 +206,7 @@ export async function registerRoutes(
 
       const topPlayers = await db
         .select({
+          walletAddress: weeklyEarnings.walletAddress,
           playerName: weeklyEarnings.playerName,
           earnedCents: weeklyEarnings.earnedCents,
         })
@@ -217,6 +218,7 @@ export async function registerRoutes(
       res.json({
         weekStart: weekStart.toISOString(),
         players: topPlayers.map(p => ({
+          wallet: p.walletAddress,
           name: p.playerName,
           earnedUsd: (p.earnedCents / 100).toFixed(2),
         })),

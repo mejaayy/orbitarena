@@ -12,20 +12,20 @@ import { connectPhantom, disconnectPhantom, isPhantomInstalled, getConnectedWall
 import { AdminPanel } from '@/components/AdminPanel';
 
 const MOCK_LEADERBOARD: WeeklyPlayer[] = [
-  { name: 'CryptoKing', earnedUsd: '42.50' },
-  { name: 'OrbitMaster', earnedUsd: '36.00' },
-  { name: 'SolanaSniper', earnedUsd: '28.50' },
-  { name: 'ArenaChamp', earnedUsd: '24.00' },
-  { name: 'NeonHunter', earnedUsd: '19.50' },
-  { name: 'PixelEater', earnedUsd: '15.00' },
-  { name: 'GridRunner', earnedUsd: '12.00' },
-  { name: 'SpaceOrb', earnedUsd: '9.00' },
-  { name: 'ByteBlaster', earnedUsd: '6.00' },
-  { name: 'TokenTitan', earnedUsd: '4.50' },
+  { wallet: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', earnedUsd: '42.50' },
+  { wallet: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', earnedUsd: '36.00' },
+  { wallet: '3yFwqXBfZY4jBVUafQ1YEXw189y3STbUdGxkd4Db9WVQ', earnedUsd: '28.50' },
+  { wallet: '5mLjVxG8r3xYkzCMc9VPc6AhYTL9sFQzKqKvCrLwpj1D', earnedUsd: '24.00' },
+  { wallet: 'DRpbCBMxVnDK7maPM5tGv6MvB3v1sRMC86PZ8okm21hy', earnedUsd: '19.50' },
+  { wallet: '4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D33p7g6vH7cM', earnedUsd: '15.00' },
+  { wallet: 'HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH', earnedUsd: '12.00' },
+  { wallet: '2fmz5FvJynQLLmJhddPLrtdmMuVqhC7gLj9YzRt3UWCv', earnedUsd: '9.00' },
+  { wallet: 'Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS', earnedUsd: '6.00' },
+  { wallet: 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL', earnedUsd: '4.50' },
 ];
 
 interface WeeklyPlayer {
-  name: string;
+  wallet: string;
   earnedUsd: string;
 }
 
@@ -324,7 +324,7 @@ export default function Lobby() {
                     }`}>
                       {index + 1}
                     </span>
-                    <span className="text-white truncate max-w-[120px]">{player.name}</span>
+                    <span className="text-white font-mono text-xs">{player.wallet.slice(0, 4)}...{player.wallet.slice(-4)}</span>
                   </div>
                   <span className="text-green-400 font-mono font-bold">{player.earnedUsd} USDC</span>
                 </div>
