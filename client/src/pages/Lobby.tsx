@@ -9,6 +9,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, History, Crown } from 'lucide-react';
 import solanaLogo from '@assets/generated_images/solana_crypto_coin_logo_icon.png';
 import { connectPhantom, disconnectPhantom, isPhantomInstalled, getConnectedWallet, shortenAddress, ENTRY_FEE_USDC, getUSDCBalance } from '@/lib/phantom';
+import { AdminPanel } from '@/components/AdminPanel';
+
+const MOCK_LEADERBOARD: WeeklyPlayer[] = [
+  { name: 'CryptoKing', earnedUsd: '42.50' },
+  { name: 'OrbitMaster', earnedUsd: '36.00' },
+  { name: 'SolanaSniper', earnedUsd: '28.50' },
+  { name: 'ArenaChamp', earnedUsd: '24.00' },
+  { name: 'NeonHunter', earnedUsd: '19.50' },
+  { name: 'PixelEater', earnedUsd: '15.00' },
+  { name: 'GridRunner', earnedUsd: '12.00' },
+  { name: 'SpaceOrb', earnedUsd: '9.00' },
+  { name: 'ByteBlaster', earnedUsd: '6.00' },
+  { name: 'TokenTitan', earnedUsd: '4.50' },
+];
 
 interface WeeklyPlayer {
   name: string;
@@ -57,6 +71,7 @@ export default function Lobby() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [weeklyLeaderboard, setWeeklyLeaderboard] = useState<WeeklyPlayer[]>([]);
+  const [mockLeaderboardEnabled, setMockLeaderboardEnabled] = useState(false);
   const [, setLocation] = useLocation();
 
   const AVATAR_COLORS = [
@@ -284,15 +299,18 @@ export default function Lobby() {
       
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/20 blur-[100px] rounded-full pointer-events-none animate-pulse" />
 
-      {weeklyLeaderboard.length > 0 && (
+      {(mockLeaderboardEnabled ? MOCK_LEADERBOARD : weeklyLeaderboard).length > 0 && (
         <div className="fixed top-4 left-4 z-20" data-testid="weekly-leaderboard">
           <div className="bg-card/90 backdrop-blur-xl border border-white/10 rounded-lg p-4 w-64 shadow-xl">
             <div className="flex items-center gap-2 mb-3">
               <Crown className="w-4 h-4 text-yellow-400" />
               <span className="text-sm font-bold text-white uppercase tracking-wide">Top Earners This Week</span>
+              {mockLeaderboardEnabled && (
+                <span className="text-[10px] bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded">PREVIEW</span>
+              )}
             </div>
             <div className="space-y-2">
-              {weeklyLeaderboard.slice(0, 10).map((player, index) => (
+              {(mockLeaderboardEnabled ? MOCK_LEADERBOARD : weeklyLeaderboard).slice(0, 10).map((player, index) => (
                 <div 
                   key={index}
                   className="flex items-center justify-between text-sm"
@@ -723,6 +741,11 @@ export default function Lobby() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AdminPanel
+        onMockLeaderboard={setMockLeaderboardEnabled}
+        mockLeaderboardEnabled={mockLeaderboardEnabled}
+      />
     </div>
   );
 }
