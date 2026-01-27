@@ -304,7 +304,7 @@ export default function Lobby() {
           <div className="bg-card/90 backdrop-blur-xl border border-white/10 rounded-lg p-4 w-64 shadow-xl">
             <div className="flex items-center gap-2 mb-3">
               <Crown className="w-4 h-4 text-yellow-400" />
-              <span className="text-sm font-bold text-white uppercase tracking-wide">Top Earners This Week</span>
+              <span className="text-sm font-bold text-white uppercase tracking-wide">Top Weekly Players</span>
               {mockLeaderboardEnabled && (
                 <span className="text-[10px] bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded">PREVIEW</span>
               )}
@@ -326,12 +326,12 @@ export default function Lobby() {
                     </span>
                     <span className="text-white truncate max-w-[120px]">{player.name}</span>
                   </div>
-                  <span className="text-green-400 font-mono font-bold">${player.earnedUsd}</span>
+                  <span className="text-green-400 font-mono font-bold">{player.earnedUsd} USDC</span>
                 </div>
               ))}
             </div>
             <p className="text-[10px] text-gray-500 mt-3 text-center italic">
-              Past results don't guarantee future performance
+              Based on in-game performance. Displayed amounts are not guaranteed. No refunds.
             </p>
           </div>
         </div>
