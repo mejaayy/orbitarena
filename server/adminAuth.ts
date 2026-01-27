@@ -6,6 +6,10 @@ import { eq, lt } from 'drizzle-orm';
 
 const SALT_ROUNDS = 12;
 const SESSION_DURATION_HOURS = 24;
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 128;
+
+export { MIN_PASSWORD_LENGTH };
 
 function maskSensitiveData(data: string): string {
   if (data.length <= 8) return '****';
@@ -22,8 +26,26 @@ export async function hasAdminPassword(): Promise<boolean> {
   return !!existing;
 }
 
-export async function setAdminPassword(password: string): Promise<boolean> {
+export function validatePasswordStrength(password: string): { valid: boolean; error?: string } {
+  if (!password) {
+    return { valid: false, error: 'Password is required' };
+  }
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return { valid: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` };
+  }
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    return { valid: false, error: `Password must be less than ${MAX_PASSWORD_LENGTH} characters` };
+  }
+  return { valid: true };
+}
+
+export async function setAdminPassword(password: string): Promise<{ success: boolean; error?: string }> {
   try {
+    const validation = validatePasswordStrength(password);
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
+    }
+    
     const existing = await db.query.adminAuth.findFirst();
     
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
@@ -38,10 +60,10 @@ export async function setAdminPassword(password: string): Promise<boolean> {
       log('Admin password created');
     }
     
-    return true;
+    return { success: true };
   } catch (error: any) {
     log(`Failed to set password: ${error.message}`, 'error');
-    return false;
+    return { success: false, error: 'Failed to set password' };
   }
 }
 

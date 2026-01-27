@@ -96,6 +96,32 @@ Stake mode uses a round-based tournament structure (StakeGameRoom class):
 - No player-to-player balance transfers
 - All scoring is deterministic (based on points from eating food/players)
 
+### Admin Panel Security
+
+The admin panel uses a secure server-side authentication system:
+
+**Authentication:**
+- Password hashed with bcrypt (12 salt rounds) before storage in PostgreSQL
+- Minimum 8-character password required
+- Session tokens: 256-bit cryptographically random, stored in database with 24-hour expiry
+- All admin endpoints require valid `X-Admin-Token` header
+
+**Protection Measures:**
+- Rate limiting: 5 login attempts max, then 15-minute IP-based lockout
+- Setup bypass prevention: Can't set new password if one already exists
+- Log masking: Wallet addresses automatically masked in server logs (first4****last4)
+- Session invalidation on logout
+
+**Database Tables:**
+- `admin_auth`: Stores bcrypt password hash
+- `admin_sessions`: Active session tokens with expiry timestamps
+- `banned_wallets`: Wallet ban list with reasons
+- `admin_settings`: Key-value settings (leaderboard frozen, etc.)
+- `win_streaks`: Player win streak tracking for alert system
+
+**Protected Endpoints:**
+- All `/api/admin/*` endpoints except `/auth/status`, `/auth/setup`, `/auth/login`
+
 ### Blockchain Integration
 - **Network**: Solana Devnet
 - **Wallet**: Phantom wallet integration for authentication and transactions

@@ -13,7 +13,9 @@ import {
   verifyAdminPassword, 
   createAdminSession, 
   validateAdminSession,
-  invalidateAdminSession 
+  invalidateAdminSession,
+  validatePasswordStrength,
+  MIN_PASSWORD_LENGTH
 } from "./adminAuth";
 
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
@@ -294,17 +296,18 @@ export async function registerRoutes(
     try {
       const existing = await hasAdminPassword();
       if (existing) {
-        return res.status(400).json({ error: 'Password already set' });
+        return res.status(400).json({ error: 'Password already set. Use change-password instead.' });
       }
       
       const { password } = req.body;
-      if (!password || password.length < 4) {
-        return res.status(400).json({ error: 'Password must be at least 4 characters' });
+      const validation = validatePasswordStrength(password);
+      if (!validation.valid) {
+        return res.status(400).json({ error: validation.error });
       }
       
-      const success = await setAdminPassword(password);
-      if (!success) {
-        return res.status(500).json({ error: 'Failed to set password' });
+      const result = await setAdminPassword(password);
+      if (!result.success) {
+        return res.status(500).json({ error: result.error || 'Failed to set password' });
       }
       
       const token = await createAdminSession();
@@ -359,13 +362,14 @@ export async function registerRoutes(
   app.post("/api/admin/auth/change-password", requireAdminAuth, async (req, res) => {
     try {
       const { password } = req.body;
-      if (!password || password.length < 4) {
-        return res.status(400).json({ error: 'Password must be at least 4 characters' });
+      const validation = validatePasswordStrength(password);
+      if (!validation.valid) {
+        return res.status(400).json({ error: validation.error });
       }
       
-      const success = await setAdminPassword(password);
-      if (!success) {
-        return res.status(500).json({ error: 'Failed to change password' });
+      const result = await setAdminPassword(password);
+      if (!result.success) {
+        return res.status(500).json({ error: result.error || 'Failed to change password' });
       }
       
       res.json({ success: true });

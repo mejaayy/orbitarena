@@ -236,8 +236,8 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
   };
 
   const handleSetPassword = async () => {
-    if (password.length < 4) {
-      setError('Password must be at least 4 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       return;
     }
     if (password !== confirmPassword) {
@@ -318,8 +318,8 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
   };
 
   const handleChangePassword = async () => {
-    if (password.length < 4) {
-      setError('Password must be at least 4 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       return;
     }
     if (password !== confirmPassword) {
