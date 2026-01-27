@@ -56,7 +56,7 @@ type RoundState = 'LOBBY' | 'COUNTDOWN' | 'PLAYING' | 'ENDED';
 const WORLD_SIZE = 4000;
 const INITIAL_RADIUS = 20;
 const MAX_SPEED = 2.3;
-const FOOD_COUNT = 400;
+const FOOD_COUNT = 375;
 const MAX_PLAYERS_PER_ROOM = 15;
 const MAX_ROOMS = 10;
 const TICK_RATE = 30;
@@ -438,7 +438,8 @@ class GameRoom {
   }
 
   protected growPlayer(player: Player, amount: number) {
-    player.score += Math.floor(amount);
+    // 20% bonus growth when eating food
+    player.score += Math.floor(amount * 1.2);
     // Ensure score never goes below minimum
     if (player.score < 5) {
       player.score = 5;
