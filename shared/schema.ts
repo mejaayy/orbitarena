@@ -98,3 +98,21 @@ export const winStreaks = pgTable("win_streaks", {
 });
 
 export type WinStreak = typeof winStreaks.$inferSelect;
+
+export const adminAuth = pgTable("admin_auth", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  passwordHash: varchar("password_hash").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type AdminAuth = typeof adminAuth.$inferSelect;
+
+export const adminSessions = pgTable("admin_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  token: varchar("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type AdminSession = typeof adminSessions.$inferSelect;

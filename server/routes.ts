@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { initGameServer, getGameServer } from "./gameServer";
@@ -7,6 +7,57 @@ import { z } from "zod";
 import { db } from "./db";
 import { weeklyEarnings, bannedWallets, adminSettings, winStreaks } from "@shared/schema";
 import { desc, sql, gte, eq } from "drizzle-orm";
+import { 
+  hasAdminPassword, 
+  setAdminPassword, 
+  verifyAdminPassword, 
+  createAdminSession, 
+  validateAdminSession,
+  invalidateAdminSession 
+} from "./adminAuth";
+
+const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
+
+function isRateLimited(ip: string): boolean {
+  const attempt = loginAttempts.get(ip);
+  if (!attempt) return false;
+  
+  if (Date.now() - attempt.lastAttempt > LOCKOUT_DURATION_MS) {
+    loginAttempts.delete(ip);
+    return false;
+  }
+  
+  return attempt.count >= MAX_LOGIN_ATTEMPTS;
+}
+
+function recordLoginAttempt(ip: string, success: boolean): void {
+  if (success) {
+    loginAttempts.delete(ip);
+    return;
+  }
+  
+  const attempt = loginAttempts.get(ip) || { count: 0, lastAttempt: 0 };
+  attempt.count++;
+  attempt.lastAttempt = Date.now();
+  loginAttempts.set(ip, attempt);
+}
+
+async function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
+  const token = req.headers['x-admin-token'] as string;
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
+  const isValid = await validateAdminSession(token);
+  if (!isValid) {
+    return res.status(401).json({ error: 'Invalid or expired session' });
+  }
+  
+  next();
+}
 
 const depositRequestSchema = z.object({
   walletAddress: z.string().min(32),
@@ -228,8 +279,103 @@ export async function registerRoutes(
     }
   });
 
-  // Admin: Get banned wallets
-  app.get("/api/admin/banned", async (req, res) => {
+  // Admin: Check if password is set
+  app.get("/api/admin/auth/status", async (req, res) => {
+    try {
+      const hasPassword = await hasAdminPassword();
+      res.json({ hasPassword });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Set password (first time setup)
+  app.post("/api/admin/auth/setup", async (req, res) => {
+    try {
+      const existing = await hasAdminPassword();
+      if (existing) {
+        return res.status(400).json({ error: 'Password already set' });
+      }
+      
+      const { password } = req.body;
+      if (!password || password.length < 4) {
+        return res.status(400).json({ error: 'Password must be at least 4 characters' });
+      }
+      
+      const success = await setAdminPassword(password);
+      if (!success) {
+        return res.status(500).json({ error: 'Failed to set password' });
+      }
+      
+      const token = await createAdminSession();
+      res.json({ success: true, token });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Login
+  app.post("/api/admin/auth/login", async (req, res) => {
+    try {
+      const ip = req.ip || req.socket.remoteAddress || 'unknown';
+      
+      if (isRateLimited(ip)) {
+        return res.status(429).json({ error: 'Too many login attempts. Try again in 15 minutes.' });
+      }
+      
+      const { password } = req.body;
+      if (!password) {
+        return res.status(400).json({ error: 'Password required' });
+      }
+      
+      const isValid = await verifyAdminPassword(password);
+      recordLoginAttempt(ip, isValid);
+      
+      if (!isValid) {
+        return res.status(401).json({ error: 'Invalid password' });
+      }
+      
+      const token = await createAdminSession();
+      res.json({ success: true, token });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Logout
+  app.post("/api/admin/auth/logout", async (req, res) => {
+    try {
+      const token = req.headers['x-admin-token'] as string;
+      if (token) {
+        await invalidateAdminSession(token);
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Change password (requires auth)
+  app.post("/api/admin/auth/change-password", requireAdminAuth, async (req, res) => {
+    try {
+      const { password } = req.body;
+      if (!password || password.length < 4) {
+        return res.status(400).json({ error: 'Password must be at least 4 characters' });
+      }
+      
+      const success = await setAdminPassword(password);
+      if (!success) {
+        return res.status(500).json({ error: 'Failed to change password' });
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Get banned wallets (protected)
+  app.get("/api/admin/banned", requireAdminAuth, async (req, res) => {
     try {
       const banned = await db.select().from(bannedWallets).orderBy(desc(bannedWallets.bannedAt));
       res.json({ wallets: banned });
@@ -238,8 +384,8 @@ export async function registerRoutes(
     }
   });
 
-  // Admin: Ban a wallet
-  app.post("/api/admin/ban", async (req, res) => {
+  // Admin: Ban a wallet (protected)
+  app.post("/api/admin/ban", requireAdminAuth, async (req, res) => {
     try {
       const { walletAddress, reason } = req.body;
       if (!walletAddress || walletAddress.length < 32) {
@@ -256,8 +402,8 @@ export async function registerRoutes(
     }
   });
 
-  // Admin: Unban a wallet
-  app.post("/api/admin/unban", async (req, res) => {
+  // Admin: Unban a wallet (protected)
+  app.post("/api/admin/unban", requireAdminAuth, async (req, res) => {
     try {
       const { walletAddress } = req.body;
       await db.delete(bannedWallets).where(eq(bannedWallets.walletAddress, walletAddress));
@@ -267,8 +413,8 @@ export async function registerRoutes(
     }
   });
 
-  // Admin: Check if wallet is banned
-  app.get("/api/admin/banned/:walletAddress", async (req, res) => {
+  // Admin: Check if wallet is banned (protected)
+  app.get("/api/admin/banned/:walletAddress", requireAdminAuth, async (req, res) => {
     try {
       const { walletAddress } = req.params;
       const banned = await db.query.bannedWallets.findFirst({
@@ -280,8 +426,8 @@ export async function registerRoutes(
     }
   });
 
-  // Admin: Get leaderboard settings
-  app.get("/api/admin/settings", async (req, res) => {
+  // Admin: Get leaderboard settings (protected)
+  app.get("/api/admin/settings", requireAdminAuth, async (req, res) => {
     try {
       const settings = await db.select().from(adminSettings);
       const settingsMap: Record<string, any> = {};
@@ -294,8 +440,8 @@ export async function registerRoutes(
     }
   });
 
-  // Admin: Update setting
-  app.post("/api/admin/settings", async (req, res) => {
+  // Admin: Update setting (protected)
+  app.post("/api/admin/settings", requireAdminAuth, async (req, res) => {
     try {
       const { key, value } = req.body;
       await db.insert(adminSettings)
@@ -310,8 +456,8 @@ export async function registerRoutes(
     }
   });
 
-  // Admin: Reset leaderboard
-  app.post("/api/admin/leaderboard/reset", async (req, res) => {
+  // Admin: Reset leaderboard (protected)
+  app.post("/api/admin/leaderboard/reset", requireAdminAuth, async (req, res) => {
     try {
       await db.delete(weeklyEarnings);
       res.json({ success: true });
@@ -320,8 +466,8 @@ export async function registerRoutes(
     }
   });
 
-  // Admin: Get win streak alerts
-  app.get("/api/admin/alerts", async (req, res) => {
+  // Admin: Get win streak alerts (protected)
+  app.get("/api/admin/alerts", requireAdminAuth, async (req, res) => {
     try {
       const alerts = await db
         .select()
@@ -344,8 +490,8 @@ export async function registerRoutes(
     }
   });
 
-  // Admin: Clear alerts
-  app.post("/api/admin/alerts/clear", async (req, res) => {
+  // Admin: Clear alerts (protected)
+  app.post("/api/admin/alerts/clear", requireAdminAuth, async (req, res) => {
     try {
       await db.update(winStreaks).set({ currentStreak: 0 });
       res.json({ success: true });

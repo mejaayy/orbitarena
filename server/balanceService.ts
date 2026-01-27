@@ -10,9 +10,15 @@ const PRIZE_1ST_CENTS = 600;
 const PRIZE_2ND_CENTS = 450;
 const PRIZE_3RD_CENTS = 300;
 
+function maskWallet(wallet: string): string {
+  if (!wallet || wallet.length < 12) return '****';
+  return wallet.slice(0, 4) + '****' + wallet.slice(-4);
+}
+
 function log(message: string, type: string = 'balance') {
   const timestamp = new Date().toLocaleTimeString();
-  console.log(`${timestamp} [${type}] ${message}`);
+  const maskedMessage = message.replace(/([A-Za-z0-9]{32,})/g, (match) => maskWallet(match));
+  console.log(`${timestamp} [${type}] ${maskedMessage}`);
 }
 
 export interface BalanceResult {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, X, Eye, EyeOff, Trash2, RefreshCw, Trophy, Lock, AlertTriangle, Ban, Shield, Snowflake, RotateCcw } from 'lucide-react';
+import { Settings, X, Eye, EyeOff, Trash2, RefreshCw, Trophy, Lock, AlertTriangle, Ban, Shield, Snowflake, RotateCcw, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -24,7 +24,7 @@ interface Alert {
   isCritical: boolean;
 }
 
-const ADMIN_PASSWORD_KEY = 'orbit-arena-admin-password';
+const ADMIN_TOKEN_KEY = 'orbit-arena-admin-token';
 
 export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -35,6 +35,7 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
   const [error, setError] = useState('');
   const [hasPassword, setHasPassword] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   
   const [activeTab, setActiveTab] = useState<'general' | 'bans' | 'alerts'>('general');
   const [bannedWallets, setBannedWallets] = useState<BannedWallet[]>([]);
@@ -44,9 +45,17 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
   const [leaderboardFrozen, setLeaderboardFrozen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const getAuthToken = () => sessionStorage.getItem(ADMIN_TOKEN_KEY);
+  const setAuthToken = (token: string) => sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
+  const clearAuthToken = () => sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+
+  const authHeaders = () => ({
+    'Content-Type': 'application/json',
+    'X-Admin-Token': getAuthToken() || '',
+  });
+
   useEffect(() => {
-    const savedPassword = localStorage.getItem(ADMIN_PASSWORD_KEY);
-    setHasPassword(!!savedPassword);
+    checkAuthStatus();
   }, []);
 
   useEffect(() => {
@@ -57,11 +66,38 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
     }
   }, [isAuthenticated]);
 
+  const checkAuthStatus = async () => {
+    setIsCheckingAuth(true);
+    try {
+      const res = await fetch('/api/admin/auth/status');
+      const data = await res.json();
+      setHasPassword(data.hasPassword);
+      
+      const token = getAuthToken();
+      if (token && data.hasPassword) {
+        const testRes = await fetch('/api/admin/settings', {
+          headers: authHeaders(),
+        });
+        if (testRes.ok) {
+          setIsAuthenticated(true);
+        } else {
+          clearAuthToken();
+        }
+      }
+    } catch (e) {
+      console.error('Failed to check auth status');
+    } finally {
+      setIsCheckingAuth(false);
+    }
+  };
+
   const fetchBannedWallets = async () => {
     try {
-      const res = await fetch('/api/admin/banned');
-      const data = await res.json();
-      setBannedWallets(data.wallets || []);
+      const res = await fetch('/api/admin/banned', { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setBannedWallets(data.wallets || []);
+      }
     } catch (e) {
       console.error('Failed to fetch banned wallets');
     }
@@ -69,9 +105,11 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
 
   const fetchAlerts = async () => {
     try {
-      const res = await fetch('/api/admin/alerts');
-      const data = await res.json();
-      setAlerts(data.alerts || []);
+      const res = await fetch('/api/admin/alerts', { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setAlerts(data.alerts || []);
+      }
     } catch (e) {
       console.error('Failed to fetch alerts');
     }
@@ -79,9 +117,11 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch('/api/admin/settings');
-      const data = await res.json();
-      setLeaderboardFrozen(data.leaderboardFrozen === true);
+      const res = await fetch('/api/admin/settings', { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setLeaderboardFrozen(data.leaderboardFrozen === true);
+      }
     } catch (e) {
       console.error('Failed to fetch settings');
     }
@@ -96,13 +136,15 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
     try {
       const res = await fetch('/api/admin/ban', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ walletAddress: banWalletInput, reason: banReasonInput || 'Banned by admin' }),
       });
       if (res.ok) {
         setBanWalletInput('');
         setBanReasonInput('');
         await fetchBannedWallets();
+      } else if (res.status === 401) {
+        handleSessionExpired();
       }
     } catch (e) {
       setError('Failed to ban wallet');
@@ -114,12 +156,16 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
   const handleUnbanWallet = async (walletAddress: string) => {
     setIsLoading(true);
     try {
-      await fetch('/api/admin/unban', {
+      const res = await fetch('/api/admin/unban', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ walletAddress }),
       });
-      await fetchBannedWallets();
+      if (res.ok) {
+        await fetchBannedWallets();
+      } else if (res.status === 401) {
+        handleSessionExpired();
+      }
     } catch (e) {
       console.error('Failed to unban wallet');
     } finally {
@@ -133,8 +179,15 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
     }
     setIsLoading(true);
     try {
-      await fetch('/api/admin/leaderboard/reset', { method: 'POST' });
-      alert('Leaderboard reset successfully');
+      const res = await fetch('/api/admin/leaderboard/reset', { 
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        alert('Leaderboard reset successfully');
+      } else if (res.status === 401) {
+        handleSessionExpired();
+      }
     } catch (e) {
       setError('Failed to reset leaderboard');
     } finally {
@@ -145,12 +198,16 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
   const handleFreezeLeaderboard = async (frozen: boolean) => {
     setIsLoading(true);
     try {
-      await fetch('/api/admin/settings', {
+      const res = await fetch('/api/admin/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ key: 'leaderboardFrozen', value: frozen }),
       });
-      setLeaderboardFrozen(frozen);
+      if (res.ok) {
+        setLeaderboardFrozen(frozen);
+      } else if (res.status === 401) {
+        handleSessionExpired();
+      }
     } catch (e) {
       setError('Failed to update setting');
     } finally {
@@ -162,8 +219,15 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
     if (!confirm('Clear all win streak alerts?')) return;
     setIsLoading(true);
     try {
-      await fetch('/api/admin/alerts/clear', { method: 'POST' });
-      await fetchAlerts();
+      const res = await fetch('/api/admin/alerts/clear', { 
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        await fetchAlerts();
+      } else if (res.status === 401) {
+        handleSessionExpired();
+      }
     } catch (e) {
       console.error('Failed to clear alerts');
     } finally {
@@ -171,7 +235,7 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
     }
   };
 
-  const handleSetPassword = () => {
+  const handleSetPassword = async () => {
     if (password.length < 4) {
       setError('Password must be at least 4 characters');
       return;
@@ -180,26 +244,80 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
       setError('Passwords do not match');
       return;
     }
-    localStorage.setItem(ADMIN_PASSWORD_KEY, password);
-    setHasPassword(true);
-    setIsAuthenticated(true);
-    setError('');
-    setPassword('');
-    setConfirmPassword('');
-  };
-
-  const handleLogin = () => {
-    const savedPassword = localStorage.getItem(ADMIN_PASSWORD_KEY);
-    if (password === savedPassword) {
-      setIsAuthenticated(true);
-      setError('');
-      setPassword('');
-    } else {
-      setError('Incorrect password');
+    
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/admin/auth/setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      
+      const data = await res.json();
+      if (res.ok && data.token) {
+        setAuthToken(data.token);
+        setHasPassword(true);
+        setIsAuthenticated(true);
+        setError('');
+        setPassword('');
+        setConfirmPassword('');
+      } else {
+        setError(data.error || 'Failed to set password');
+      }
+    } catch (e) {
+      setError('Network error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleChangePassword = () => {
+  const handleLogin = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/admin/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      
+      const data = await res.json();
+      if (res.ok && data.token) {
+        setAuthToken(data.token);
+        setIsAuthenticated(true);
+        setError('');
+        setPassword('');
+      } else {
+        setError(data.error || 'Invalid password');
+      }
+    } catch (e) {
+      setError('Network error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/admin/auth/logout', {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+    } catch (e) {
+      console.error('Logout error');
+    } finally {
+      clearAuthToken();
+      setIsAuthenticated(false);
+      setActiveTab('general');
+    }
+  };
+
+  const handleSessionExpired = () => {
+    clearAuthToken();
+    setIsAuthenticated(false);
+    setError('Session expired. Please log in again.');
+  };
+
+  const handleChangePassword = async () => {
     if (password.length < 4) {
       setError('Password must be at least 4 characters');
       return;
@@ -208,25 +326,45 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
       setError('Passwords do not match');
       return;
     }
-    localStorage.setItem(ADMIN_PASSWORD_KEY, password);
-    setShowChangePassword(false);
-    setError('');
-    setPassword('');
-    setConfirmPassword('');
+    
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/admin/auth/change-password', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ password }),
+      });
+      
+      if (res.ok) {
+        setShowChangePassword(false);
+        setError('');
+        setPassword('');
+        setConfirmPassword('');
+        alert('Password changed successfully');
+      } else if (res.status === 401) {
+        handleSessionExpired();
+      } else {
+        const data = await res.json();
+        setError(data.error || 'Failed to change password');
+      }
+    } catch (e) {
+      setError('Network error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleClearLocalStorage = () => {
-    const adminPassword = localStorage.getItem(ADMIN_PASSWORD_KEY);
+    const adminToken = sessionStorage.getItem(ADMIN_TOKEN_KEY);
     localStorage.clear();
-    if (adminPassword) {
-      localStorage.setItem(ADMIN_PASSWORD_KEY, adminPassword);
+    if (adminToken) {
+      sessionStorage.setItem(ADMIN_TOKEN_KEY, adminToken);
     }
     window.location.reload();
   };
 
   const handleClose = () => {
     setIsOpen(false);
-    setIsAuthenticated(false);
     setPassword('');
     setConfirmPassword('');
     setError('');
@@ -245,7 +383,7 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
         data-testid="admin-panel-toggle"
       >
         <Settings className="w-5 h-5 text-gray-400" />
-        {alerts.length > 0 && (
+        {isAuthenticated && alerts.length > 0 && (
           <span className={`absolute -top-1 -right-1 w-4 h-4 text-[10px] font-bold rounded-full flex items-center justify-center ${
             criticalAlertCount > 0 ? 'bg-red-500 animate-pulse' : 'bg-yellow-500'
           }`}>
@@ -256,13 +394,21 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
     );
   }
 
+  if (isCheckingAuth) {
+    return (
+      <div className="fixed z-[9999] w-96 bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl p-6" style={{ position: 'fixed', top: '16px', right: '16px' }}>
+        <div className="text-center text-gray-400">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed z-[9999] w-96 max-h-[80vh] bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl flex flex-col" style={{ position: 'fixed', top: '16px', right: '16px' }} data-testid="admin-panel">
       <div className="flex items-center justify-between p-3 border-b border-white/10 shrink-0">
         <div className="flex items-center gap-2">
           <Settings className="w-4 h-4 text-primary" />
           <span className="font-bold text-white text-sm">Admin Panel</span>
-          {alerts.length > 0 && (
+          {isAuthenticated && alerts.length > 0 && (
             <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${
               criticalAlertCount > 0 ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'
             }`}>
@@ -270,9 +416,16 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
             </span>
           )}
         </div>
-        <button onClick={handleClose} className="text-gray-400 hover:text-white">
-          <X className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {isAuthenticated && (
+            <button onClick={handleLogout} className="text-gray-400 hover:text-white p-1" title="Logout">
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
+          <button onClick={handleClose} className="text-gray-400 hover:text-white p-1">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <div className="p-4 overflow-y-auto flex-1">
@@ -290,6 +443,7 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
                       onChange={(e) => setPassword(e.target.value)}
                       className="bg-gray-800 border-gray-700 pr-10"
                       data-testid="admin-new-password"
+                      disabled={isLoading}
                     />
                     <button
                       type="button"
@@ -306,12 +460,13 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className="bg-gray-800 border-gray-700"
                     data-testid="admin-confirm-password"
+                    disabled={isLoading}
                   />
                 </div>
                 {error && <p className="text-red-400 text-xs">{error}</p>}
-                <Button onClick={handleSetPassword} className="w-full" data-testid="admin-set-password">
+                <Button onClick={handleSetPassword} className="w-full" disabled={isLoading} data-testid="admin-set-password">
                   <Lock className="w-4 h-4 mr-2" />
-                  Set Password
+                  {isLoading ? 'Setting up...' : 'Set Password'}
                 </Button>
               </>
             ) : (
@@ -326,6 +481,7 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
                     onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                     className="bg-gray-800 border-gray-700 pr-10"
                     data-testid="admin-password"
+                    disabled={isLoading}
                   />
                   <button
                     type="button"
@@ -336,8 +492,8 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
                   </button>
                 </div>
                 {error && <p className="text-red-400 text-xs">{error}</p>}
-                <Button onClick={handleLogin} className="w-full" data-testid="admin-login">
-                  Unlock
+                <Button onClick={handleLogin} className="w-full" disabled={isLoading} data-testid="admin-login">
+                  {isLoading ? 'Logging in...' : 'Unlock'}
                 </Button>
               </>
             )}
@@ -352,6 +508,7 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="bg-gray-800 border-gray-700"
+                disabled={isLoading}
               />
               <Input
                 type={showPassword ? 'text' : 'password'}
@@ -359,15 +516,16 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="bg-gray-800 border-gray-700"
+                disabled={isLoading}
               />
             </div>
             {error && <p className="text-red-400 text-xs">{error}</p>}
             <div className="flex gap-2">
-              <Button onClick={() => setShowChangePassword(false)} variant="outline" className="flex-1">
+              <Button onClick={() => setShowChangePassword(false)} variant="outline" className="flex-1" disabled={isLoading}>
                 Cancel
               </Button>
-              <Button onClick={handleChangePassword} className="flex-1">
-                Save
+              <Button onClick={handleChangePassword} className="flex-1" disabled={isLoading}>
+                {isLoading ? 'Saving...' : 'Save'}
               </Button>
             </div>
           </div>
@@ -489,12 +647,14 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
                     value={banWalletInput}
                     onChange={(e) => setBanWalletInput(e.target.value)}
                     className="bg-gray-800 border-gray-700 text-xs font-mono"
+                    disabled={isLoading}
                   />
                   <Input
                     placeholder="Reason (optional)"
                     value={banReasonInput}
                     onChange={(e) => setBanReasonInput(e.target.value)}
                     className="bg-gray-800 border-gray-700 text-xs"
+                    disabled={isLoading}
                   />
                   <Button
                     onClick={handleBanWallet}
