@@ -15,6 +15,14 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ players, localPlayerId
   const yourMass = localPlayer ? Math.floor(localPlayer.score) : 0;
   const aliveCount = players.length;
   
+  // Get rank color: gold for 1st, silver for 2nd, bronze for 3rd
+  const getRankColor = (rank: number) => {
+    if (rank === 1) return 'text-yellow-400'; // Gold
+    if (rank === 2) return 'text-gray-300'; // Silver
+    if (rank === 3) return 'text-amber-600'; // Bronze
+    return 'text-white';
+  };
+  
   // Format time remaining
   const formatTime = (ms?: number) => {
     if (ms === undefined || ms <= 0) return '--:--';
@@ -29,11 +37,11 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ players, localPlayerId
       <div className="space-y-2 text-sm font-medium">
         <div className="flex justify-between items-center">
           <span className="text-gray-400">You:</span>
-          <span className="text-yellow-400 font-bold">#{yourRank || '--'} ({yourMass})</span>
+          <span className={`${getRankColor(yourRank)} font-bold`}>#{yourRank || '--'} ({yourMass})</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-gray-400">Alive:</span>
-          <span className="text-green-400 font-bold">{aliveCount}</span>
+          <span className="text-lime-400 font-bold">{aliveCount}</span>
         </div>
         {isStakeMode && (
           <div className="flex justify-between items-center">

@@ -634,10 +634,21 @@ export class GameEngine {
         ];
         
         for (let i = 0; i < 3; i++) {
-          const x1 = centerX + hexSize * Math.cos(angles[i]);
-          const y1 = centerY + hexSize * Math.sin(angles[i]);
-          const x2 = centerX + hexSize * Math.cos(angles[i + 1]);
-          const y2 = centerY + hexSize * Math.sin(angles[i + 1]);
+          let x1 = centerX + hexSize * Math.cos(angles[i]);
+          let y1 = centerY + hexSize * Math.sin(angles[i]);
+          let x2 = centerX + hexSize * Math.cos(angles[i + 1]);
+          let y2 = centerY + hexSize * Math.sin(angles[i + 1]);
+          
+          // Clip lines to world boundaries
+          const worldSize = GameEngine.WORLD_SIZE;
+          if ((x1 < 0 && x2 < 0) || (x1 > worldSize && x2 > worldSize) ||
+              (y1 < 0 && y2 < 0) || (y1 > worldSize && y2 > worldSize)) continue;
+          
+          // Clamp coordinates to world bounds
+          x1 = Math.max(0, Math.min(worldSize, x1));
+          y1 = Math.max(0, Math.min(worldSize, y1));
+          x2 = Math.max(0, Math.min(worldSize, x2));
+          y2 = Math.max(0, Math.min(worldSize, y2));
           
           this.ctx.moveTo(x1, y1);
           this.ctx.lineTo(x2, y2);
