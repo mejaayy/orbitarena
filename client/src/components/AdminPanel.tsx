@@ -240,7 +240,8 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed top-4 right-4 z-50 p-2 bg-gray-800/80 hover:bg-gray-700 rounded-full border border-white/10 transition-colors relative"
+        className="fixed top-4 right-4 z-[9999] p-2 bg-gray-800/80 hover:bg-gray-700 rounded-full border border-white/10 transition-colors"
+        style={{ position: 'fixed', top: '16px', right: '16px' }}
         data-testid="admin-panel-toggle"
       >
         <Settings className="w-5 h-5 text-gray-400" />
@@ -256,7 +257,7 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
   }
 
   return (
-    <div className="fixed top-4 right-4 z-50 w-96 max-h-[80vh] bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl flex flex-col" data-testid="admin-panel">
+    <div className="fixed z-[9999] w-96 max-h-[80vh] bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl flex flex-col" style={{ position: 'fixed', top: '16px', right: '16px' }} data-testid="admin-panel">
       <div className="flex items-center justify-between p-3 border-b border-white/10 shrink-0">
         <div className="flex items-center gap-2">
           <Settings className="w-4 h-4 text-primary" />
