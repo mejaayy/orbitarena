@@ -908,7 +908,7 @@ export class GameEngine {
       this.ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
       this.ctx.fill();
     } else if (shape === 'triangle') {
-      const size = player.radius * 1.2;
+      const size = player.radius;
       this.ctx.beginPath();
       this.ctx.moveTo(size, 0);
       this.ctx.lineTo(-size * 0.7, -size * 0.8);
@@ -916,7 +916,7 @@ export class GameEngine {
       this.ctx.closePath();
       this.ctx.fill();
     } else if (shape === 'square') {
-      const size = player.radius * 0.9;
+      const size = player.radius * 0.8;
       this.ctx.fillRect(-size, -size, size * 2, size * 2);
     }
     
