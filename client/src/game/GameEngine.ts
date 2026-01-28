@@ -925,17 +925,25 @@ export class GameEngine {
     
     // Draw Charge bar above player (yellow)
     const barWidth = player.radius * 2;
-    const barHeight = 4;
+    const barHeight = 5;
     const barY = player.y - player.radius - 10;
+    const barX = player.x - barWidth / 2;
     const chargePercent = (player.charge || 0) / (player.maxCharge || 100);
     
     // Charge bar background
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    this.ctx.fillRect(player.x - barWidth / 2, barY, barWidth, barHeight);
+    this.ctx.fillRect(barX, barY, barWidth, barHeight);
     
     // Charge bar fill (yellow)
     this.ctx.fillStyle = '#FFCC00';
-    this.ctx.fillRect(player.x - barWidth / 2, barY, barWidth * chargePercent, barHeight);
+    this.ctx.fillRect(barX, barY, barWidth * chargePercent, barHeight);
+    
+    // Draw section dividers at 20, 40, 60, 80 charge
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    for (let i = 1; i <= 4; i++) {
+      const dividerX = barX + (barWidth * i * 0.2);
+      this.ctx.fillRect(dividerX - 0.5, barY, 1, barHeight);
+    }
     
     // Get local player for comparison
     const localPlayer = this.players.get(this.localPlayerId!);
