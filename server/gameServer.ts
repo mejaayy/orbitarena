@@ -8,6 +8,8 @@ interface Point {
   y: number;
 }
 
+type CharacterShape = 'circle' | 'triangle' | 'square';
+
 interface Player {
   id: string;
   name: string;
@@ -16,38 +18,47 @@ interface Player {
   radius: number;
   color: string;
   score: number;
+  hp: number;
+  maxHp: number;
+  charge: number;
+  maxCharge: number;
+  characterShape: CharacterShape;
   velocity: Point;
   walletAddress?: string;
   balance: number;
   lastCombatTime: number;
   inputVector: Point;
   isSpectator: boolean;
-  isBoosting: boolean;
-  lastBoostOrbTime: number;
+  isStunned: boolean;
+  stunEndTime: number;
+  facingAngle: number;
 }
 
-interface Food {
+type PickupType = 'HP' | 'CHARGE';
+
+interface Pickup {
   id: string;
   x: number;
   y: number;
   radius: number;
-  color: string;
+  type: PickupType;
   value: number;
-  shape: 'square' | 'triangle' | 'pentagon';
 }
 
 interface GameState {
   players: Map<string, Player>;
-  foods: Food[];
+  pickups: Pickup[];
 }
 
+type AbilityType = 'ABILITY_1' | 'ABILITY_2';
+
 interface ClientMessage {
-  type: 'JOIN' | 'INPUT' | 'LEAVE';
+  type: 'JOIN' | 'INPUT' | 'LEAVE' | 'ABILITY';
   payload: any;
 }
 
 interface ServerMessage {
-  type: 'STATE' | 'JOINED' | 'ELIMINATED' | 'PLAYER_LEFT' | 'ERROR' | 'ROOM_INFO' | 'FOOD_DELTA' | 'ROUND_STATUS' | 'ROUND_END';
+  type: 'STATE' | 'JOINED' | 'ELIMINATED' | 'PLAYER_LEFT' | 'ERROR' | 'ROOM_INFO' | 'PICKUP_DELTA' | 'ROUND_STATUS' | 'ROUND_END' | 'DAMAGE' | 'ABILITY_EFFECT';
   payload: any;
 }
 
@@ -56,11 +67,17 @@ type RoundState = 'LOBBY' | 'COUNTDOWN' | 'PLAYING' | 'ENDED';
 const WORLD_SIZE = 4000;
 const INITIAL_RADIUS = 20;
 const MAX_SPEED = 2.3;
-const FOOD_COUNT = 375;
+const PICKUP_COUNT = 400;
 const MAX_PLAYERS_PER_ROOM = 15;
 const MAX_ROOMS = 10;
 const TICK_RATE = 30;
 const COMBAT_COOLDOWN = 3000;
+
+const INITIAL_HP = 100;
+const MAX_HP = 200;
+const INITIAL_CHARGE = 0;
+const MAX_CHARGE = 100;
+const PICKUP_VALUE = 5;
 
 // Stake mode constants
 const ENTRY_FEE = 1.00;
@@ -78,104 +95,75 @@ class GameRoom {
   protected gameState: GameState;
   protected clients: Map<string, WebSocket> = new Map();
   protected tickInterval: NodeJS.Timeout | null = null;
-  protected spawnedFoods: Food[] = [];
-  protected eatenFoodIds: string[] = [];
+  protected spawnedPickups: Pickup[] = [];
+  protected collectedPickupIds: string[] = [];
 
   constructor(id: string, isStakeMode: boolean = false) {
     this.id = id;
     this.isStakeMode = isStakeMode;
     this.gameState = {
       players: new Map(),
-      foods: []
+      pickups: []
     };
-    this.initFood();
+    this.initPickups();
     this.startGameLoop();
     log(`Game room ${id} created (${isStakeMode ? 'stake' : 'free'} mode)`, 'room');
   }
 
-  protected initFood() {
-    // Distribution: 50% triangles, 30% squares, 20% pentagons
-    const triangleCount = Math.floor(FOOD_COUNT * 0.5);  // 188
-    const squareCount = Math.floor(FOOD_COUNT * 0.3);    // 112
-    const pentagonCount = FOOD_COUNT - triangleCount - squareCount; // 75
+  protected initPickups() {
+    const hpCount = Math.floor(PICKUP_COUNT * 0.5);
+    const chargeCount = PICKUP_COUNT - hpCount;
     
-    // Use grid-based spawning for even distribution
-    const gridSize = Math.ceil(Math.sqrt(FOOD_COUNT));
+    const gridSize = Math.ceil(Math.sqrt(PICKUP_COUNT));
     const cellSize = WORLD_SIZE / gridSize;
     let count = 0;
     
-    // Create ordered list of shapes for even distribution
-    const shapes: ('triangle' | 'square' | 'pentagon')[] = [];
-    for (let i = 0; i < triangleCount; i++) shapes.push('triangle');
-    for (let i = 0; i < squareCount; i++) shapes.push('square');
-    for (let i = 0; i < pentagonCount; i++) shapes.push('pentagon');
+    const types: PickupType[] = [];
+    for (let i = 0; i < hpCount; i++) types.push('HP');
+    for (let i = 0; i < chargeCount; i++) types.push('CHARGE');
     
-    // Shuffle for random but even distribution
-    for (let i = shapes.length - 1; i > 0; i--) {
+    for (let i = types.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [shapes[i], shapes[j]] = [shapes[j], shapes[i]];
+      [types[i], types[j]] = [types[j], types[i]];
     }
     
-    for (let row = 0; row < gridSize && count < FOOD_COUNT; row++) {
-      for (let col = 0; col < gridSize && count < FOOD_COUNT; col++) {
+    for (let row = 0; row < gridSize && count < PICKUP_COUNT; row++) {
+      for (let col = 0; col < gridSize && count < PICKUP_COUNT; col++) {
         const x = col * cellSize + Math.random() * cellSize;
         const y = row * cellSize + Math.random() * cellSize;
-        this.spawnFoodAt(x, y, shapes[count], false);
+        this.spawnPickupAt(x, y, types[count], false);
         count++;
       }
     }
   }
 
-  protected spawnFoodAt(x: number, y: number, shape: 'square' | 'triangle' | 'pentagon', trackDelta: boolean = true): Food {
-    let radius: number, color: string, value: number;
-    
-    if (shape === 'pentagon') {
-      radius = 7;
-      color = '#60a5fa'; // Blue
-      value = 5;
-    } else if (shape === 'square') {
-      radius = 8;
-      color = '#4ade80'; // Green
-      value = 4;
-    } else {
-      radius = 6;
-      color = '#f472b6'; // Pink
-      value = 3;
-    }
-    
-    const food: Food = {
-      id: `food-${Math.random().toString(36).substr(2, 9)}`,
+  protected spawnPickupAt(x: number, y: number, type: PickupType, trackDelta: boolean = true): Pickup {
+    const pickup: Pickup = {
+      id: `pickup-${Math.random().toString(36).substr(2, 9)}`,
       x,
       y,
-      radius,
-      color,
-      value,
-      shape
+      radius: type === 'HP' ? 8 : 7,
+      type,
+      value: PICKUP_VALUE
     };
-    this.gameState.foods.push(food);
+    this.gameState.pickups.push(pickup);
     if (trackDelta) {
-      this.spawnedFoods.push(food);
+      this.spawnedPickups.push(pickup);
     }
-    return food;
+    return pickup;
   }
 
-  protected spawnFoodOfType(shape: 'square' | 'triangle' | 'pentagon', trackDelta: boolean = true): Food {
+  protected spawnPickup(trackDelta: boolean = true): Pickup {
+    const type: PickupType = Math.random() < 0.5 ? 'HP' : 'CHARGE';
     const x = Math.random() * WORLD_SIZE;
     const y = Math.random() * WORLD_SIZE;
-    return this.spawnFoodAt(x, y, shape, trackDelta);
+    return this.spawnPickupAt(x, y, type, trackDelta);
   }
 
-  protected spawnFood(trackDelta: boolean = true): Food {
-    // Random spawn maintains distribution: 50% triangle, 30% square, 20% pentagon
-    const rand = Math.random();
-    let shape: 'square' | 'triangle' | 'pentagon';
-    if (rand < 0.5) shape = 'triangle';
-    else if (rand < 0.8) shape = 'square';
-    else shape = 'pentagon';
-    
+  protected spawnPickupOfType(type: PickupType, trackDelta: boolean = true): Pickup {
     const x = Math.random() * WORLD_SIZE;
     const y = Math.random() * WORLD_SIZE;
-    return this.spawnFoodAt(x, y, shape, trackDelta);
+    return this.spawnPickupAt(x, y, type, trackDelta);
   }
 
   protected startGameLoop() {
@@ -208,7 +196,7 @@ class GameRoom {
     return this.clients.size;
   }
 
-  addPlayer(playerId: string, ws: WebSocket, payload: { name: string; walletAddress?: string; playerColor?: string }): boolean {
+  addPlayer(playerId: string, ws: WebSocket, payload: { name: string; walletAddress?: string; playerColor?: string; characterShape?: CharacterShape }): boolean {
     if (this.isFull()) {
       return false;
     }
@@ -221,15 +209,21 @@ class GameRoom {
       y: Math.random() * WORLD_SIZE,
       radius: INITIAL_RADIUS,
       color: payload.playerColor || defaultColors[Math.floor(Math.random() * defaultColors.length)],
-      score: 10,
+      score: 0,
+      hp: INITIAL_HP,
+      maxHp: MAX_HP,
+      charge: INITIAL_CHARGE,
+      maxCharge: MAX_CHARGE,
+      characterShape: payload.characterShape || 'circle',
       velocity: { x: 0, y: 0 },
       walletAddress: payload.walletAddress,
       balance: 0,
       lastCombatTime: 0,
       inputVector: { x: 0, y: 0 },
       isSpectator: false,
-      isBoosting: false,
-      lastBoostOrbTime: 0
+      isStunned: false,
+      stunEndTime: 0,
+      facingAngle: 0
     };
 
     this.gameState.players.set(playerId, player);
@@ -237,7 +231,7 @@ class GameRoom {
 
     this.send(ws, {
       type: 'JOINED',
-      payload: { playerId, player, roomId: this.id, foods: this.gameState.foods }
+      payload: { playerId, player, roomId: this.id, pickups: this.gameState.pickups }
     });
 
     this.send(ws, {
@@ -249,9 +243,9 @@ class GameRoom {
     return true;
   }
 
-  handleInput(playerId: string, payload: { x: number; y: number; boost?: boolean }) {
+  handleInput(playerId: string, payload: { x: number; y: number }) {
     const player = this.gameState.players.get(playerId);
-    if (!player || player.isSpectator) return;
+    if (!player || player.isSpectator || player.isStunned) return;
 
     const length = Math.sqrt(payload.x * payload.x + payload.y * payload.y);
     if (length > 1) {
@@ -259,7 +253,19 @@ class GameRoom {
       payload.y /= length;
     }
     player.inputVector = { x: payload.x, y: payload.y };
-    player.isBoosting = payload.boost === true && player.score > 5;
+    if (length > 0.1) {
+      player.facingAngle = Math.atan2(payload.y, payload.x);
+    }
+  }
+
+  handleAbility(playerId: string, abilityType: AbilityType) {
+    const player = this.gameState.players.get(playerId);
+    if (!player || player.isSpectator || player.isStunned) return;
+    
+    this.executeAbility(player, abilityType);
+  }
+
+  protected executeAbility(player: Player, abilityType: AbilityType) {
   }
 
   handleLeave(playerId: string): boolean {
@@ -306,61 +312,28 @@ class GameRoom {
 
   protected update() {
     const dt = 1 / TICK_RATE;
+    const now = Date.now();
 
     this.gameState.players.forEach(player => {
       if (player.isSpectator) return;
       
-      // Check boost eligibility BEFORE draining
-      const canBoost = player.isBoosting && player.score > 5;
+      if (player.isStunned && now >= player.stunEndTime) {
+        player.isStunned = false;
+      }
+      if (player.isStunned) return;
       
       const { inputVector } = player;
       const length = Math.sqrt(inputVector.x * inputVector.x + inputVector.y * inputVector.y);
       
       if (length > 0) {
         const speedFactor = Math.max(0.5, 1 - (player.radius / 200));
-        let speed = MAX_SPEED * speedFactor;
-        
-        // Apply 70% speed boost when boosting
-        if (canBoost) {
-          speed *= 1.7;
-        }
+        const speed = MAX_SPEED * speedFactor;
         
         player.velocity.x = (inputVector.x / length) * speed;
         player.velocity.y = (inputVector.y / length) * speed;
       } else {
         player.velocity.x = 0;
         player.velocity.y = 0;
-      }
-      
-      // Apply boost drain AFTER movement (0.5 points per tick = ~15 pts/sec)
-      if (canBoost) {
-        player.score -= 0.5;
-        // Ensure score never goes below minimum
-        if (player.score < 5) {
-          player.score = 5;
-        }
-        player.radius = INITIAL_RADIUS + Math.sqrt(Math.max(5, player.score)) * 2;
-        // Stop boosting if score drops too low
-        if (player.score <= 5) {
-          player.isBoosting = false;
-        }
-        
-        // Spawn grey orb every second while boosting
-        const now = Date.now();
-        if (now - player.lastBoostOrbTime >= 1000) {
-          player.lastBoostOrbTime = now;
-          const boostOrb: Food = {
-            id: `boost-orb-${Math.random().toString(36).substr(2, 9)}`,
-            x: player.x - player.velocity.x * 10,
-            y: player.y - player.velocity.y * 10,
-            radius: 6,
-            color: '#888888',
-            value: 3,
-            shape: 'triangle'
-          };
-          this.gameState.foods.push(boostOrb);
-          this.spawnedFoods.push(boostOrb);
-        }
       }
 
       const timeScale = dt * 60;
@@ -374,77 +347,91 @@ class GameRoom {
     this.gameState.players.forEach(player => {
       if (player.isSpectator) return;
       
-      for (let i = this.gameState.foods.length - 1; i >= 0; i--) {
-        const food = this.gameState.foods[i];
-        const dx = player.x - food.x;
-        const dy = player.y - food.y;
+      for (let i = this.gameState.pickups.length - 1; i >= 0; i--) {
+        const pickup = this.gameState.pickups[i];
+        const dx = player.x - pickup.x;
+        const dy = player.y - pickup.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // More forgiving collision - player just needs to touch the food
-        if (dist < player.radius) {
-          const eatenShape = food.shape;
-          this.eatenFoodIds.push(food.id);
-          this.gameState.foods.splice(i, 1);
-          this.growPlayer(player, food.value);
-          this.spawnFoodOfType(eatenShape);
+        if (dist < player.radius + pickup.radius) {
+          const collectedType = pickup.type;
+          this.collectedPickupIds.push(pickup.id);
+          this.gameState.pickups.splice(i, 1);
+          
+          if (collectedType === 'HP') {
+            this.healPlayer(player, pickup.value);
+          } else {
+            this.chargePlayer(player, pickup.value);
+          }
+          
+          this.spawnPickupOfType(collectedType);
         }
       }
     });
-
-    const players = Array.from(this.gameState.players.values()).filter(p => !p.isSpectator);
-    const sortedPlayers = players.sort((a, b) => b.radius - a.radius);
-
-    for (let i = 0; i < sortedPlayers.length; i++) {
-      const predator = sortedPlayers[i];
-      for (let j = i + 1; j < sortedPlayers.length; j++) {
-        const prey = sortedPlayers[j];
-
-        if (!this.gameState.players.has(prey.id) || prey.isSpectator) continue;
-        if (!this.gameState.players.has(predator.id) || predator.isSpectator) continue;
-
-        const dx = predator.x - prey.x;
-        const dy = predator.y - prey.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist + prey.radius * 0.8 <= predator.radius && predator.radius > prey.radius) {
-          this.handleElimination(predator, prey);
-        }
-      }
-    }
   }
 
-  protected handleElimination(predator: Player, prey: Player) {
+  protected handleElimination(attacker: Player | null, victim: Player) {
     const now = Date.now();
-    predator.lastCombatTime = now;
-    prey.lastCombatTime = now;
+    if (attacker) {
+      attacker.lastCombatTime = now;
+      attacker.score += 1;
+    }
+    victim.lastCombatTime = now;
 
-    this.growPlayer(predator, prey.score);
-
-    const preyWs = this.clients.get(prey.id);
-    if (preyWs) {
-      this.send(preyWs, {
+    const victimWs = this.clients.get(victim.id);
+    if (victimWs) {
+      this.send(victimWs, {
         type: 'ELIMINATED',
         payload: {
-          killerName: predator.name,
-          score: prey.score,
-          balance: prey.balance
+          killerName: attacker ? attacker.name : 'Environment',
+          score: victim.score,
+          balance: victim.balance
         }
       });
     }
 
-    log(`${predator.name} eliminated ${prey.name} in room ${this.id}`, 'room');
-    this.gameState.players.delete(prey.id);
-    this.clients.delete(prey.id);
+    log(`${attacker ? attacker.name : 'Environment'} eliminated ${victim.name} in room ${this.id}`, 'room');
+    this.gameState.players.delete(victim.id);
+    this.clients.delete(victim.id);
   }
 
-  protected growPlayer(player: Player, amount: number) {
-    // 20% bonus growth when eating food
-    player.score += Math.floor(amount * 1.2);
-    // Ensure score never goes below minimum
-    if (player.score < 5) {
-      player.score = 5;
+  protected damagePlayer(attacker: Player | null, victim: Player, damage: number) {
+    victim.hp -= damage;
+    victim.lastCombatTime = Date.now();
+    if (attacker) attacker.lastCombatTime = Date.now();
+    
+    const victimWs = this.clients.get(victim.id);
+    if (victimWs) {
+      this.send(victimWs, {
+        type: 'DAMAGE',
+        payload: { damage, currentHp: victim.hp, attackerId: attacker?.id }
+      });
     }
-    player.radius = INITIAL_RADIUS + Math.sqrt(Math.max(5, player.score)) * 2;
+    
+    this.updatePlayerRadius(victim);
+    
+    if (victim.hp <= 0) {
+      this.handleElimination(attacker, victim);
+    }
+  }
+
+  protected healPlayer(player: Player, amount: number) {
+    player.hp = Math.min(player.maxHp, player.hp + amount);
+    this.updatePlayerRadius(player);
+  }
+
+  protected chargePlayer(player: Player, amount: number) {
+    player.charge = Math.min(player.maxCharge, player.charge + amount);
+  }
+
+  protected useCharge(player: Player, amount: number): boolean {
+    if (player.charge < amount) return false;
+    player.charge -= amount;
+    return true;
+  }
+
+  protected updatePlayerRadius(player: Player) {
+    player.radius = INITIAL_RADIUS + Math.sqrt(Math.max(1, player.hp)) * 1.5;
   }
 
   protected broadcastState() {
@@ -456,9 +443,15 @@ class GameRoom {
       radius: p.radius,
       color: p.color,
       score: p.score,
+      hp: p.hp,
+      maxHp: p.maxHp,
+      charge: p.charge,
+      maxCharge: p.maxCharge,
+      characterShape: p.characterShape,
       balance: p.balance,
       isSpectator: p.isSpectator,
-      isBoosting: p.isBoosting
+      isStunned: p.isStunned,
+      facingAngle: p.facingAngle
     }));
 
     const stateMessage: ServerMessage = {
@@ -470,17 +463,17 @@ class GameRoom {
 
     this.broadcast(stateMessage);
 
-    if (this.spawnedFoods.length > 0 || this.eatenFoodIds.length > 0) {
+    if (this.spawnedPickups.length > 0 || this.collectedPickupIds.length > 0) {
       const deltaMessage: ServerMessage = {
-        type: 'FOOD_DELTA',
+        type: 'PICKUP_DELTA',
         payload: {
-          spawned: this.spawnedFoods,
-          eaten: this.eatenFoodIds
+          spawned: this.spawnedPickups,
+          collected: this.collectedPickupIds
         }
       };
       this.broadcast(deltaMessage);
-      this.spawnedFoods = [];
-      this.eatenFoodIds = [];
+      this.spawnedPickups = [];
+      this.collectedPickupIds = [];
     }
   }
 
@@ -509,7 +502,7 @@ class StakeGameRoom extends GameRoom {
   private roundEndTimeout: NodeJS.Timeout | null = null;
   private prizePool: number = 0;
   private matchId: string = '';
-  private lobbyPlayers: Map<string, { ws: WebSocket; name: string; walletAddress?: string; playerColor?: string }> = new Map();
+  private lobbyPlayers: Map<string, { ws: WebSocket; name: string; walletAddress?: string; playerColor?: string; characterShape?: CharacterShape }> = new Map();
 
   constructor(id: string) {
     super(id, true);
@@ -541,7 +534,7 @@ class StakeGameRoom extends GameRoom {
     return this.roundState;
   }
 
-  async addPlayer(playerId: string, ws: WebSocket, payload: { name: string; walletAddress?: string; playerColor?: string }): Promise<boolean> {
+  async addPlayer(playerId: string, ws: WebSocket, payload: { name: string; walletAddress?: string; playerColor?: string; characterShape?: CharacterShape }): Promise<boolean> {
     // Only allow joining during LOBBY phase
     if (this.roundState !== 'LOBBY' && this.roundState !== 'COUNTDOWN') {
       this.send(ws, {
@@ -579,7 +572,8 @@ class StakeGameRoom extends GameRoom {
       ws,
       name: payload.name,
       walletAddress: payload.walletAddress,
-      playerColor: payload.playerColor
+      playerColor: payload.playerColor,
+      characterShape: payload.characterShape
     });
 
     // Send lobby info
@@ -638,9 +632,9 @@ class StakeGameRoom extends GameRoom {
     this.roundStartTime = Date.now();
     this.prizePool = this.lobbyPlayers.size * PRIZE_CONTRIBUTION;
 
-    // Reset food
-    this.gameState.foods = [];
-    this.initFood();
+    // Reset pickups
+    this.gameState.pickups = [];
+    this.initPickups();
 
     // Create players from lobby
     const defaultColors = ['#D40046', '#00CC7A', '#00A3CC', '#CC7A00', '#A300CC', '#CCCC00'];
@@ -653,15 +647,21 @@ class StakeGameRoom extends GameRoom {
         y: Math.random() * WORLD_SIZE,
         radius: INITIAL_RADIUS,
         color: data.playerColor || defaultColors[Math.floor(Math.random() * defaultColors.length)],
-        score: 10,
+        score: 0,
+        hp: INITIAL_HP,
+        maxHp: MAX_HP,
+        charge: INITIAL_CHARGE,
+        maxCharge: MAX_CHARGE,
+        characterShape: data.characterShape || 'circle',
         velocity: { x: 0, y: 0 },
         walletAddress: data.walletAddress,
         balance: ENTRY_FEE,
         lastCombatTime: 0,
         inputVector: { x: 0, y: 0 },
         isSpectator: false,
-        isBoosting: false,
-        lastBoostOrbTime: 0
+        isStunned: false,
+        stunEndTime: 0,
+        facingAngle: 0
       };
 
       this.gameState.players.set(playerId, player);
@@ -674,7 +674,7 @@ class StakeGameRoom extends GameRoom {
           playerId, 
           player, 
           roomId: this.id, 
-          foods: this.gameState.foods,
+          pickups: this.gameState.pickups,
           roundStartTime: this.roundStartTime,
           roundDuration: ROUND_DURATION,
           prizePool: this.prizePool
@@ -758,9 +758,9 @@ class StakeGameRoom extends GameRoom {
     this.roundStartTime = 0;
     this.matchId = `${this.id}_${Date.now()}`;
     
-    // Reset food
-    this.gameState.foods = [];
-    this.initFood();
+    // Reset pickups
+    this.gameState.pickups = [];
+    this.initPickups();
 
     log(`Stake room ${this.id} reset for next round`, 'room');
   }
@@ -843,33 +843,33 @@ class StakeGameRoom extends GameRoom {
     super.handleDisconnect(playerId);
   }
 
-  protected handleElimination(predator: Player, prey: Player) {
+  protected handleElimination(attacker: Player | null, victim: Player) {
     const now = Date.now();
-    predator.lastCombatTime = now;
-    prey.lastCombatTime = now;
+    if (attacker) {
+      attacker.lastCombatTime = now;
+      attacker.score += 1;
+    }
+    victim.lastCombatTime = now;
 
-    // Add prey's score to predator
-    this.growPlayer(predator, prey.score);
+    // Convert victim to spectator (no player-to-player money transfer)
+    victim.isSpectator = true;
+    victim.inputVector = { x: 0, y: 0 };
+    victim.velocity = { x: 0, y: 0 };
 
-    // Convert prey to spectator (no player-to-player money transfer)
-    prey.isSpectator = true;
-    prey.inputVector = { x: 0, y: 0 };
-    prey.velocity = { x: 0, y: 0 };
-
-    const preyWs = this.clients.get(prey.id);
-    if (preyWs) {
-      this.send(preyWs, {
+    const victimWs = this.clients.get(victim.id);
+    if (victimWs) {
+      this.send(victimWs, {
         type: 'ELIMINATED',
         payload: {
-          killerName: predator.name,
-          score: prey.score,
+          killerName: attacker ? attacker.name : 'Environment',
+          score: victim.score,
           isSpectating: true,
           timeRemaining: Math.max(0, ROUND_DURATION - (Date.now() - this.roundStartTime))
         }
       });
     }
 
-    log(`${predator.name} eliminated ${prey.name} in stake room ${this.id} - prey now spectating`, 'room');
+    log(`${attacker ? attacker.name : 'Environment'} eliminated ${victim.name} in stake room ${this.id} - victim now spectating`, 'room');
     
     // Check if only one active player remains
     const activePlayers = Array.from(this.gameState.players.values()).filter(p => !p.isSpectator);
@@ -890,9 +890,15 @@ class StakeGameRoom extends GameRoom {
       radius: p.radius,
       color: p.color,
       score: p.score,
+      hp: p.hp,
+      maxHp: p.maxHp,
+      charge: p.charge,
+      maxCharge: p.maxCharge,
+      characterShape: p.characterShape,
       balance: p.balance,
       isSpectator: p.isSpectator,
-      isBoosting: p.isBoosting
+      isStunned: p.isStunned,
+      facingAngle: p.facingAngle
     }));
 
     const timeRemaining = Math.max(0, ROUND_DURATION - (Date.now() - this.roundStartTime));
@@ -909,17 +915,17 @@ class StakeGameRoom extends GameRoom {
 
     this.broadcast(stateMessage);
 
-    if (this.spawnedFoods.length > 0 || this.eatenFoodIds.length > 0) {
+    if (this.spawnedPickups.length > 0 || this.collectedPickupIds.length > 0) {
       const deltaMessage: ServerMessage = {
-        type: 'FOOD_DELTA',
+        type: 'PICKUP_DELTA',
         payload: {
-          spawned: this.spawnedFoods,
-          eaten: this.eatenFoodIds
+          spawned: this.spawnedPickups,
+          collected: this.collectedPickupIds
         }
       };
       this.broadcast(deltaMessage);
-      this.spawnedFoods = [];
-      this.eatenFoodIds = [];
+      this.spawnedPickups = [];
+      this.collectedPickupIds = [];
     }
   }
 

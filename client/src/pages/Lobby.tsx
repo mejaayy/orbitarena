@@ -61,6 +61,7 @@ export default function Lobby() {
   const [showTerms, setShowTerms] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [selectedColor, setSelectedColor] = useState('#D40046');
+  const [selectedShape, setSelectedShape] = useState<'circle' | 'triangle' | 'square'>('circle');
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [internalBalance, setInternalBalance] = useState<InternalBalance | null>(null);
   const [showDeposit, setShowDeposit] = useState(false);
@@ -129,6 +130,9 @@ export default function Lobby() {
     
     const savedColor = localStorage.getItem('orbit-arena-color');
     if (savedColor) setSelectedColor(savedColor);
+    
+    const savedShape = localStorage.getItem('orbit-arena-shape') as 'circle' | 'triangle' | 'square' | null;
+    if (savedShape) setSelectedShape(savedShape);
 
     const fetchStatus = async () => {
       try {
@@ -268,11 +272,13 @@ export default function Lobby() {
     
     localStorage.setItem('orbit-arena-nickname', nickname);
     localStorage.setItem('orbit-arena-color', selectedColor);
+    localStorage.setItem('orbit-arena-shape', selectedShape);
     
     const params = new URLSearchParams({
       name: nickname,
       stake: String(isStakeMode),
-      color: selectedColor
+      color: selectedColor,
+      shape: selectedShape
     });
     if (walletAddress) {
       params.set('wallet', walletAddress);
@@ -380,6 +386,51 @@ export default function Lobby() {
                 autoFocus
                 autoComplete="off"
               />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label className="text-xs uppercase tracking-widest text-gray-500">Character</Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedShape('circle')}
+                  className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all hover:scale-110 ${
+                    selectedShape === 'circle' ? 'bg-white/20 ring-2 ring-white' : 'bg-white/5 hover:bg-white/10'
+                  }`}
+                  title="Circle - Pull & Slam abilities"
+                  data-testid="shape-circle"
+                >
+                  <svg viewBox="0 0 24 24" className="w-6 h-6" fill={selectedColor}>
+                    <circle cx="12" cy="12" r="10" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedShape('triangle')}
+                  className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all hover:scale-110 ${
+                    selectedShape === 'triangle' ? 'bg-white/20 ring-2 ring-white' : 'bg-white/5 hover:bg-white/10'
+                  }`}
+                  title="Triangle - Dash & Pierce abilities"
+                  data-testid="shape-triangle"
+                >
+                  <svg viewBox="0 0 24 24" className="w-6 h-6" fill={selectedColor}>
+                    <polygon points="12,2 22,20 2,20" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedShape('square')}
+                  className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all hover:scale-110 ${
+                    selectedShape === 'square' ? 'bg-white/20 ring-2 ring-white' : 'bg-white/5 hover:bg-white/10'
+                  }`}
+                  title="Square - Push & Stun Wave abilities"
+                  data-testid="shape-square"
+                >
+                  <svg viewBox="0 0 24 24" className="w-6 h-6" fill={selectedColor}>
+                    <rect x="2" y="2" width="20" height="20" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center justify-between">

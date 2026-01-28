@@ -30,6 +30,7 @@ export default function Game() {
   const isStakeMode = searchParams.get('stake') === 'true';
   const walletAddress = searchParams.get('wallet') || undefined;
   const playerColor = searchParams.get('color') || undefined;
+  const characterShape = (searchParams.get('shape') as 'circle' | 'triangle' | 'square') || 'circle';
 
   useEffect(() => {
     if (engine) {
@@ -61,7 +62,7 @@ export default function Game() {
     setGameOverStats(null);
     setRoundEndData(null);
     setIsSpectating(false);
-    engine?.start(playerName, isStakeMode, walletAddress, playerColor);
+    engine?.start(playerName, isStakeMode, walletAddress, playerColor, characterShape);
   };
 
   const handleExit = () => {
@@ -143,6 +144,7 @@ export default function Game() {
         isStakeMode={isStakeMode}
         walletAddress={walletAddress}
         playerColor={playerColor}
+        characterShape={characterShape}
         onGameOver={handleGameOver}
         onUpdateStats={setStats}
         onEngineInit={setEngine}

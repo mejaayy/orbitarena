@@ -2,7 +2,7 @@
 
 ## Overview
 
-Orbit Arena is a real-time multiplayer browser game similar to agar.io, where players control circular avatars in an arena, consume food to grow, and eliminate smaller players. The game features two modes:
+Orbit Arena is a real-time multiplayer combat browser game where players control character shapes in an arena, collect HP/Charge pickups, and use abilities to damage and eliminate opponents. The game features two modes:
 - **Free Mode**: Casual play with instant join/leave
 - **Stake Mode**: Tournament-based rounds with USDC entry fees and prize payouts via Solana/Phantom wallet
 
@@ -65,8 +65,20 @@ The game uses an off-chain balance ledger for stake mode:
 ### Game Architecture
 - **World Size**: 4000x4000 pixel arena
 - **Network Model**: Server sends authoritative state updates; clients send input vectors
-- **Message Types**: JOIN, INPUT, LEAVE (client); STATE, JOINED, ELIMINATED, PLAYER_LEFT, ERROR, ROUND_STATUS, ROUND_END (server)
+- **Message Types**: JOIN, INPUT, LEAVE, ABILITY (client); STATE, JOINED, ELIMINATED, PLAYER_LEFT, ERROR, ROUND_STATUS, ROUND_END, PICKUP_DELTA, DAMAGE, ABILITY_EFFECT (server)
 - **Escrow Service**: Server-side balance tracking for stake mode with deposit/payout/refund operations
+
+### Combat System
+- **HP System**: Players start with 100 HP (max 200). HP determines player size (radius = 20 + √hp × 1.5). Death occurs at 0 HP.
+- **Charge System**: Players start with 0 charge (max 100). Charge is used to power abilities.
+- **Pickups**: Two types spawn in arena:
+  - **HP Pickups** (red with cross): Restore 5 HP
+  - **Charge Pickups** (blue with lightning): Add 5 charge
+- **Character Shapes**: Players choose from 3 shapes with unique abilities:
+  - **Circle**: Pull (40 charge) - pulls nearby enemies toward you; Slam (40 charge) - area damage around you
+  - **Triangle**: Dash (40 charge) - quick forward dash; Pierce (40 charge) - projectile attack in facing direction
+  - **Square**: Push (40 charge) - pushes nearby enemies away; Stun Wave (40 charge) - stuns enemies in area
+- **Scoring**: 1 point per kill (used for leaderboard ranking)
 
 ### Stake Mode Tournament System
 
@@ -94,7 +106,7 @@ Stake mode uses a round-based tournament structure (StakeGameRoom class):
 - Death converts to spectator mode (can watch but not play)
 - No re-entry after elimination
 - No player-to-player balance transfers
-- All scoring is deterministic (based on points from eating food/players)
+- All scoring is deterministic (based on kills)
 
 ### Admin Panel Security
 

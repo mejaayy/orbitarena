@@ -3,6 +3,9 @@ export interface Point {
   y: number;
 }
 
+export type CharacterShape = 'circle' | 'triangle' | 'square';
+export type PickupType = 'HP' | 'CHARGE';
+
 export interface Player {
   id: string;
   name: string;
@@ -11,9 +14,15 @@ export interface Player {
   radius: number;
   color: string;
   score: number;
+  hp: number;
+  maxHp: number;
+  charge: number;
+  maxCharge: number;
+  characterShape: CharacterShape;
   velocity: Point;
   balance?: number;
-  isBoosting?: boolean;
+  isStunned?: boolean;
+  facingAngle?: number;
 }
 
 interface InterpolatedPlayer extends Player {
@@ -25,14 +34,13 @@ interface InterpolatedPlayer extends Player {
   trail: { x: number; y: number }[];
 }
 
-export interface Food {
+export interface Pickup {
   id: string;
   x: number;
   y: number;
   radius: number;
-  color: string;
+  type: PickupType;
   value: number;
-  shape: 'square' | 'triangle' | 'pentagon';
 }
 
 interface ServerState {
@@ -60,7 +68,7 @@ export class GameEngine {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
   players: Map<string, InterpolatedPlayer> = new Map();
-  foods: Food[] = [];
+  pickups: Pickup[] = [];
   localPlayerId: string | null = null;
   
   static WORLD_SIZE = 4000;
@@ -82,7 +90,6 @@ export class GameEngine {
   private localInputVector: Point = { x: 0, y: 0 };
   private lastInputSendTime: number = 0;
   private inputSendInterval: number = 33;
-  private isBoosting: boolean = false;
   
   onGameOver: (stats: { score: number, killer?: string, balance?: number }) => void;
   onUpdateStats: (stats: { fps: number, population: number, balance?: number }) => void;
@@ -93,7 +100,7 @@ export class GameEngine {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
-  private pendingJoin: { name: string; isStakeMode: boolean; walletAddress?: string; playerColor?: string } | null = null;
+  private pendingJoin: { name: string; isStakeMode: boolean; walletAddress?: string; playerColor?: string; characterShape?: CharacterShape } | null = null;
 
   constructor(
     canvas: HTMLCanvasElement, 
@@ -109,35 +116,6 @@ export class GameEngine {
 
     window.addEventListener('resize', this.handleResize);
     this.handleResize();
-    
-    // Mouse tracking for boost
-    this.canvas.addEventListener('mousedown', this.handleMouseDown);
-    this.canvas.addEventListener('mouseup', this.handleMouseUp);
-    this.canvas.addEventListener('mouseleave', this.handleMouseUp);
-    // Touch support for boost
-    this.canvas.addEventListener('touchstart', this.handleMouseDown);
-    this.canvas.addEventListener('touchend', this.handleMouseUp);
-    this.canvas.addEventListener('touchcancel', this.handleMouseUp);
-  }
-  
-  private handleMouseDown = () => {
-    this.isBoosting = true;
-    this.sendInputWithBoost();
-  };
-  
-  private handleMouseUp = () => {
-    this.isBoosting = false;
-    this.sendInputWithBoost();
-  };
-  
-  private sendInputWithBoost() {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({
-        type: 'INPUT',
-        payload: { x: this.localInputVector.x, y: this.localInputVector.y, boost: this.isBoosting }
-      }));
-      this.lastInputSendTime = performance.now();
-    }
   }
 
   private connectWebSocket() {
@@ -159,7 +137,7 @@ export class GameEngine {
       this.localPlayerId = null;
       
       if (this.pendingJoin) {
-        this.sendJoin(this.pendingJoin.name, this.pendingJoin.isStakeMode, this.pendingJoin.walletAddress, this.pendingJoin.playerColor);
+        this.sendJoin(this.pendingJoin.name, this.pendingJoin.isStakeMode, this.pendingJoin.walletAddress, this.pendingJoin.playerColor, this.pendingJoin.characterShape);
       }
     };
 
@@ -193,8 +171,8 @@ export class GameEngine {
         this.localPlayerId = message.payload.playerId;
         const player = message.payload.player;
         this.camera = { x: player.x, y: player.y };
-        if (message.payload.foods) {
-          this.foods = message.payload.foods;
+        if (message.payload.pickups) {
+          this.pickups = message.payload.pickups;
         }
         break;
 
@@ -202,8 +180,8 @@ export class GameEngine {
         this.applyServerState(message.payload);
         break;
 
-      case 'FOOD_DELTA':
-        this.applyFoodDelta(message.payload);
+      case 'PICKUP_DELTA':
+        this.applyPickupDelta(message.payload);
         break;
 
       case 'ELIMINATED':
@@ -240,13 +218,13 @@ export class GameEngine {
     }
   }
 
-  private applyFoodDelta(delta: { spawned: Food[]; eaten: string[] }) {
-    if (delta.eaten && delta.eaten.length > 0) {
-      const eatenSet = new Set(delta.eaten);
-      this.foods = this.foods.filter(f => !eatenSet.has(f.id));
+  private applyPickupDelta(delta: { spawned: Pickup[]; collected: string[] }) {
+    if (delta.collected && delta.collected.length > 0) {
+      const collectedSet = new Set(delta.collected);
+      this.pickups = this.pickups.filter(p => !collectedSet.has(p.id));
     }
     if (delta.spawned && delta.spawned.length > 0) {
-      this.foods.push(...delta.spawned);
+      this.pickups.push(...delta.spawned);
     }
   }
 
@@ -277,9 +255,15 @@ export class GameEngine {
         existing.interpStartTime = now;
         existing.radius = p.radius;
         existing.score = p.score;
+        existing.hp = p.hp;
+        existing.maxHp = p.maxHp;
+        existing.charge = p.charge;
+        existing.maxCharge = p.maxCharge;
+        existing.characterShape = p.characterShape;
         existing.color = p.color;
         existing.balance = p.balance;
-        existing.isBoosting = p.isBoosting;
+        existing.isStunned = p.isStunned;
+        existing.facingAngle = p.facingAngle;
       } else {
         this.players.set(p.id, {
           ...p,
@@ -295,11 +279,11 @@ export class GameEngine {
     });
   }
 
-  private sendJoin(name: string, isStakeMode: boolean, walletAddress?: string, playerColor?: string) {
+  private sendJoin(name: string, isStakeMode: boolean, walletAddress?: string, playerColor?: string, characterShape?: CharacterShape) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({
         type: 'JOIN',
-        payload: { name, isStakeMode, walletAddress, playerColor }
+        payload: { name, isStakeMode, walletAddress, playerColor, characterShape }
       }));
     }
   }
@@ -308,7 +292,7 @@ export class GameEngine {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({
         type: 'INPUT',
-        payload: { x: vector.x, y: vector.y, boost: this.isBoosting }
+        payload: { x: vector.x, y: vector.y }
       }));
     }
   }
@@ -337,14 +321,14 @@ export class GameEngine {
     this.ctx.imageSmoothingEnabled = false;
   };
 
-  start(playerName: string, isStakeMode: boolean, walletAddress?: string, playerColor?: string) {
+  start(playerName: string, isStakeMode: boolean, walletAddress?: string, playerColor?: string, characterShape?: CharacterShape) {
     this.isRunning = true;
     this.isStakeMode = isStakeMode;
     this.players.clear();
-    this.foods = [];
+    this.pickups = [];
     this.localPlayerId = null;
     
-    this.pendingJoin = { name: playerName, isStakeMode, walletAddress, playerColor };
+    this.pendingJoin = { name: playerName, isStakeMode, walletAddress, playerColor, characterShape };
     this.connectWebSocket();
     
     this.lastTime = performance.now();
@@ -449,26 +433,16 @@ export class GameEngine {
         player.y = player.prevY + (player.targetY - player.prevY) * smoothT;
       }
       
-      // Update trail - only when boosting
-      const isBoosting = player.id === this.localPlayerId ? this.isBoosting : player.isBoosting;
-      if (isBoosting && player.score > 5) {
-        // Initialize trail instantly when starting to boost
-        if (player.trail.length === 0) {
-          player.trail.push({ x: player.x, y: player.y });
+      // Update trail - always show for movement
+      const movedX = player.x - prevX;
+      const movedY = player.y - prevY;
+      if (movedX * movedX + movedY * movedY > 2) {
+        player.trail.push({ x: player.x, y: player.y });
+        if (player.trail.length > 8) {
+          player.trail.shift();
         }
-        const movedX = player.x - prevX;
-        const movedY = player.y - prevY;
-        if (movedX * movedX + movedY * movedY > 2) {
-          player.trail.push({ x: player.x, y: player.y });
-          if (player.trail.length > 15) {
-            player.trail.shift();
-          }
-        }
-      } else {
-        // Clear trail immediately when not boosting or out of points
-        if (player.trail.length > 0) {
-          player.trail = [];
-        }
+      } else if (movedX === 0 && movedY === 0 && player.trail.length > 0) {
+        player.trail.shift();
       }
     });
   }
@@ -505,35 +479,37 @@ export class GameEngine {
     const viewTop = this.camera.y - (cy / this.baseZoom) - viewPadding;
     const viewBottom = this.camera.y + (cy / this.baseZoom) + viewPadding;
 
-    this.foods.forEach(food => {
-      if (food.x < viewLeft || food.x > viewRight || food.y < viewTop || food.y > viewBottom) return;
+    this.pickups.forEach(pickup => {
+      if (pickup.x < viewLeft || pickup.x > viewRight || pickup.y < viewTop || pickup.y > viewBottom) return;
 
-      this.ctx.fillStyle = food.color;
+      const color = pickup.type === 'HP' ? '#FF4466' : '#44AAFF';
+      this.ctx.fillStyle = color;
       
-      if (food.shape === 'square') {
-        // Draw square centered at food position
-        const size = food.radius * 1.5;
-        this.ctx.fillRect(food.x - size / 2, food.y - size / 2, size, size);
-      } else if (food.shape === 'pentagon') {
-        // Draw pentagon centered at food position
-        const size = food.radius * 1.6;
+      if (pickup.type === 'HP') {
+        // Draw heart/plus shape for HP
+        const size = pickup.radius;
         this.ctx.beginPath();
-        for (let i = 0; i < 5; i++) {
-          const angle = (i * 2 * Math.PI / 5) - Math.PI / 2;
-          const px = food.x + size * Math.cos(angle);
-          const py = food.y + size * Math.sin(angle);
-          if (i === 0) this.ctx.moveTo(px, py);
-          else this.ctx.lineTo(px, py);
-        }
-        this.ctx.closePath();
+        this.ctx.arc(pickup.x, pickup.y, size, 0, Math.PI * 2);
         this.ctx.fill();
+        // Draw cross
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.fillRect(pickup.x - size * 0.6, pickup.y - size * 0.2, size * 1.2, size * 0.4);
+        this.ctx.fillRect(pickup.x - size * 0.2, pickup.y - size * 0.6, size * 0.4, size * 1.2);
       } else {
-        // Draw triangle centered at food position
-        const size = food.radius * 1.8;
+        // Draw lightning bolt shape for Charge
+        const size = pickup.radius;
         this.ctx.beginPath();
-        this.ctx.moveTo(food.x, food.y - size / 2);
-        this.ctx.lineTo(food.x + size / 2, food.y + size / 2);
-        this.ctx.lineTo(food.x - size / 2, food.y + size / 2);
+        this.ctx.arc(pickup.x, pickup.y, size, 0, Math.PI * 2);
+        this.ctx.fill();
+        // Draw lightning bolt
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.beginPath();
+        this.ctx.moveTo(pickup.x + size * 0.2, pickup.y - size * 0.6);
+        this.ctx.lineTo(pickup.x - size * 0.3, pickup.y + size * 0.1);
+        this.ctx.lineTo(pickup.x + size * 0.1, pickup.y + size * 0.1);
+        this.ctx.lineTo(pickup.x - size * 0.2, pickup.y + size * 0.6);
+        this.ctx.lineTo(pickup.x + size * 0.3, pickup.y - size * 0.1);
+        this.ctx.lineTo(pickup.x - size * 0.1, pickup.y - size * 0.1);
         this.ctx.closePath();
         this.ctx.fill();
       }
@@ -683,10 +659,6 @@ export class GameEngine {
   drawTrail(player: InterpolatedPlayer) {
     if (player.trail.length < 1) return;
     
-    // Check if still boosting - don't draw if not
-    const isBoosting = player.id === this.localPlayerId ? this.isBoosting : player.isBoosting;
-    if (!isBoosting) return;
-    
     // Parse color once
     let r = 255, g = 255, b = 255;
     if (player.color.startsWith('#')) {
@@ -697,11 +669,11 @@ export class GameEngine {
       b = parseInt(hex.substring(4, 6), 16);
     }
     
-    // Draw fading trail - bigger circles, higher opacity
+    // Draw fading trail
     for (let i = 0; i < player.trail.length; i++) {
       const progress = i / player.trail.length;
-      const alpha = progress * 0.6;
-      const size = player.radius * (0.5 + progress * 0.5);
+      const alpha = progress * 0.4;
+      const size = player.radius * (0.3 + progress * 0.4);
       
       this.ctx.beginPath();
       this.ctx.arc(player.trail[i].x, player.trail[i].y, size, 0, Math.PI * 2);
@@ -711,24 +683,78 @@ export class GameEngine {
   }
 
   drawPlayer(player: Player) {
-    this.ctx.beginPath();
-    this.ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+    const shape = player.characterShape || 'circle';
+    const angle = player.facingAngle || 0;
+    
+    this.ctx.save();
+    this.ctx.translate(player.x, player.y);
+    this.ctx.rotate(angle);
     
     this.ctx.fillStyle = player.color;
-    this.ctx.fill();
+    
+    // Draw stunned effect
+    if (player.isStunned) {
+      this.ctx.globalAlpha = 0.5;
+    }
+    
+    if (shape === 'circle') {
+      this.ctx.beginPath();
+      this.ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+      this.ctx.fill();
+    } else if (shape === 'triangle') {
+      const size = player.radius * 1.2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(size, 0);
+      this.ctx.lineTo(-size * 0.7, -size * 0.8);
+      this.ctx.lineTo(-size * 0.7, size * 0.8);
+      this.ctx.closePath();
+      this.ctx.fill();
+    } else if (shape === 'square') {
+      const size = player.radius * 0.9;
+      this.ctx.fillRect(-size, -size, size * 2, size * 2);
+    }
+    
+    this.ctx.globalAlpha = 1;
+    this.ctx.restore();
+    
+    // Draw HP bar above player
+    const barWidth = player.radius * 2;
+    const barHeight = 4;
+    const barY = player.y - player.radius - 12;
+    const hpPercent = (player.hp || 100) / (player.maxHp || 100);
+    
+    // HP bar background
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    this.ctx.fillRect(player.x - barWidth / 2, barY, barWidth, barHeight);
+    
+    // HP bar fill
+    this.ctx.fillStyle = hpPercent > 0.5 ? '#44FF44' : hpPercent > 0.25 ? '#FFAA00' : '#FF4444';
+    this.ctx.fillRect(player.x - barWidth / 2, barY, barWidth * hpPercent, barHeight);
+    
+    // Draw Charge bar below HP bar
+    const chargeY = barY + barHeight + 2;
+    const chargePercent = (player.charge || 0) / (player.maxCharge || 100);
+    
+    // Charge bar background
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    this.ctx.fillRect(player.x - barWidth / 2, chargeY, barWidth, barHeight);
+    
+    // Charge bar fill
+    this.ctx.fillStyle = '#44AAFF';
+    this.ctx.fillRect(player.x - barWidth / 2, chargeY, barWidth * chargePercent, barHeight);
     
     // Get local player for comparison
     const localPlayer = this.players.get(this.localPlayerId!);
     
-    // Determine name color based on relative mass
+    // Determine name color based on relative HP
     let textColor: string;
     if (player.id === this.localPlayerId) {
       textColor = '#FFFFFF';
     } else if (localPlayer) {
-      if (player.score > localPlayer.score) {
-        textColor = '#FF4444'; // Red - bigger than you (danger)
+      if ((player.hp || 100) > (localPlayer.hp || 100)) {
+        textColor = '#FF4444'; // Red - more HP (danger)
       } else {
-        textColor = '#44FF44'; // Green - smaller than you (safe to eat)
+        textColor = '#44FF44'; // Green - less HP (weaker)
       }
     } else {
       textColor = '#FFFFFF';
