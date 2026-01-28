@@ -290,6 +290,14 @@ export class GameEngine {
   }> = [];
 
   private damageFlashAlpha = 0;
+  
+  private screenShake = {
+    intensity: 0,
+    duration: 0,
+    startTime: 0,
+    offsetX: 0,
+    offsetY: 0
+  };
 
   private handleAbilityEffect(payload: { playerId: string; ability: string; x: number; y: number; angle: number }) {
     this.abilityEffects.push({
@@ -300,10 +308,66 @@ export class GameEngine {
       startTime: performance.now(),
       duration: payload.ability === 'PIERCE' ? 300 : 400
     });
+    
+    // Trigger screen shake for the local player's abilities
+    if (payload.playerId === this.localPlayerId) {
+      const shakeIntensity = this.getShakeIntensity(payload.ability);
+      this.triggerScreenShake(shakeIntensity.intensity, shakeIntensity.duration);
+    }
+  }
+  
+  private getShakeIntensity(ability: string): { intensity: number; duration: number } {
+    switch (ability) {
+      case 'SLAM':
+        return { intensity: 12, duration: 300 };
+      case 'PUSH':
+        return { intensity: 10, duration: 250 };
+      case 'STUN_WAVE':
+        return { intensity: 8, duration: 300 };
+      case 'DASH':
+        return { intensity: 6, duration: 150 };
+      case 'PIERCE':
+        return { intensity: 4, duration: 100 };
+      case 'PULL':
+        return { intensity: 5, duration: 200 };
+      default:
+        return { intensity: 5, duration: 150 };
+    }
+  }
+  
+  private triggerScreenShake(intensity: number, duration: number) {
+    this.screenShake.intensity = intensity;
+    this.screenShake.duration = duration;
+    this.screenShake.startTime = performance.now();
+  }
+  
+  private updateScreenShake() {
+    if (this.screenShake.intensity <= 0) {
+      this.screenShake.offsetX = 0;
+      this.screenShake.offsetY = 0;
+      return;
+    }
+    
+    const elapsed = performance.now() - this.screenShake.startTime;
+    if (elapsed >= this.screenShake.duration) {
+      this.screenShake.intensity = 0;
+      this.screenShake.offsetX = 0;
+      this.screenShake.offsetY = 0;
+      return;
+    }
+    
+    const progress = elapsed / this.screenShake.duration;
+    const decay = 1 - progress;
+    const currentIntensity = this.screenShake.intensity * decay;
+    
+    this.screenShake.offsetX = (Math.random() - 0.5) * 2 * currentIntensity;
+    this.screenShake.offsetY = (Math.random() - 0.5) * 2 * currentIntensity;
   }
 
   private showDamageFlash() {
     this.damageFlashAlpha = 0.4;
+    // Add screen shake when taking damage
+    this.triggerScreenShake(8, 200);
   }
 
   private applyPickupDelta(delta: { spawned: Pickup[]; collected: string[] }) {
@@ -561,7 +625,10 @@ export class GameEngine {
 
     this.ctx.save();
     
-    this.ctx.translate(cx, cy);
+    // Update and apply screen shake
+    this.updateScreenShake();
+    
+    this.ctx.translate(cx + this.screenShake.offsetX, cy + this.screenShake.offsetY);
     this.ctx.scale(this.baseZoom, this.baseZoom);
     this.ctx.translate(-this.camera.x, -this.camera.y);
 
