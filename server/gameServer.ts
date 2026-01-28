@@ -550,13 +550,6 @@ class GameRoom {
   }
 
   protected handleElimination(attacker: Player | null, victim: Player) {
-    const now = Date.now();
-    if (attacker) {
-      attacker.lastCombatTime = now;
-      attacker.score += 1;
-    }
-    victim.lastCombatTime = now;
-
     const victimWs = this.clients.get(victim.id);
     if (victimWs) {
       this.send(victimWs, {
@@ -577,7 +570,11 @@ class GameRoom {
   protected damagePlayer(attacker: Player | null, victim: Player, damage: number) {
     victim.hp -= damage;
     victim.lastCombatTime = Date.now();
-    if (attacker) attacker.lastCombatTime = Date.now();
+    if (attacker) {
+      attacker.lastCombatTime = Date.now();
+      // Points = damage dealt
+      attacker.score += damage;
+    }
     
     const victimWs = this.clients.get(victim.id);
     if (victimWs) {
@@ -1026,13 +1023,6 @@ class StakeGameRoom extends GameRoom {
   }
 
   protected handleElimination(attacker: Player | null, victim: Player) {
-    const now = Date.now();
-    if (attacker) {
-      attacker.lastCombatTime = now;
-      attacker.score += 1;
-    }
-    victim.lastCombatTime = now;
-
     // Convert victim to spectator (no player-to-player money transfer)
     victim.isSpectator = true;
     victim.inputVector = { x: 0, y: 0 };
