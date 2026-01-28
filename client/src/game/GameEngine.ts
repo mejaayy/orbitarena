@@ -298,6 +298,13 @@ export class GameEngine {
     offsetX: 0,
     offsetY: 0
   };
+  
+  private dashZoom = {
+    active: false,
+    startTime: 0,
+    duration: 200,
+    angle: 0
+  };
 
   private handleAbilityEffect(payload: { playerId: string; ability: string; x: number; y: number; angle: number }) {
     this.abilityEffects.push({
@@ -313,6 +320,13 @@ export class GameEngine {
     if (payload.playerId === this.localPlayerId) {
       const shakeIntensity = this.getShakeIntensity(payload.ability);
       this.triggerScreenShake(shakeIntensity.intensity, shakeIntensity.duration);
+      
+      // Trigger dash zoom effect
+      if (payload.ability === 'DASH') {
+        this.dashZoom.active = true;
+        this.dashZoom.startTime = performance.now();
+        this.dashZoom.angle = payload.angle;
+      }
     }
   }
   
@@ -628,8 +642,21 @@ export class GameEngine {
     // Update and apply screen shake
     this.updateScreenShake();
     
+    // Calculate dash zoom effect
+    let zoomMultiplier = 1;
+    if (this.dashZoom.active) {
+      const elapsed = performance.now() - this.dashZoom.startTime;
+      if (elapsed >= this.dashZoom.duration) {
+        this.dashZoom.active = false;
+      } else {
+        const progress = elapsed / this.dashZoom.duration;
+        // Quick zoom out then back in
+        zoomMultiplier = 1 + Math.sin(progress * Math.PI) * 0.08;
+      }
+    }
+    
     this.ctx.translate(cx + this.screenShake.offsetX, cy + this.screenShake.offsetY);
-    this.ctx.scale(this.baseZoom, this.baseZoom);
+    this.ctx.scale(this.baseZoom * zoomMultiplier, this.baseZoom * zoomMultiplier);
     this.ctx.translate(-this.camera.x, -this.camera.y);
 
     this.drawGrid();
@@ -724,15 +751,28 @@ export class GameEngine {
 
   private drawDashEffect(x: number, y: number, angle: number, progress: number, alpha: number) {
     const dashLength = 200;
-    const endX = x + Math.cos(angle) * dashLength;
-    const endY = y + Math.sin(angle) * dashLength;
     
-    this.ctx.beginPath();
-    this.ctx.moveTo(x, y);
-    this.ctx.lineTo(endX, endY);
-    this.ctx.strokeStyle = `rgba(100, 255, 255, ${alpha * 0.8})`;
-    this.ctx.lineWidth = 8;
-    this.ctx.stroke();
+    // Draw multiple speed lines for motion blur effect
+    const numLines = 5;
+    for (let i = 0; i < numLines; i++) {
+      const offset = (i - numLines / 2) * 8;
+      const perpAngle = angle + Math.PI / 2;
+      const startX = x + Math.cos(perpAngle) * offset;
+      const startY = y + Math.sin(perpAngle) * offset;
+      const lineLength = dashLength * (1 - progress * 0.5);
+      const endX = startX + Math.cos(angle) * lineLength;
+      const endY = startY + Math.sin(angle) * lineLength;
+      
+      const lineAlpha = alpha * (1 - Math.abs(i - numLines / 2) / numLines) * 0.6;
+      
+      this.ctx.beginPath();
+      this.ctx.moveTo(startX, startY);
+      this.ctx.lineTo(endX, endY);
+      this.ctx.strokeStyle = `rgba(100, 220, 255, ${lineAlpha})`;
+      this.ctx.lineWidth = 3;
+      this.ctx.lineCap = 'round';
+      this.ctx.stroke();
+    }
   }
 
   private drawPierceEffect(x: number, y: number, angle: number, progress: number, alpha: number) {
