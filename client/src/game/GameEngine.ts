@@ -140,26 +140,36 @@ export class GameEngine {
   };
 
   private sendAbility(abilityType: 'ABILITY_1' | 'ABILITY_2') {
+    const now = performance.now();
+    if (now - this.lastAbilityTime < this.ABILITY_COOLDOWN) {
+      return;
+    }
+    
     if (this.ws?.readyState === WebSocket.OPEN && this.localPlayerId && !this.isSpectating) {
+      const localPlayer = this.players.get(this.localPlayerId);
+      if (localPlayer && (localPlayer.charge || 0) < 20) {
+        this.showLowChargeFlash();
+        return;
+      }
+      
+      this.lastAbilityTime = now;
       const msg = JSON.stringify({
         type: 'ABILITY',
         payload: { abilityType }
       });
       console.log('Sending ability:', msg);
       this.ws.send(msg);
-      
-      const localPlayer = this.players.get(this.localPlayerId);
-      if (localPlayer && (localPlayer.charge || 0) < 40) {
-        this.showLowChargeFlash();
-      }
     }
   }
 
   private lowChargeFlashAlpha = 0;
 
   private showLowChargeFlash() {
-    this.lowChargeFlashAlpha = 0.3;
+    this.lowChargeFlashAlpha = 0.15;
   }
+
+  private lastAbilityTime = 0;
+  private readonly ABILITY_COOLDOWN = 500;
 
   private connectWebSocket() {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {

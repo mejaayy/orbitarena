@@ -231,7 +231,7 @@ export default function Game() {
               </span>
             </div>
           </div>
-          <div className="text-xs text-gray-500 mt-2">40 charge each</div>
+          <div className="text-xs text-gray-500 mt-2">20 charge each</div>
         </div>
       )}
 

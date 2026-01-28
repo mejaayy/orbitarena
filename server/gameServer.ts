@@ -32,6 +32,7 @@ interface Player {
   isStunned: boolean;
   stunEndTime: number;
   facingAngle: number;
+  lastAbilityTime: number;
 }
 
 type PickupType = 'HP' | 'CHARGE';
@@ -79,7 +80,8 @@ const INITIAL_CHARGE = 0;
 const MAX_CHARGE = 100;
 const PICKUP_VALUE = 5;
 
-const ABILITY_CHARGE_COST = 40;
+const ABILITY_CHARGE_COST = 20;
+const ABILITY_COOLDOWN = 500;
 const ABILITY_RANGE = 150;
 const ABILITY_DAMAGE = 25;
 const DASH_DISTANCE = 200;
@@ -269,6 +271,12 @@ class GameRoom {
   handleAbility(playerId: string, abilityType: AbilityType) {
     const player = this.gameState.players.get(playerId);
     if (!player || player.isSpectator || player.isStunned) return;
+    
+    const now = Date.now();
+    if (player.lastAbilityTime && now - player.lastAbilityTime < ABILITY_COOLDOWN) {
+      return;
+    }
+    player.lastAbilityTime = now;
     
     this.executeAbility(player, abilityType);
   }
