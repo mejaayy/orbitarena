@@ -924,9 +924,9 @@ export class GameEngine {
     this.ctx.restore();
     
     // Draw Charge bar above player (yellow)
-    const barWidth = player.radius * 2;
-    const barHeight = 5;
-    const barY = player.y - player.radius - 10;
+    const barWidth = player.radius * 2.5;
+    const barHeight = 6;
+    const barY = player.y - player.radius - 14;
     const barX = player.x - barWidth / 2;
     const chargePercent = (player.charge || 0) / (player.maxCharge || 100);
     

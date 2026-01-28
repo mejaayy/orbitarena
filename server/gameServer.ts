@@ -236,6 +236,9 @@ class GameRoom {
       facingAngle: 0
     };
 
+    // Set initial radius based on HP
+    this.updatePlayerRadius(player);
+
     this.gameState.players.set(playerId, player);
     this.clients.set(playerId, ws);
 
@@ -839,6 +842,9 @@ class StakeGameRoom extends GameRoom {
         stunEndTime: 0,
         facingAngle: 0
       };
+
+      // Set initial radius based on HP
+      this.updatePlayerRadius(player);
 
       this.gameState.players.set(playerId, player);
       this.clients.set(playerId, data.ws);
