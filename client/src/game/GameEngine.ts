@@ -679,6 +679,9 @@ export class GameEngine {
       this.ctx.fill();
     });
 
+    // Draw dash trails first (underneath players)
+    this.drawDashTrails();
+    
     const sortedPlayers = Array.from(this.players.values()).sort((a, b) => a.radius - b.radius);
     
     sortedPlayers.forEach(player => {
@@ -696,6 +699,22 @@ export class GameEngine {
     this.drawMinimap();
   }
 
+  private drawDashTrails() {
+    const now = performance.now();
+    
+    this.abilityEffects.forEach(effect => {
+      if (effect.type !== 'DASH') return;
+      
+      const elapsed = now - effect.startTime;
+      if (elapsed > effect.duration) return;
+      
+      const progress = elapsed / effect.duration;
+      const alpha = 1 - progress;
+      
+      this.drawDashEffect(effect.x, effect.y, effect.angle, progress, alpha, effect.playerId);
+    });
+  }
+
   private drawAbilityEffects() {
     const now = performance.now();
     
@@ -706,15 +725,15 @@ export class GameEngine {
       const progress = elapsed / effect.duration;
       const alpha = 1 - progress;
       
+      // Skip DASH here - it's drawn separately underneath players
+      if (effect.type === 'DASH') return true;
+      
       switch (effect.type) {
         case 'PULL':
           this.drawPullEffect(effect.x, effect.y, progress, alpha);
           break;
         case 'SLAM':
           this.drawSlamEffect(effect.x, effect.y, progress, alpha);
-          break;
-        case 'DASH':
-          this.drawDashEffect(effect.x, effect.y, effect.angle, progress, alpha, effect.playerId);
           break;
         case 'PIERCE':
           this.drawPierceEffect(effect.x, effect.y, effect.angle, progress, alpha);
