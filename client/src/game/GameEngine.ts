@@ -751,21 +751,25 @@ export class GameEngine {
 
   private drawDashEffect(x: number, y: number, angle: number, progress: number, alpha: number) {
     // x,y is where player ended up after dash
-    // Draw trail going backwards (opposite of facing direction)
+    // Trail starts from where they came from (behind current position)
+    const dashDistance = 200;
     const trailLength = 180 * (1 - progress);
     
-    // Trail goes in opposite direction of angle (behind the player)
-    const backAngle = angle + Math.PI;
-    const trailEndX = x + Math.cos(backAngle) * trailLength;
-    const trailEndY = y + Math.sin(backAngle) * trailLength;
+    // Calculate starting position (where player was before dash)
+    const startX = x - Math.cos(angle) * dashDistance;
+    const startY = y - Math.sin(angle) * dashDistance;
+    
+    // Draw trail from start position toward current position (but not all the way)
+    const trailEndX = startX + Math.cos(angle) * (dashDistance - trailLength);
+    const trailEndY = startY + Math.sin(angle) * (dashDistance - trailLength);
     
     // Create gradient for trail fade
-    const gradient = this.ctx.createLinearGradient(x, y, trailEndX, trailEndY);
+    const gradient = this.ctx.createLinearGradient(trailEndX, trailEndY, startX, startY);
     gradient.addColorStop(0, `rgba(100, 220, 255, ${alpha * 0.8})`);
     gradient.addColorStop(1, `rgba(100, 220, 255, 0)`);
     
     this.ctx.beginPath();
-    this.ctx.moveTo(x, y);
+    this.ctx.moveTo(startX, startY);
     this.ctx.lineTo(trailEndX, trailEndY);
     this.ctx.strokeStyle = gradient;
     this.ctx.lineWidth = 8;
