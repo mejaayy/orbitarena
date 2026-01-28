@@ -388,47 +388,68 @@ export default function Lobby() {
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="space-y-2">
               <Label className="text-xs uppercase tracking-widest text-gray-500">Character</Label>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedShape('circle')}
-                  className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all hover:scale-110 ${
-                    selectedShape === 'circle' ? 'bg-white/20 ring-2 ring-white' : 'bg-white/5 hover:bg-white/10'
+                  className={`p-3 rounded-xl transition-all border ${
+                    selectedShape === 'circle' 
+                      ? 'bg-white/15 border-white/40 ring-2 ring-white/50' 
+                      : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
                   }`}
-                  title="Circle - Pull & Slam abilities"
                   data-testid="shape-circle"
                 >
-                  <svg viewBox="0 0 24 24" className="w-6 h-6" fill={selectedColor}>
-                    <circle cx="12" cy="12" r="10" />
-                  </svg>
+                  <div className="flex flex-col items-center gap-2">
+                    <svg viewBox="0 0 24 24" className="w-8 h-8" fill={selectedColor}>
+                      <circle cx="12" cy="12" r="10" />
+                    </svg>
+                    <span className="text-xs font-medium text-white">Circle</span>
+                    <div className="text-[10px] text-gray-400 leading-tight text-center">
+                      Pull • Slam
+                    </div>
+                  </div>
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedShape('triangle')}
-                  className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all hover:scale-110 ${
-                    selectedShape === 'triangle' ? 'bg-white/20 ring-2 ring-white' : 'bg-white/5 hover:bg-white/10'
+                  className={`p-3 rounded-xl transition-all border ${
+                    selectedShape === 'triangle' 
+                      ? 'bg-white/15 border-white/40 ring-2 ring-white/50' 
+                      : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
                   }`}
-                  title="Triangle - Dash & Pierce abilities"
                   data-testid="shape-triangle"
                 >
-                  <svg viewBox="0 0 24 24" className="w-6 h-6" fill={selectedColor}>
-                    <polygon points="12,2 22,20 2,20" />
-                  </svg>
+                  <div className="flex flex-col items-center gap-2">
+                    <svg viewBox="0 0 24 24" className="w-8 h-8" fill={selectedColor}>
+                      <polygon points="12,2 22,20 2,20" />
+                    </svg>
+                    <span className="text-xs font-medium text-white">Triangle</span>
+                    <div className="text-[10px] text-gray-400 leading-tight text-center">
+                      Dash • Pierce
+                    </div>
+                  </div>
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedShape('square')}
-                  className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all hover:scale-110 ${
-                    selectedShape === 'square' ? 'bg-white/20 ring-2 ring-white' : 'bg-white/5 hover:bg-white/10'
+                  className={`p-3 rounded-xl transition-all border ${
+                    selectedShape === 'square' 
+                      ? 'bg-white/15 border-white/40 ring-2 ring-white/50' 
+                      : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
                   }`}
-                  title="Square - Push & Stun Wave abilities"
                   data-testid="shape-square"
                 >
-                  <svg viewBox="0 0 24 24" className="w-6 h-6" fill={selectedColor}>
-                    <rect x="2" y="2" width="20" height="20" />
-                  </svg>
+                  <div className="flex flex-col items-center gap-2">
+                    <svg viewBox="0 0 24 24" className="w-8 h-8" fill={selectedColor}>
+                      <rect x="2" y="2" width="20" height="20" />
+                    </svg>
+                    <span className="text-xs font-medium text-white">Square</span>
+                    <div className="text-[10px] text-gray-400 leading-tight text-center">
+                      Push • Stun
+                    </div>
+                  </div>
                 </button>
               </div>
             </div>

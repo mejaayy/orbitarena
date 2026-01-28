@@ -554,37 +554,11 @@ export class GameEngine {
     this.pickups.forEach(pickup => {
       if (pickup.x < viewLeft || pickup.x > viewRight || pickup.y < viewTop || pickup.y > viewBottom) return;
 
-      const color = pickup.type === 'HP' ? '#FF4466' : '#44AAFF';
+      const color = pickup.type === 'HP' ? '#FF4466' : '#FFCC00';
       this.ctx.fillStyle = color;
-      
-      if (pickup.type === 'HP') {
-        // Draw heart/plus shape for HP
-        const size = pickup.radius;
-        this.ctx.beginPath();
-        this.ctx.arc(pickup.x, pickup.y, size, 0, Math.PI * 2);
-        this.ctx.fill();
-        // Draw cross
-        this.ctx.fillStyle = '#FFFFFF';
-        this.ctx.fillRect(pickup.x - size * 0.6, pickup.y - size * 0.2, size * 1.2, size * 0.4);
-        this.ctx.fillRect(pickup.x - size * 0.2, pickup.y - size * 0.6, size * 0.4, size * 1.2);
-      } else {
-        // Draw lightning bolt shape for Charge
-        const size = pickup.radius;
-        this.ctx.beginPath();
-        this.ctx.arc(pickup.x, pickup.y, size, 0, Math.PI * 2);
-        this.ctx.fill();
-        // Draw lightning bolt
-        this.ctx.fillStyle = '#FFFFFF';
-        this.ctx.beginPath();
-        this.ctx.moveTo(pickup.x + size * 0.2, pickup.y - size * 0.6);
-        this.ctx.lineTo(pickup.x - size * 0.3, pickup.y + size * 0.1);
-        this.ctx.lineTo(pickup.x + size * 0.1, pickup.y + size * 0.1);
-        this.ctx.lineTo(pickup.x - size * 0.2, pickup.y + size * 0.6);
-        this.ctx.lineTo(pickup.x + size * 0.3, pickup.y - size * 0.1);
-        this.ctx.lineTo(pickup.x - size * 0.1, pickup.y - size * 0.1);
-        this.ctx.closePath();
-        this.ctx.fill();
-      }
+      this.ctx.beginPath();
+      this.ctx.arc(pickup.x, pickup.y, pickup.radius, 0, Math.PI * 2);
+      this.ctx.fill();
     });
 
     const sortedPlayers = Array.from(this.players.values()).sort((a, b) => a.radius - b.radius);
@@ -911,31 +885,19 @@ export class GameEngine {
     this.ctx.globalAlpha = 1;
     this.ctx.restore();
     
-    // Draw HP bar above player
+    // Draw Charge bar above player (yellow)
     const barWidth = player.radius * 2;
     const barHeight = 4;
-    const barY = player.y - player.radius - 12;
-    const hpPercent = (player.hp || 100) / (player.maxHp || 100);
-    
-    // HP bar background
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    this.ctx.fillRect(player.x - barWidth / 2, barY, barWidth, barHeight);
-    
-    // HP bar fill
-    this.ctx.fillStyle = hpPercent > 0.5 ? '#44FF44' : hpPercent > 0.25 ? '#FFAA00' : '#FF4444';
-    this.ctx.fillRect(player.x - barWidth / 2, barY, barWidth * hpPercent, barHeight);
-    
-    // Draw Charge bar below HP bar
-    const chargeY = barY + barHeight + 2;
+    const barY = player.y - player.radius - 10;
     const chargePercent = (player.charge || 0) / (player.maxCharge || 100);
     
     // Charge bar background
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    this.ctx.fillRect(player.x - barWidth / 2, chargeY, barWidth, barHeight);
+    this.ctx.fillRect(player.x - barWidth / 2, barY, barWidth, barHeight);
     
-    // Charge bar fill
-    this.ctx.fillStyle = '#44AAFF';
-    this.ctx.fillRect(player.x - barWidth / 2, chargeY, barWidth * chargePercent, barHeight);
+    // Charge bar fill (yellow)
+    this.ctx.fillStyle = '#FFCC00';
+    this.ctx.fillRect(player.x - barWidth / 2, barY, barWidth * chargePercent, barHeight);
     
     // Get local player for comparison
     const localPlayer = this.players.get(this.localPlayerId!);
