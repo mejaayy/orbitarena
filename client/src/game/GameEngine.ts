@@ -589,7 +589,6 @@ export class GameEngine {
       if (player.x + player.radius < viewLeft || player.x - player.radius > viewRight || 
           player.y + player.radius < viewTop || player.y - player.radius > viewBottom) return;
 
-      this.drawTrail(player);
       this.drawPlayer(player);
     });
 
