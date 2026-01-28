@@ -163,7 +163,7 @@ export class GameEngine {
   private lowChargeFlashAlpha = 0;
 
   private showLowChargeFlash() {
-    this.lowChargeFlashAlpha = 0.15;
+    this.lowChargeFlashAlpha = 0.6;
   }
 
   private lastAbilityTime = 0;
@@ -720,10 +720,19 @@ export class GameEngine {
     }
     
     if (this.lowChargeFlashAlpha > 0) {
-      this.ctx.fillStyle = `rgba(255, 200, 0, ${this.lowChargeFlashAlpha})`;
+      const cx = width / 2;
+      const cy = height / 2;
+      const outerRadius = Math.sqrt(cx * cx + cy * cy);
+      const innerRadius = outerRadius * 0.4;
+      
+      const gradient = this.ctx.createRadialGradient(cx, cy, innerRadius, cx, cy, outerRadius);
+      gradient.addColorStop(0, 'rgba(255, 200, 0, 0)');
+      gradient.addColorStop(1, `rgba(255, 180, 0, ${this.lowChargeFlashAlpha * 0.5})`);
+      
+      this.ctx.fillStyle = gradient;
       this.ctx.fillRect(0, 0, width, height);
       
-      this.lowChargeFlashAlpha -= 0.03;
+      this.lowChargeFlashAlpha -= 0.015;
       if (this.lowChargeFlashAlpha < 0) this.lowChargeFlashAlpha = 0;
     }
   }
