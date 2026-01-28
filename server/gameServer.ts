@@ -79,6 +79,14 @@ const INITIAL_CHARGE = 0;
 const MAX_CHARGE = 100;
 const PICKUP_VALUE = 5;
 
+const ABILITY_CHARGE_COST = 40;
+const ABILITY_RANGE = 150;
+const ABILITY_DAMAGE = 25;
+const DASH_DISTANCE = 200;
+const STUN_DURATION = 1500;
+const PROJECTILE_SPEED = 15;
+const PROJECTILE_RANGE = 500;
+
 // Stake mode constants
 const ENTRY_FEE = 1.00;
 const PLATFORM_FEE = 0.10;
@@ -266,6 +274,172 @@ class GameRoom {
   }
 
   protected executeAbility(player: Player, abilityType: AbilityType) {
+    if (!this.useCharge(player, ABILITY_CHARGE_COST)) {
+      const ws = this.clients.get(player.id);
+      if (ws) {
+        this.send(ws, { type: 'ERROR', payload: { message: 'Not enough charge' } });
+      }
+      return;
+    }
+
+    const shape = player.characterShape;
+    let abilityName = '';
+    
+    if (shape === 'circle') {
+      if (abilityType === 'ABILITY_1') {
+        abilityName = 'PULL';
+        this.executePull(player);
+      } else {
+        abilityName = 'SLAM';
+        this.executeSlam(player);
+      }
+    } else if (shape === 'triangle') {
+      if (abilityType === 'ABILITY_1') {
+        abilityName = 'DASH';
+        this.executeDash(player);
+      } else {
+        abilityName = 'PIERCE';
+        this.executePierce(player);
+      }
+    } else if (shape === 'square') {
+      if (abilityType === 'ABILITY_1') {
+        abilityName = 'PUSH';
+        this.executePush(player);
+      } else {
+        abilityName = 'STUN_WAVE';
+        this.executeStunWave(player);
+      }
+    }
+
+    this.broadcast({
+      type: 'ABILITY_EFFECT',
+      payload: {
+        playerId: player.id,
+        ability: abilityName,
+        x: player.x,
+        y: player.y,
+        angle: player.facingAngle
+      }
+    });
+  }
+
+  protected executePull(player: Player) {
+    const pullStrength = 80;
+    this.gameState.players.forEach(other => {
+      if (other.id === player.id || other.isSpectator) return;
+      
+      const dx = player.x - other.x;
+      const dy = player.y - other.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist < ABILITY_RANGE && dist > 0) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+        other.x += nx * pullStrength;
+        other.y += ny * pullStrength;
+        other.x = Math.max(other.radius, Math.min(WORLD_SIZE - other.radius, other.x));
+        other.y = Math.max(other.radius, Math.min(WORLD_SIZE - other.radius, other.y));
+      }
+    });
+  }
+
+  protected executeSlam(player: Player) {
+    this.gameState.players.forEach(other => {
+      if (other.id === player.id || other.isSpectator) return;
+      
+      const dx = other.x - player.x;
+      const dy = other.y - player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist < ABILITY_RANGE) {
+        this.damagePlayer(player, other, ABILITY_DAMAGE);
+      }
+    });
+  }
+
+  protected executeDash(player: Player) {
+    const angle = player.facingAngle;
+    player.x += Math.cos(angle) * DASH_DISTANCE;
+    player.y += Math.sin(angle) * DASH_DISTANCE;
+    player.x = Math.max(player.radius, Math.min(WORLD_SIZE - player.radius, player.x));
+    player.y = Math.max(player.radius, Math.min(WORLD_SIZE - player.radius, player.y));
+    
+    this.gameState.players.forEach(other => {
+      if (other.id === player.id || other.isSpectator) return;
+      
+      const dx = other.x - player.x;
+      const dy = other.y - player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist < player.radius + other.radius + 20) {
+        this.damagePlayer(player, other, Math.floor(ABILITY_DAMAGE * 0.6));
+      }
+    });
+  }
+
+  protected executePierce(player: Player) {
+    const angle = player.facingAngle;
+    const startX = player.x;
+    const startY = player.y;
+    
+    const hitPlayers = new Set<string>();
+    
+    for (let d = 0; d < PROJECTILE_RANGE; d += 20) {
+      const px = startX + Math.cos(angle) * d;
+      const py = startY + Math.sin(angle) * d;
+      
+      this.gameState.players.forEach(other => {
+        if (other.id === player.id || other.isSpectator || hitPlayers.has(other.id)) return;
+        
+        const dx = other.x - px;
+        const dy = other.y - py;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < other.radius + 15) {
+          this.damagePlayer(player, other, ABILITY_DAMAGE);
+          hitPlayers.add(other.id);
+        }
+      });
+    }
+  }
+
+  protected executePush(player: Player) {
+    const pushStrength = 120;
+    this.gameState.players.forEach(other => {
+      if (other.id === player.id || other.isSpectator) return;
+      
+      const dx = other.x - player.x;
+      const dy = other.y - player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist < ABILITY_RANGE && dist > 0) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+        other.x += nx * pushStrength;
+        other.y += ny * pushStrength;
+        other.x = Math.max(other.radius, Math.min(WORLD_SIZE - other.radius, other.x));
+        other.y = Math.max(other.radius, Math.min(WORLD_SIZE - other.radius, other.y));
+        this.damagePlayer(player, other, Math.floor(ABILITY_DAMAGE * 0.4));
+      }
+    });
+  }
+
+  protected executeStunWave(player: Player) {
+    const now = Date.now();
+    this.gameState.players.forEach(other => {
+      if (other.id === player.id || other.isSpectator) return;
+      
+      const dx = other.x - player.x;
+      const dy = other.y - player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist < ABILITY_RANGE) {
+        other.isStunned = true;
+        other.stunEndTime = now + STUN_DURATION;
+        other.velocity = { x: 0, y: 0 };
+        this.damagePlayer(player, other, Math.floor(ABILITY_DAMAGE * 0.5));
+      }
+    });
   }
 
   handleLeave(playerId: string): boolean {
@@ -404,7 +578,7 @@ class GameRoom {
     if (victimWs) {
       this.send(victimWs, {
         type: 'DAMAGE',
-        payload: { damage, currentHp: victim.hp, attackerId: attacker?.id }
+        payload: { targetId: victim.id, damage, currentHp: victim.hp, attackerId: attacker?.id }
       });
     }
     
@@ -1057,13 +1231,23 @@ export class GameServer {
       case 'INPUT':
         this.handleInput(playerId, message.payload);
         break;
+      case 'ABILITY':
+        this.handleAbilityMessage(playerId, message.payload);
+        break;
       case 'LEAVE':
         this.handleLeave(playerId);
         break;
     }
   }
 
-  private handleJoin(playerId: string, ws: WebSocket, payload: { name: string; isStakeMode?: boolean; walletAddress?: string; playerColor?: string }) {
+  private handleAbilityMessage(playerId: string, payload: { abilityType: AbilityType }) {
+    const room = this.findPlayerRoom(playerId);
+    if (room) {
+      room.handleAbility(playerId, payload.abilityType);
+    }
+  }
+
+  private handleJoin(playerId: string, ws: WebSocket, payload: { name: string; isStakeMode?: boolean; walletAddress?: string; playerColor?: string; characterShape?: CharacterShape }) {
     const isStakeMode = payload.isStakeMode ?? false;
     const room = this.findAvailableRoom(isStakeMode);
     

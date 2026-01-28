@@ -116,6 +116,32 @@ export class GameEngine {
 
     window.addEventListener('resize', this.handleResize);
     this.handleResize();
+    
+    window.addEventListener('keydown', this.handleKeyDown);
+    this.canvas.addEventListener('mousedown', this.handleMouseDown);
+    this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
+  private handleKeyDown = (e: KeyboardEvent) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      this.sendAbility('ABILITY_1');
+    }
+  };
+
+  private handleMouseDown = (e: MouseEvent) => {
+    if (e.button === 0) {
+      this.sendAbility('ABILITY_2');
+    }
+  };
+
+  private sendAbility(abilityType: 'ABILITY_1' | 'ABILITY_2') {
+    if (this.ws?.readyState === WebSocket.OPEN && this.localPlayerId && !this.isSpectating) {
+      this.ws.send(JSON.stringify({
+        type: 'ABILITY',
+        payload: { abilityType }
+      }));
+    }
   }
 
   private connectWebSocket() {
@@ -215,7 +241,43 @@ export class GameEngine {
       case 'ERROR':
         console.error('Server error:', message.payload.message);
         break;
+
+      case 'ABILITY_EFFECT':
+        this.handleAbilityEffect(message.payload);
+        break;
+
+      case 'DAMAGE':
+        if (message.payload.targetId === this.localPlayerId) {
+          this.showDamageFlash();
+        }
+        break;
     }
+  }
+
+  private abilityEffects: Array<{
+    type: string;
+    x: number;
+    y: number;
+    angle: number;
+    startTime: number;
+    duration: number;
+  }> = [];
+
+  private damageFlashAlpha = 0;
+
+  private handleAbilityEffect(payload: { playerId: string; ability: string; x: number; y: number; angle: number }) {
+    this.abilityEffects.push({
+      type: payload.ability,
+      x: payload.x,
+      y: payload.y,
+      angle: payload.angle,
+      startTime: performance.now(),
+      duration: payload.ability === 'PIERCE' ? 300 : 400
+    });
+  }
+
+  private showDamageFlash() {
+    this.damageFlashAlpha = 0.4;
   }
 
   private applyPickupDelta(delta: { spawned: Pickup[]; collected: string[] }) {
@@ -340,6 +402,10 @@ export class GameEngine {
     this.ws?.close();
     this.ws = null;
     this.pendingJoin = null;
+    window.removeEventListener('keydown', this.handleKeyDown);
+    this.canvas.removeEventListener('mousedown', this.handleMouseDown);
+    this.abilityEffects = [];
+    this.damageFlashAlpha = 0;
   }
 
   handleInput(vector: Point) {
@@ -525,9 +591,131 @@ export class GameEngine {
       this.drawPlayer(player);
     });
 
+    this.drawAbilityEffects();
+
     this.ctx.restore();
 
+    this.drawDamageFlash();
     this.drawMinimap();
+  }
+
+  private drawAbilityEffects() {
+    const now = performance.now();
+    
+    this.abilityEffects = this.abilityEffects.filter(effect => {
+      const elapsed = now - effect.startTime;
+      if (elapsed > effect.duration) return false;
+      
+      const progress = elapsed / effect.duration;
+      const alpha = 1 - progress;
+      
+      switch (effect.type) {
+        case 'PULL':
+          this.drawPullEffect(effect.x, effect.y, progress, alpha);
+          break;
+        case 'SLAM':
+          this.drawSlamEffect(effect.x, effect.y, progress, alpha);
+          break;
+        case 'DASH':
+          this.drawDashEffect(effect.x, effect.y, effect.angle, progress, alpha);
+          break;
+        case 'PIERCE':
+          this.drawPierceEffect(effect.x, effect.y, effect.angle, progress, alpha);
+          break;
+        case 'PUSH':
+          this.drawPushEffect(effect.x, effect.y, progress, alpha);
+          break;
+        case 'STUN_WAVE':
+          this.drawStunWaveEffect(effect.x, effect.y, progress, alpha);
+          break;
+      }
+      
+      return true;
+    });
+  }
+
+  private drawPullEffect(x: number, y: number, progress: number, alpha: number) {
+    const radius = 150 * (1 - progress);
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+    this.ctx.strokeStyle = `rgba(255, 100, 255, ${alpha * 0.6})`;
+    this.ctx.lineWidth = 3;
+    this.ctx.stroke();
+  }
+
+  private drawSlamEffect(x: number, y: number, progress: number, alpha: number) {
+    const radius = 150 * progress;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+    this.ctx.fillStyle = `rgba(255, 50, 50, ${alpha * 0.3})`;
+    this.ctx.fill();
+    this.ctx.strokeStyle = `rgba(255, 100, 100, ${alpha * 0.8})`;
+    this.ctx.lineWidth = 4;
+    this.ctx.stroke();
+  }
+
+  private drawDashEffect(x: number, y: number, angle: number, progress: number, alpha: number) {
+    const dashLength = 200;
+    const endX = x + Math.cos(angle) * dashLength;
+    const endY = y + Math.sin(angle) * dashLength;
+    
+    this.ctx.beginPath();
+    this.ctx.moveTo(x, y);
+    this.ctx.lineTo(endX, endY);
+    this.ctx.strokeStyle = `rgba(100, 255, 255, ${alpha * 0.8})`;
+    this.ctx.lineWidth = 8;
+    this.ctx.stroke();
+  }
+
+  private drawPierceEffect(x: number, y: number, angle: number, progress: number, alpha: number) {
+    const projectileDistance = 500 * progress;
+    const px = x + Math.cos(angle) * projectileDistance;
+    const py = y + Math.sin(angle) * projectileDistance;
+    
+    this.ctx.beginPath();
+    this.ctx.arc(px, py, 15, 0, Math.PI * 2);
+    this.ctx.fillStyle = `rgba(255, 200, 50, ${alpha})`;
+    this.ctx.fill();
+    
+    this.ctx.beginPath();
+    this.ctx.moveTo(x, y);
+    this.ctx.lineTo(px, py);
+    this.ctx.strokeStyle = `rgba(255, 200, 50, ${alpha * 0.4})`;
+    this.ctx.lineWidth = 4;
+    this.ctx.stroke();
+  }
+
+  private drawPushEffect(x: number, y: number, progress: number, alpha: number) {
+    const radius = 150 * progress;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+    this.ctx.strokeStyle = `rgba(100, 200, 255, ${alpha * 0.7})`;
+    this.ctx.lineWidth = 5;
+    this.ctx.stroke();
+  }
+
+  private drawStunWaveEffect(x: number, y: number, progress: number, alpha: number) {
+    const radius = 150 * progress;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+    this.ctx.fillStyle = `rgba(255, 255, 100, ${alpha * 0.25})`;
+    this.ctx.fill();
+    this.ctx.strokeStyle = `rgba(255, 255, 50, ${alpha * 0.8})`;
+    this.ctx.lineWidth = 3;
+    this.ctx.stroke();
+  }
+
+  private drawDamageFlash() {
+    if (this.damageFlashAlpha > 0) {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      
+      this.ctx.fillStyle = `rgba(255, 0, 0, ${this.damageFlashAlpha})`;
+      this.ctx.fillRect(0, 0, width, height);
+      
+      this.damageFlashAlpha -= 0.02;
+      if (this.damageFlashAlpha < 0) this.damageFlashAlpha = 0;
+    }
   }
 
   drawMinimap() {
