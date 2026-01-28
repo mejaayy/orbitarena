@@ -750,29 +750,26 @@ export class GameEngine {
   }
 
   private drawDashEffect(x: number, y: number, angle: number, progress: number, alpha: number) {
-    const dashLength = 200;
+    const trailLength = 120 * (1 - progress);
     
-    // Draw multiple speed lines for motion blur effect
-    const numLines = 5;
-    for (let i = 0; i < numLines; i++) {
-      const offset = (i - numLines / 2) * 8;
-      const perpAngle = angle + Math.PI / 2;
-      const startX = x + Math.cos(perpAngle) * offset;
-      const startY = y + Math.sin(perpAngle) * offset;
-      const lineLength = dashLength * (1 - progress * 0.5);
-      const endX = startX + Math.cos(angle) * lineLength;
-      const endY = startY + Math.sin(angle) * lineLength;
-      
-      const lineAlpha = alpha * (1 - Math.abs(i - numLines / 2) / numLines) * 0.6;
-      
-      this.ctx.beginPath();
-      this.ctx.moveTo(startX, startY);
-      this.ctx.lineTo(endX, endY);
-      this.ctx.strokeStyle = `rgba(100, 220, 255, ${lineAlpha})`;
-      this.ctx.lineWidth = 3;
-      this.ctx.lineCap = 'round';
-      this.ctx.stroke();
-    }
+    // Draw trail behind the player (opposite direction of movement)
+    const trailStartX = x - Math.cos(angle) * 10;
+    const trailStartY = y - Math.sin(angle) * 10;
+    const trailEndX = x - Math.cos(angle) * trailLength;
+    const trailEndY = y - Math.sin(angle) * trailLength;
+    
+    // Create gradient for trail fade
+    const gradient = this.ctx.createLinearGradient(trailStartX, trailStartY, trailEndX, trailEndY);
+    gradient.addColorStop(0, `rgba(100, 220, 255, ${alpha * 0.7})`);
+    gradient.addColorStop(1, `rgba(100, 220, 255, 0)`);
+    
+    this.ctx.beginPath();
+    this.ctx.moveTo(trailStartX, trailStartY);
+    this.ctx.lineTo(trailEndX, trailEndY);
+    this.ctx.strokeStyle = gradient;
+    this.ctx.lineWidth = 6;
+    this.ctx.lineCap = 'round';
+    this.ctx.stroke();
   }
 
   private drawPierceEffect(x: number, y: number, angle: number, progress: number, alpha: number) {
