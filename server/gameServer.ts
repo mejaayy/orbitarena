@@ -610,7 +610,7 @@ class GameRoom {
   }
 
   protected updatePlayerRadius(player: Player) {
-    player.radius = INITIAL_RADIUS + Math.sqrt(Math.max(1, player.hp)) * 1.5;
+    player.radius = INITIAL_RADIUS + Math.sqrt(Math.max(1, player.hp)) * 2.25;
   }
 
   protected broadcastState() {
