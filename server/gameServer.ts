@@ -1153,9 +1153,12 @@ export class GameServer {
       ws.on('message', (data) => {
         try {
           const message: ClientMessage = JSON.parse(data.toString());
+          if (message.type === 'ABILITY') {
+            log(`Ability message from ${playerId}: ${JSON.stringify(message.payload)}`, 'ws');
+          }
           this.handleMessage(playerId, ws, message);
         } catch (e) {
-          log(`Invalid message from ${playerId}`, 'ws');
+          log(`Invalid message from ${playerId}: ${data.toString().substring(0, 100)}`, 'ws');
         }
       });
 
@@ -1241,7 +1244,7 @@ export class GameServer {
   }
 
   private handleAbilityMessage(playerId: string, payload: { abilityType: AbilityType }) {
-    const room = this.findPlayerRoom(playerId);
+    const room = this.getRoom(playerId);
     if (room) {
       room.handleAbility(playerId, payload.abilityType);
     }

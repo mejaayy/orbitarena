@@ -141,11 +141,24 @@ export class GameEngine {
 
   private sendAbility(abilityType: 'ABILITY_1' | 'ABILITY_2') {
     if (this.ws?.readyState === WebSocket.OPEN && this.localPlayerId && !this.isSpectating) {
-      this.ws.send(JSON.stringify({
+      const msg = JSON.stringify({
         type: 'ABILITY',
         payload: { abilityType }
-      }));
+      });
+      console.log('Sending ability:', msg);
+      this.ws.send(msg);
+      
+      const localPlayer = this.players.get(this.localPlayerId);
+      if (localPlayer && (localPlayer.charge || 0) < 40) {
+        this.showLowChargeFlash();
+      }
     }
+  }
+
+  private lowChargeFlashAlpha = 0;
+
+  private showLowChargeFlash() {
+    this.lowChargeFlashAlpha = 0.3;
   }
 
   private connectWebSocket() {
@@ -247,6 +260,7 @@ export class GameEngine {
         break;
 
       case 'ABILITY_EFFECT':
+        console.log('Received ABILITY_EFFECT:', message.payload);
         this.handleAbilityEffect(message.payload);
         break;
 
@@ -686,15 +700,23 @@ export class GameEngine {
   }
 
   private drawDamageFlash() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    
     if (this.damageFlashAlpha > 0) {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      
       this.ctx.fillStyle = `rgba(255, 0, 0, ${this.damageFlashAlpha})`;
       this.ctx.fillRect(0, 0, width, height);
       
       this.damageFlashAlpha -= 0.02;
       if (this.damageFlashAlpha < 0) this.damageFlashAlpha = 0;
+    }
+    
+    if (this.lowChargeFlashAlpha > 0) {
+      this.ctx.fillStyle = `rgba(255, 200, 0, ${this.lowChargeFlashAlpha})`;
+      this.ctx.fillRect(0, 0, width, height);
+      
+      this.lowChargeFlashAlpha -= 0.03;
+      if (this.lowChargeFlashAlpha < 0) this.lowChargeFlashAlpha = 0;
     }
   }
 
