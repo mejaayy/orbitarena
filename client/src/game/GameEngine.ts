@@ -140,19 +140,17 @@ export class GameEngine {
   };
 
   private sendAbility(abilityType: 'ABILITY_1' | 'ABILITY_2') {
-    const now = performance.now();
-    if (now - this.lastAbilityTime < this.ABILITY_COOLDOWN) {
-      return;
-    }
-    
     if (this.ws?.readyState === WebSocket.OPEN && this.localPlayerId && !this.isSpectating) {
       const localPlayer = this.players.get(this.localPlayerId);
       if (localPlayer && (localPlayer.charge || 0) < 20) {
-        this.showLowChargeFlash();
+        const now = performance.now();
+        if (now - this.lastAbilityTime > this.ABILITY_COOLDOWN) {
+          this.showLowChargeFlash();
+          this.lastAbilityTime = now;
+        }
         return;
       }
       
-      this.lastAbilityTime = now;
       const msg = JSON.stringify({
         type: 'ABILITY',
         payload: { abilityType }

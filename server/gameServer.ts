@@ -272,12 +272,6 @@ class GameRoom {
     const player = this.gameState.players.get(playerId);
     if (!player || player.isSpectator || player.isStunned) return;
     
-    const now = Date.now();
-    if (player.lastAbilityTime && now - player.lastAbilityTime < ABILITY_COOLDOWN) {
-      return;
-    }
-    player.lastAbilityTime = now;
-    
     this.executeAbility(player, abilityType);
   }
 
