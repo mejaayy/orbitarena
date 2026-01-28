@@ -74,7 +74,7 @@ export class GameEngine {
   static WORLD_SIZE = 4000;
   static INITIAL_RADIUS = 20;
   static INTERP_DURATION = 100;
-  static MAX_SPEED = 2.3;
+  static MAX_SPEED = 2.76;
   
   isRunning: boolean = false;
   isStakeMode: boolean = false;
