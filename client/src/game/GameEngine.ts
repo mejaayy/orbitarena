@@ -119,8 +119,12 @@ export class GameEngine {
     
     window.addEventListener('keydown', this.handleKeyDown);
     this.canvas.addEventListener('mousedown', this.handleMouseDown);
-    this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    this.canvas.addEventListener('contextmenu', this.handleContextMenu);
   }
+
+  private handleContextMenu = (e: Event) => {
+    e.preventDefault();
+  };
 
   private handleKeyDown = (e: KeyboardEvent) => {
     if (e.code === 'Space') {
@@ -402,8 +406,10 @@ export class GameEngine {
     this.ws?.close();
     this.ws = null;
     this.pendingJoin = null;
+    window.removeEventListener('resize', this.handleResize);
     window.removeEventListener('keydown', this.handleKeyDown);
     this.canvas.removeEventListener('mousedown', this.handleMouseDown);
+    this.canvas.removeEventListener('contextmenu', this.handleContextMenu);
     this.abilityEffects = [];
     this.damageFlashAlpha = 0;
   }

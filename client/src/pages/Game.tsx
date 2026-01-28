@@ -214,6 +214,27 @@ export default function Game() {
         FPS: {stats.fps} | Players: {stats.population}
       </div>
 
+      {!gameOverStats && !isInLobby && !isSpectating && (
+        <div className="absolute bottom-4 left-4 bg-black/70 backdrop-blur-sm rounded-lg border border-white/10 p-3 pointer-events-none select-none" data-testid="ability-hud">
+          <div className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Abilities</div>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-1 bg-white/10 rounded text-xs font-mono text-white">SPACE</kbd>
+              <span className="text-sm text-white">
+                {characterShape === 'circle' ? 'Pull' : characterShape === 'triangle' ? 'Dash' : 'Push'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-1 bg-white/10 rounded text-xs font-mono text-white">CLICK</kbd>
+              <span className="text-sm text-white">
+                {characterShape === 'circle' ? 'Slam' : characterShape === 'triangle' ? 'Pierce' : 'Stun Wave'}
+              </span>
+            </div>
+          </div>
+          <div className="text-xs text-gray-500 mt-2">40 charge each</div>
+        </div>
+      )}
+
       <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
         {isStakeMode && isInRound && roundStatus?.timeRemaining && (
           <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/20 flex items-center gap-2" data-testid="round-timer">
