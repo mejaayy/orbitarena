@@ -723,7 +723,7 @@ export class GameEngine {
       const cx = width / 2;
       const cy = height / 2;
       const outerRadius = Math.sqrt(cx * cx + cy * cy);
-      const innerRadius = outerRadius * 0.4;
+      const innerRadius = outerRadius * 0.7;
       
       const gradient = this.ctx.createRadialGradient(cx, cy, innerRadius, cx, cy, outerRadius);
       gradient.addColorStop(0, 'rgba(255, 200, 0, 0)');
