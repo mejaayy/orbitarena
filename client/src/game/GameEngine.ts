@@ -287,6 +287,7 @@ export class GameEngine {
     angle: number;
     startTime: number;
     duration: number;
+    playerId: string;
   }> = [];
 
   private damageFlashAlpha = 0;
@@ -313,7 +314,8 @@ export class GameEngine {
       y: payload.y,
       angle: payload.angle,
       startTime: performance.now(),
-      duration: payload.ability === 'PIERCE' ? 300 : 400
+      duration: payload.ability === 'PIERCE' ? 300 : 400,
+      playerId: payload.playerId
     });
     
     // Trigger screen shake for the local player's abilities
@@ -712,7 +714,7 @@ export class GameEngine {
           this.drawSlamEffect(effect.x, effect.y, progress, alpha);
           break;
         case 'DASH':
-          this.drawDashEffect(effect.x, effect.y, effect.angle, progress, alpha);
+          this.drawDashEffect(effect.x, effect.y, effect.angle, progress, alpha, effect.playerId);
           break;
         case 'PIERCE':
           this.drawPierceEffect(effect.x, effect.y, effect.angle, progress, alpha);
@@ -749,30 +751,29 @@ export class GameEngine {
     this.ctx.stroke();
   }
 
-  private drawDashEffect(x: number, y: number, angle: number, progress: number, alpha: number) {
-    // x,y is where player ended up after dash
-    // Trail starts from where they came from (behind current position)
-    const dashDistance = 200;
-    const trailLength = 180 * (1 - progress);
+  private drawDashEffect(x: number, y: number, angle: number, progress: number, alpha: number, playerId?: string) {
+    // Find the player's current position to follow them
+    const player = this.players.get(playerId || '');
+    const currentX = player ? player.x : x;
+    const currentY = player ? player.y : y;
     
-    // Calculate starting position (where player was before dash)
-    const startX = x - Math.cos(angle) * dashDistance;
-    const startY = y - Math.sin(angle) * dashDistance;
+    // Trail goes behind the player
+    const trailLength = 150 * (1 - progress);
     
-    // Draw trail from start position toward current position (but not all the way)
-    const trailEndX = startX + Math.cos(angle) * (dashDistance - trailLength);
-    const trailEndY = startY + Math.sin(angle) * (dashDistance - trailLength);
+    // Calculate trail end (behind current position)
+    const trailEndX = currentX - Math.cos(angle) * trailLength;
+    const trailEndY = currentY - Math.sin(angle) * trailLength;
     
     // Create gradient for trail fade
-    const gradient = this.ctx.createLinearGradient(trailEndX, trailEndY, startX, startY);
-    gradient.addColorStop(0, `rgba(100, 220, 255, ${alpha * 0.8})`);
+    const gradient = this.ctx.createLinearGradient(currentX, currentY, trailEndX, trailEndY);
+    gradient.addColorStop(0, `rgba(100, 220, 255, ${alpha * 0.9})`);
     gradient.addColorStop(1, `rgba(100, 220, 255, 0)`);
     
     this.ctx.beginPath();
-    this.ctx.moveTo(startX, startY);
+    this.ctx.moveTo(currentX, currentY);
     this.ctx.lineTo(trailEndX, trailEndY);
     this.ctx.strokeStyle = gradient;
-    this.ctx.lineWidth = 8;
+    this.ctx.lineWidth = 14;
     this.ctx.lineCap = 'round';
     this.ctx.stroke();
   }
