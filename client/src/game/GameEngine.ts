@@ -235,13 +235,26 @@ export class GameEngine {
         break;
 
       case 'PICKUP_DELTA':
-        // Play pickup sound before applying delta (so we can find the pickup type)
-        if (message.payload.collected && message.payload.collectorId === this.localPlayerId) {
-          const pickup = this.pickups.find(p => p.id === message.payload.collected);
-          if (pickup?.type === 'HP') {
-            soundManager.playPickupHP();
-          } else if (pickup?.type === 'CHARGE') {
-            soundManager.playPickupCharge();
+        // Play pickup sound if a collected pickup was near local player
+        if (message.payload.collected && Array.isArray(message.payload.collected)) {
+          const localPlayer = this.players.get(this.localPlayerId);
+          if (localPlayer) {
+            for (const pickupId of message.payload.collected) {
+              const pickup = this.pickups.find(p => p.id === pickupId);
+              if (pickup) {
+                const dx = localPlayer.x - pickup.x;
+                const dy = localPlayer.y - pickup.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                // If pickup was close to local player, they probably collected it
+                if (dist < localPlayer.radius + pickup.radius + 10) {
+                  if (pickup.type === 'HP') {
+                    soundManager.playPickupHP();
+                  } else if (pickup.type === 'CHARGE') {
+                    soundManager.playPickupCharge();
+                  }
+                }
+              }
+            }
           }
         }
         this.applyPickupDelta(message.payload);
@@ -283,8 +296,8 @@ export class GameEngine {
       case 'ABILITY_EFFECT':
         console.log('Received ABILITY_EFFECT:', message.payload);
         this.handleAbilityEffect(message.payload);
-        // Play ability sound
-        soundManager.playAbility(message.payload.type);
+        // Play ability sound (server sends 'ability' field)
+        soundManager.playAbility(message.payload.ability);
         break;
 
       case 'DAMAGE':
