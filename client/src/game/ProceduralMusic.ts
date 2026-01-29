@@ -6,9 +6,9 @@ export class ProceduralMusicManager {
   private nextNoteTime: number = 0;
   private currentStep: number = 0;
   private currentBar: number = 0;
-  private tempo: number = 118; // BPM - slower, more relaxed
+  private tempo: number = 126; // BPM - slightly faster
   private stepDuration: number = 0;
-  private totalSteps: number = 256; // 16 bars × 16 steps
+  private totalBars: number = 32; // 32 bars for longer loop
 
   // Instrument nodes
   private bassOsc: OscillatorNode | null = null;
@@ -138,7 +138,7 @@ export class ProceduralMusicManager {
       this.currentStep++;
       if (this.currentStep >= 16) {
         this.currentStep = 0;
-        this.currentBar = (this.currentBar + 1) % 16;
+        this.currentBar = (this.currentBar + 1) % this.totalBars;
       }
     }
 
@@ -148,21 +148,40 @@ export class ProceduralMusicManager {
   private scheduleNote(step: number, bar: number, time: number) {
     if (!this.audioContext || !this.masterGain) return;
 
-    const section = Math.floor(bar / 4); // 0-3 for 4 sections of 4 bars each
+    const section = Math.floor(bar / 4); // 0-7 for 8 sections of 4 bars each (32 bars total)
 
     // Section 0 (bars 0-3): Intro - just pad and sparse kick
     if (section === 0) {
       if (step === 0 || step === 8) {
         this.playKick(time);
       }
-      // Subtle arp every 8 steps
-      if (step === 0) {
+      if (step === 0 && bar >= 2) {
         this.playArp(time, bar);
       }
     }
 
-    // Section 1 (bars 4-7): Build up - add hi-hats and bass
+    // Section 1 (bars 4-7): Building - add sparse hi-hats
     if (section === 1) {
+      if (step === 0 || step === 8) {
+        this.playKick(time);
+      }
+      if (step % 8 === 4) {
+        this.playHiHat(time, 0.02);
+      }
+      if (step === 0) {
+        this.playArp(time, bar);
+      }
+      // Introduce bass on last 2 bars
+      if (bar >= 6) {
+        const bassNote = this.bassPatterns[0][step];
+        if (bassNote > 0) {
+          this.playBass(time, bassNote);
+        }
+      }
+    }
+
+    // Section 2 (bars 8-11): Growing - full kick pattern, more hi-hats
+    if (section === 2) {
       if (step % 4 === 0) {
         this.playKick(time);
       }
@@ -178,16 +197,34 @@ export class ProceduralMusicManager {
       }
     }
 
-    // Section 2 (bars 8-11): Full energy - all elements
-    if (section === 2) {
+    // Section 3 (bars 12-15): First peak - add snares
+    if (section === 3) {
       if (step % 4 === 0) {
         this.playKick(time);
       }
-      // More hi-hats
+      if (step % 2 === 0) {
+        this.playHiHat(time, step % 4 === 0 ? 0.03 : 0.02);
+      }
+      if (step === 4 || step === 12) {
+        this.playSnare(time);
+      }
+      const bassNote = this.bassPatterns[1][step];
+      if (bassNote > 0) {
+        this.playBass(time, bassNote);
+      }
+      if (step % 2 === 0) {
+        this.playArp(time, bar);
+      }
+    }
+
+    // Section 4 (bars 16-19): Full energy with melody
+    if (section === 4) {
+      if (step % 4 === 0) {
+        this.playKick(time);
+      }
       if (step % 2 === 0) {
         this.playHiHat(time, step % 4 === 0 ? 0.04 : 0.02);
       }
-      // Snare on beats 4 and 12
       if (step === 4 || step === 12) {
         this.playSnare(time);
       }
@@ -195,23 +232,41 @@ export class ProceduralMusicManager {
       if (bassNote > 0) {
         this.playBass(time, bassNote);
       }
-      // More active arp
       if (step % 2 === 0) {
         this.playArp(time, bar);
       }
-      // Add melody on some bars
       if (bar % 2 === 0 && step === 0) {
         this.playMelody(time, bar);
       }
     }
 
-    // Section 3 (bars 12-15): Breakdown/resolution - strip back
-    if (section === 3) {
-      // Sparse kick
+    // Section 5 (bars 20-23): Peak energy - everything
+    if (section === 5) {
+      if (step % 4 === 0) {
+        this.playKick(time);
+      }
+      // Busier hi-hats
+      this.playHiHat(time, step % 4 === 0 ? 0.04 : 0.015);
+      if (step === 4 || step === 12) {
+        this.playSnare(time);
+      }
+      const bassNote = this.bassPatterns[2][step];
+      if (bassNote > 0) {
+        this.playBass(time, bassNote);
+      }
+      if (step % 2 === 0) {
+        this.playArp(time, bar);
+      }
+      if (step === 0) {
+        this.playMelody(time, bar);
+      }
+    }
+
+    // Section 6 (bars 24-27): Breakdown - strip back
+    if (section === 6) {
       if (step === 0 || step === 8) {
         this.playKick(time);
       }
-      // Very sparse hi-hat
       if (step === 4 || step === 12) {
         this.playHiHat(time, 0.02);
       }
@@ -219,12 +274,28 @@ export class ProceduralMusicManager {
       if (bassNote > 0) {
         this.playBass(time, bassNote);
       }
-      // Slow arp
       if (step === 0) {
         this.playArp(time, bar);
       }
-      // Fill at end of section to loop back
-      if (bar === 15 && step >= 12) {
+    }
+
+    // Section 7 (bars 28-31): Resolution and transition back
+    if (section === 7) {
+      if (step === 0 || step === 8) {
+        this.playKick(time);
+      }
+      if (bar >= 30 && step % 4 === 2) {
+        this.playHiHat(time, 0.02);
+      }
+      const bassNote = this.bassPatterns[0][step];
+      if (bassNote > 0) {
+        this.playBass(time, bassNote);
+      }
+      if (step === 0) {
+        this.playArp(time, bar);
+      }
+      // Fill at end to loop
+      if (bar === 31 && step >= 12) {
         this.playHiHat(time, 0.03);
         if (step === 14) {
           this.playSnare(time);
