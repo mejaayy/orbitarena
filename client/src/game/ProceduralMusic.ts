@@ -8,7 +8,7 @@ export class ProceduralMusicManager {
   private currentBar: number = 0;
   private tempo: number = 126; // BPM - slightly faster
   private stepDuration: number = 0;
-  private totalBars: number = 32; // 32 bars for longer loop
+  private totalBars: number = 48; // 48 bars for longer loop
 
   // Instrument nodes
   private bassOsc: OscillatorNode | null = null;
@@ -105,7 +105,7 @@ export class ProceduralMusicManager {
     });
     this.currentPadOscs = [];
 
-    // Different chords for different sections - Am, Dm, Em, Am progression
+    // Different chords for different sections - Am, Dm, Em, Am progression (12 sections for 48 bars)
     const chordFreqs: number[][] = [
       [55, 65.4, 82.4],     // Am (A1, C2, E2)
       [73.4, 87.3, 110],    // Dm (D2, F2, A2)
@@ -114,10 +114,14 @@ export class ProceduralMusicManager {
       [73.4, 87.3, 110],    // Dm
       [82.4, 98, 123.5],    // Em
       [55, 65.4, 82.4],     // Am
+      [73.4, 87.3, 110],    // Dm
+      [82.4, 98, 123.5],    // Em
+      [55, 65.4, 82.4],     // Am
+      [73.4, 87.3, 110],    // Dm
       [55, 65.4, 82.4],     // Am (resolution)
     ];
 
-    const chordIndex = section % 8;
+    const chordIndex = section % 12;
     const freqs = chordFreqs[chordIndex];
 
     // Create filter if not exists
@@ -197,7 +201,7 @@ export class ProceduralMusicManager {
   private scheduleNote(step: number, bar: number, time: number) {
     if (!this.audioContext || !this.masterGain) return;
 
-    const section = Math.floor(bar / 4); // 0-7 for 8 sections of 4 bars each (32 bars total)
+    const section = Math.floor(bar / 4); // 0-11 for 12 sections of 4 bars each (48 bars total)
 
     // Trigger pad chord change at start of each section
     if (step === 0 && bar % 4 === 0 && section !== this.lastPadSection) {
@@ -334,12 +338,12 @@ export class ProceduralMusicManager {
       }
     }
 
-    // Section 7 (bars 28-31): Resolution and transition back
+    // Section 7 (bars 28-31): Building back up
     if (section === 7) {
       if (step === 0 || step === 8) {
         this.playKick(time);
       }
-      if (bar >= 30 && step % 4 === 2) {
+      if (step % 4 === 2) {
         this.playHiHat(time, 0.02);
       }
       const bassNote = this.bassPatterns[0][step];
@@ -349,8 +353,86 @@ export class ProceduralMusicManager {
       if (step === 0) {
         this.playArp(time, bar);
       }
+    }
+
+    // Section 8 (bars 32-35): Second wave - growing intensity
+    if (section === 8) {
+      if (step % 4 === 0) {
+        this.playKick(time);
+      }
+      if (step % 4 === 2) {
+        this.playHiHat(time, 0.02);
+      }
+      const bassNote = this.bassPatterns[1][step];
+      if (bassNote > 0) {
+        this.playBass(time, bassNote);
+      }
+      if (step % 4 === 0) {
+        this.playArp(time, bar);
+      }
+    }
+
+    // Section 9 (bars 36-39): Second peak - full energy
+    if (section === 9) {
+      if (step % 4 === 0) {
+        this.playKick(time);
+      }
+      if (step % 2 === 0) {
+        this.playHiHat(time, step % 4 === 0 ? 0.04 : 0.02);
+      }
+      if (step === 4 || step === 12) {
+        this.playSnare(time);
+      }
+      const bassNote = this.bassPatterns[2][step];
+      if (bassNote > 0) {
+        this.playBass(time, bassNote);
+      }
+      if (step % 2 === 0) {
+        this.playArp(time, bar);
+      }
+      if (step === 0) {
+        this.playMelody(time, bar);
+      }
+    }
+
+    // Section 10 (bars 40-43): Extended peak - everything
+    if (section === 10) {
+      if (step % 4 === 0) {
+        this.playKick(time);
+      }
+      this.playHiHat(time, step % 4 === 0 ? 0.04 : 0.015);
+      if (step === 4 || step === 12) {
+        this.playSnare(time);
+      }
+      const bassNote = this.bassPatterns[2][step];
+      if (bassNote > 0) {
+        this.playBass(time, bassNote);
+      }
+      if (step % 2 === 0) {
+        this.playArp(time, bar);
+      }
+      if (step === 0) {
+        this.playMelody(time, bar);
+      }
+    }
+
+    // Section 11 (bars 44-47): Resolution and loop transition
+    if (section === 11) {
+      if (step === 0 || step === 8) {
+        this.playKick(time);
+      }
+      if (step % 4 === 2) {
+        this.playHiHat(time, 0.02);
+      }
+      const bassNote = this.bassPatterns[3][step];
+      if (bassNote > 0) {
+        this.playBass(time, bassNote);
+      }
+      if (step === 0) {
+        this.playArp(time, bar);
+      }
       // Fill at end to loop
-      if (bar === 31 && step >= 12) {
+      if (bar === 47 && step >= 12) {
         this.playHiHat(time, 0.03);
         if (step === 14) {
           this.playSnare(time);
