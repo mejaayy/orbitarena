@@ -90,49 +90,89 @@ export class ProceduralMusicManager {
   }
 
   private startPad() {
+    // Pad is now handled dynamically in schedulePadChord
+  }
+
+  private padFilter: BiquadFilterNode | null = null;
+  private currentPadOscs: OscillatorNode[] = [];
+
+  private schedulePadChord(time: number, section: number) {
     if (!this.audioContext || !this.masterGain) return;
 
-    // Dark atmospheric synth pad - sawtooth for that dark synthwave feel
-    this.padGain = this.audioContext.createGain();
-    this.padGain.gain.value = 0.12; // More prominent
+    // Stop previous pad chord
+    this.currentPadOscs.forEach(osc => {
+      try { osc.stop(time); } catch (e) {}
+    });
+    this.currentPadOscs = [];
 
-    const filter = this.audioContext.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 600; // Rich harmonics
-    filter.Q.value = 2;
+    // Different chords for different sections - Am, Dm, Em, Am progression
+    const chordFreqs: number[][] = [
+      [55, 65.4, 82.4],     // Am (A1, C2, E2)
+      [73.4, 87.3, 110],    // Dm (D2, F2, A2)
+      [82.4, 98, 123.5],    // Em (E2, G2, B2)
+      [55, 65.4, 82.4],     // Am
+      [73.4, 87.3, 110],    // Dm
+      [82.4, 98, 123.5],    // Em
+      [55, 65.4, 82.4],     // Am
+      [55, 65.4, 82.4],     // Am (resolution)
+    ];
 
-    this.padOsc1 = this.audioContext.createOscillator();
-    this.padOsc1.type = 'sawtooth'; // Dark synth sound
-    this.padOsc1.frequency.value = 55; // A1
+    const chordIndex = section % 8;
+    const freqs = chordFreqs[chordIndex];
 
-    this.padOsc2 = this.audioContext.createOscillator();
-    this.padOsc2.type = 'sawtooth';
-    this.padOsc2.frequency.value = 55.3; // Detuned for thickness
+    // Create filter if not exists
+    if (!this.padFilter) {
+      this.padFilter = this.audioContext.createBiquadFilter();
+      this.padFilter.type = 'lowpass';
+      this.padFilter.frequency.value = 500;
+      this.padFilter.Q.value = 1;
+    }
 
-    // Add a third oscillator for minor third - darker feel
-    const padOsc3 = this.audioContext.createOscillator();
-    padOsc3.type = 'sawtooth';
-    padOsc3.frequency.value = 65.4; // C2 - minor third
+    // Quieter pad gain
+    if (!this.padGain) {
+      this.padGain = this.audioContext.createGain();
+      this.padGain.gain.value = 0.05; // Much quieter
+      this.padFilter.connect(this.padGain);
+      this.padGain.connect(this.masterGain);
+    }
 
-    this.padOsc1.connect(filter);
-    this.padOsc2.connect(filter);
-    padOsc3.connect(filter);
-    filter.connect(this.padGain);
-    this.padGain.connect(this.masterGain);
+    // Fade in/out for smooth transitions
+    this.padGain.gain.setValueAtTime(0.01, time);
+    this.padGain.gain.linearRampToValueAtTime(0.05, time + 0.5);
 
-    this.padOsc1.start();
-    this.padOsc2.start();
-    padOsc3.start();
+    // Create oscillators for chord
+    freqs.forEach(freq => {
+      const osc = this.audioContext!.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.value = freq;
+      osc.connect(this.padFilter!);
+      osc.start(time);
+      this.currentPadOscs.push(osc);
+    });
+
+    // Add slight detune for thickness
+    const detuneOsc = this.audioContext.createOscillator();
+    detuneOsc.type = 'sawtooth';
+    detuneOsc.frequency.value = freqs[0] * 1.003;
+    detuneOsc.connect(this.padFilter);
+    detuneOsc.start(time);
+    this.currentPadOscs.push(detuneOsc);
   }
 
   private stopPad() {
     try {
       this.padOsc1?.stop();
       this.padOsc2?.stop();
+      this.currentPadOscs.forEach(osc => {
+        try { osc.stop(); } catch (e) {}
+      });
     } catch (e) {}
     this.padOsc1 = null;
     this.padOsc2 = null;
     this.padGain = null;
+    this.padFilter = null;
+    this.currentPadOscs = [];
+    this.lastPadSection = -1;
   }
 
   private scheduler() {
@@ -152,12 +192,20 @@ export class ProceduralMusicManager {
     this.schedulerId = requestAnimationFrame(() => this.scheduler());
   }
 
+  private lastPadSection: number = -1;
+
   private scheduleNote(step: number, bar: number, time: number) {
     if (!this.audioContext || !this.masterGain) return;
 
     const section = Math.floor(bar / 4); // 0-7 for 8 sections of 4 bars each (32 bars total)
 
-    // Section 0 (bars 0-3): Intro - just pad and sparse kick
+    // Trigger pad chord change at start of each section
+    if (step === 0 && bar % 4 === 0 && section !== this.lastPadSection) {
+      this.schedulePadChord(time, section);
+      this.lastPadSection = section;
+    }
+
+    // Section 0 (bars 0-3): Intro - sparse kick, pad plays
     if (section === 0) {
       if (step === 0 || step === 8) {
         this.playKick(time);
