@@ -105,62 +105,78 @@ export class ProceduralMusicManager {
     });
     this.currentPadOscs = [];
 
-    // Different chords for different sections - Am, Dm, Em, Am progression (12 sections for 48 bars)
+    // Different chords with varied voicings for each section (12 sections for 48 bars)
     const chordFreqs: number[][] = [
-      [55, 65.4, 82.4],     // Am (A1, C2, E2)
-      [73.4, 87.3, 110],    // Dm (D2, F2, A2)
-      [82.4, 98, 123.5],    // Em (E2, G2, B2)
-      [55, 65.4, 82.4],     // Am
-      [73.4, 87.3, 110],    // Dm
-      [82.4, 98, 123.5],    // Em
-      [55, 65.4, 82.4],     // Am
-      [73.4, 87.3, 110],    // Dm
-      [82.4, 98, 123.5],    // Em
-      [55, 65.4, 82.4],     // Am
-      [73.4, 87.3, 110],    // Dm
-      [55, 65.4, 82.4],     // Am (resolution)
+      [55, 65.4, 82.4],           // Section 0: Am basic (intro - sparse)
+      [55, 73.4, 87.3, 110],      // Section 1: Dm add9 (building)
+      [82.4, 98, 123.5, 164.8],   // Section 2: Em7 with octave (growing)
+      [55, 82.4, 110, 130.8],     // Section 3: Am add higher voicing (first peak)
+      [73.4, 110, 146.8, 174.6],  // Section 4: Dm with extensions (full energy)
+      [82.4, 123.5, 164.8, 196],  // Section 5: Em bright voicing (peak energy)
+      [55, 65.4, 82.4],           // Section 6: Am sparse (breakdown)
+      [55, 73.4, 82.4, 110],      // Section 7: Dm/A hybrid (building back)
+      [82.4, 98, 123.5, 164.8],   // Section 8: Em7 (second wave)
+      [55, 82.4, 110, 164.8],     // Section 9: Am with octave (second peak)
+      [73.4, 110, 146.8, 196],    // Section 10: Dm bright (extended peak)
+      [55, 65.4, 82.4],           // Section 11: Am resolve (resolution)
     ];
+
+    // Vary filter cutoff per section for movement
+    const filterCutoffs = [400, 500, 600, 700, 800, 900, 500, 550, 650, 800, 900, 450];
+    // Vary volume per section
+    const volumes = [0.04, 0.045, 0.05, 0.055, 0.06, 0.07, 0.04, 0.045, 0.05, 0.06, 0.07, 0.04];
 
     const chordIndex = section % 12;
     const freqs = chordFreqs[chordIndex];
+    const filterCutoff = filterCutoffs[chordIndex];
+    const volume = volumes[chordIndex];
 
     // Create filter if not exists
     if (!this.padFilter) {
       this.padFilter = this.audioContext.createBiquadFilter();
       this.padFilter.type = 'lowpass';
-      this.padFilter.frequency.value = 500;
-      this.padFilter.Q.value = 1;
+      this.padFilter.Q.value = 1.5;
     }
 
-    // Quieter pad gain
+    // Sweep filter to new cutoff
+    this.padFilter.frequency.setValueAtTime(this.padFilter.frequency.value, time);
+    this.padFilter.frequency.linearRampToValueAtTime(filterCutoff, time + 1.5);
+
+    // Create gain if not exists
     if (!this.padGain) {
       this.padGain = this.audioContext.createGain();
-      this.padGain.gain.value = 0.05; // Much quieter
+      this.padGain.gain.value = 0.04;
       this.padFilter.connect(this.padGain);
       this.padGain.connect(this.masterGain);
     }
 
-    // Fade in/out for smooth transitions
+    // Fade in/out for smooth transitions with varied volume
     this.padGain.gain.setValueAtTime(0.01, time);
-    this.padGain.gain.linearRampToValueAtTime(0.05, time + 0.5);
+    this.padGain.gain.linearRampToValueAtTime(volume, time + 0.8);
 
-    // Create oscillators for chord
-    freqs.forEach(freq => {
+    // Create oscillators for chord - vary waveform based on section
+    const waveform: OscillatorType = section >= 4 && section <= 5 || section >= 9 && section <= 10 ? 'sawtooth' : 'triangle';
+
+    freqs.forEach((freq, i) => {
       const osc = this.audioContext!.createOscillator();
-      osc.type = 'sawtooth';
+      osc.type = waveform;
       osc.frequency.value = freq;
+      // Add slight detune to each oscillator for width
+      osc.detune.value = (i - 1) * 5;
       osc.connect(this.padFilter!);
       osc.start(time);
       this.currentPadOscs.push(osc);
     });
 
-    // Add slight detune for thickness
-    const detuneOsc = this.audioContext.createOscillator();
-    detuneOsc.type = 'sawtooth';
-    detuneOsc.frequency.value = freqs[0] * 1.003;
-    detuneOsc.connect(this.padFilter);
-    detuneOsc.start(time);
-    this.currentPadOscs.push(detuneOsc);
+    // Add detuned oscillator for thickness on fuller sections
+    if (section !== 0 && section !== 6 && section !== 11) {
+      const detuneOsc = this.audioContext.createOscillator();
+      detuneOsc.type = waveform;
+      detuneOsc.frequency.value = freqs[0] * 1.005;
+      detuneOsc.connect(this.padFilter);
+      detuneOsc.start(time);
+      this.currentPadOscs.push(detuneOsc);
+    }
   }
 
   private stopPad() {
