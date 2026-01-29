@@ -44,12 +44,12 @@ export class SoundManager {
     const filter = this.audioContext.createBiquadFilter();
 
     filter.type = 'lowpass';
-    filter.frequency.value = 2000;
-    filter.frequency.exponentialRampToValueAtTime(500, this.audioContext.currentTime + 0.15);
+    filter.frequency.value = 1888; // One semitone lower
+    filter.frequency.exponentialRampToValueAtTime(472, this.audioContext.currentTime + 0.15);
 
     osc.type = 'sawtooth';
-    osc.frequency.value = 400;
-    osc.frequency.exponentialRampToValueAtTime(150, this.audioContext.currentTime + 0.15);
+    osc.frequency.value = 378; // One semitone lower
+    osc.frequency.exponentialRampToValueAtTime(142, this.audioContext.currentTime + 0.15);
 
     gain.gain.value = 0.25;
     gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
@@ -71,8 +71,8 @@ export class SoundManager {
     const gain = this.audioContext.createGain();
 
     osc.type = 'sine';
-    osc.frequency.value = 80;
-    osc.frequency.exponentialRampToValueAtTime(30, this.audioContext.currentTime + 0.3);
+    osc.frequency.value = 75.5; // One semitone lower
+    osc.frequency.exponentialRampToValueAtTime(28.3, this.audioContext.currentTime + 0.3);
 
     gain.gain.value = 0.4;
     gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
@@ -102,12 +102,12 @@ export class SoundManager {
     const filter = this.audioContext.createBiquadFilter();
 
     filter.type = 'bandpass';
-    filter.frequency.value = 300;
+    filter.frequency.value = 283; // One semitone lower
     filter.Q.value = 5;
 
     osc.type = 'sawtooth';
-    osc.frequency.value = 150;
-    osc.frequency.exponentialRampToValueAtTime(400, this.audioContext.currentTime + 0.25);
+    osc.frequency.value = 142; // One semitone lower
+    osc.frequency.exponentialRampToValueAtTime(378, this.audioContext.currentTime + 0.25);
 
     gain.gain.value = 0.2;
     gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.25);
@@ -129,8 +129,8 @@ export class SoundManager {
     const gain = this.audioContext.createGain();
 
     osc.type = 'square';
-    osc.frequency.value = 200;
-    osc.frequency.exponentialRampToValueAtTime(80, this.audioContext.currentTime + 0.2);
+    osc.frequency.value = 189; // One semitone lower
+    osc.frequency.exponentialRampToValueAtTime(75.5, this.audioContext.currentTime + 0.2);
 
     gain.gain.value = 0.25;
     gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
@@ -145,7 +145,7 @@ export class SoundManager {
     const burst = this.audioContext.createOscillator();
     const burstGain = this.audioContext.createGain();
     burst.type = 'sine';
-    burst.frequency.value = 120;
+    burst.frequency.value = 113; // One semitone lower
     burstGain.gain.value = 0.2;
     burstGain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
     burst.connect(burstGain);
@@ -163,8 +163,8 @@ export class SoundManager {
     const gain = this.audioContext.createGain();
 
     osc.type = 'triangle';
-    osc.frequency.value = 800;
-    osc.frequency.exponentialRampToValueAtTime(400, this.audioContext.currentTime + 0.12);
+    osc.frequency.value = 755; // One semitone lower
+    osc.frequency.exponentialRampToValueAtTime(378, this.audioContext.currentTime + 0.12);
 
     gain.gain.value = 0.2;
     gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.12);
@@ -186,9 +186,9 @@ export class SoundManager {
     const gain = this.audioContext.createGain();
 
     osc1.type = 'square';
-    osc1.frequency.value = 220;
+    osc1.frequency.value = 208; // One semitone lower
     osc2.type = 'square';
-    osc2.frequency.value = 225;
+    osc2.frequency.value = 212; // One semitone lower
 
     gain.gain.value = 0.15;
     gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
@@ -212,8 +212,8 @@ export class SoundManager {
     const gain = this.audioContext.createGain();
 
     osc.type = 'sawtooth';
-    osc.frequency.value = 300;
-    osc.frequency.exponentialRampToValueAtTime(100, this.audioContext.currentTime + 0.1);
+    osc.frequency.value = 283; // One semitone lower
+    osc.frequency.exponentialRampToValueAtTime(94.4, this.audioContext.currentTime + 0.1);
 
     gain.gain.value = 0.25;
     gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
@@ -230,8 +230,8 @@ export class SoundManager {
     if (!this.enabled || !this.audioContext || !this.masterGain) return;
     this.ensureContext();
 
-    // Descending tones
-    const notes = [400, 300, 200, 100];
+    // Descending tones (one semitone lower)
+    const notes = [378, 283, 189, 94.4];
     notes.forEach((freq, i) => {
       const osc = this.audioContext!.createOscillator();
       const gain = this.audioContext!.createGain();
@@ -260,9 +260,9 @@ export class SoundManager {
     const gain = this.audioContext.createGain();
 
     osc.type = 'sine';
-    osc.frequency.value = 523; // C5
-    osc.frequency.setValueAtTime(523, this.audioContext.currentTime);
-    osc.frequency.setValueAtTime(659, this.audioContext.currentTime + 0.05); // E5
+    osc.frequency.value = 494; // B4 (one semitone lower than C5)
+    osc.frequency.setValueAtTime(494, this.audioContext.currentTime);
+    osc.frequency.setValueAtTime(622, this.audioContext.currentTime + 0.05); // D#5 (one semitone lower)
 
     gain.gain.value = 0.08; // Very quiet
     gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
@@ -283,8 +283,8 @@ export class SoundManager {
     const gain = this.audioContext.createGain();
 
     osc.type = 'sine';
-    osc.frequency.value = 440; // A4
-    osc.frequency.exponentialRampToValueAtTime(660, this.audioContext.currentTime + 0.1);
+    osc.frequency.value = 415; // G#4 (one semitone lower than A4)
+    osc.frequency.exponentialRampToValueAtTime(622, this.audioContext.currentTime + 0.1);
 
     gain.gain.value = 0.08; // Very quiet
     gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
@@ -305,7 +305,7 @@ export class SoundManager {
     const gain = this.audioContext.createGain();
 
     osc.type = 'sine';
-    osc.frequency.value = 200;
+    osc.frequency.value = 189; // One semitone lower
 
     gain.gain.value = 0.1;
     gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.08);

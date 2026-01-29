@@ -17,20 +17,20 @@ export class ProceduralMusicManager {
   private padOsc2: OscillatorNode | null = null;
   private padGain: GainNode | null = null;
 
-  // Bass patterns for different bars (deeper notes - dropped an octave)
+  // Bass patterns for different bars (one semitone lower)
   private bassPatterns: number[][] = [
-    // Bars 1-4: Simple A pattern
-    [27.5, 0, 0, 0, 27.5, 0, 0, 0, 27.5, 0, 0, 0, 36.7, 0, 0, 0],
-    // Bars 5-8: Move to D
-    [36.7, 0, 0, 0, 36.7, 0, 0, 0, 27.5, 0, 0, 0, 27.5, 0, 0, 0],
-    // Bars 9-12: E variation  
-    [41.2, 0, 0, 0, 41.2, 0, 0, 0, 36.7, 0, 0, 0, 27.5, 0, 0, 0],
+    // Bars 1-4: Simple G# pattern (A dropped one semitone)
+    [25.96, 0, 0, 0, 25.96, 0, 0, 0, 25.96, 0, 0, 0, 34.65, 0, 0, 0],
+    // Bars 5-8: Move to C#
+    [34.65, 0, 0, 0, 34.65, 0, 0, 0, 25.96, 0, 0, 0, 25.96, 0, 0, 0],
+    // Bars 9-12: D# variation  
+    [38.89, 0, 0, 0, 38.89, 0, 0, 0, 34.65, 0, 0, 0, 25.96, 0, 0, 0],
     // Bars 13-16: Resolution
-    [27.5, 0, 0, 0, 36.7, 0, 0, 0, 41.2, 0, 0, 0, 27.5, 0, 0, 0]
+    [25.96, 0, 0, 0, 34.65, 0, 0, 0, 38.89, 0, 0, 0, 25.96, 0, 0, 0]
   ];
 
-  // Arpeggio pattern - dark minor intervals
-  private arpPattern: number[] = [0, 3, 7, 3, 0, -5, 0, 3]; // A minor with tension
+  // Arpeggio pattern - dark minor intervals (shifted down one semitone via base freq)
+  private arpPattern: number[] = [0, 3, 7, 3, 0, -5, 0, 3]; // Minor with tension
   private arpIndex: number = 0;
 
   constructor() {
@@ -362,9 +362,9 @@ export class ProceduralMusicManager {
   private playMelody(time: number, bar: number) {
     if (!this.audioContext || !this.masterGain) return;
 
-    // Dark minor melody - ominous feel
+    // Dark minor melody - ominous feel (one semitone lower)
     const melodyNotes = [0, -2, 3, 0, -5, 3, 0, -2]; // Descending dark phrases
-    const baseFreq = 220; // A3
+    const baseFreq = 207.65; // G#3 (one semitone below A3)
     const noteIndex = bar % 8;
     const freq = baseFreq * Math.pow(2, melodyNotes[noteIndex] / 12);
 
@@ -396,9 +396,9 @@ export class ProceduralMusicManager {
     const gain = this.audioContext.createGain();
 
     osc.type = 'sine';
-    // Deeper kick - starts lower
-    osc.frequency.setValueAtTime(80, time);
-    osc.frequency.exponentialRampToValueAtTime(25, time + 0.15);
+    // Deeper kick - one semitone lower
+    osc.frequency.setValueAtTime(75.5, time);
+    osc.frequency.exponentialRampToValueAtTime(23.6, time + 0.15);
 
     // Softer attack
     gain.gain.setValueAtTime(0.35, time);
@@ -475,9 +475,9 @@ export class ProceduralMusicManager {
     const osc = this.audioContext.createOscillator();
     const oscGain = this.audioContext.createGain();
 
-    osc.type = 'sine'; // Softer than triangle
-    osc.frequency.setValueAtTime(150, time);
-    osc.frequency.exponentialRampToValueAtTime(80, time + 0.05);
+    osc.type = 'sine'; // Softer than triangle - one semitone lower
+    osc.frequency.setValueAtTime(141.6, time);
+    osc.frequency.exponentialRampToValueAtTime(75.5, time + 0.05);
 
     oscGain.gain.setValueAtTime(0.1, time);
     oscGain.gain.exponentialRampToValueAtTime(0.01, time + 0.06);
@@ -518,8 +518,8 @@ export class ProceduralMusicManager {
   private playArp(time: number, bar: number) {
     if (!this.audioContext || !this.masterGain) return;
 
-    // Base frequency A2 = 110Hz
-    const baseFreq = 110;
+    // Base frequency G#2 = 103.8Hz (one semitone below A2)
+    const baseFreq = 103.8;
     const semitone = this.arpPattern[this.arpIndex];
     const freq = baseFreq * Math.pow(2, semitone / 12);
 
