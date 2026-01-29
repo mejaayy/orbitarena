@@ -148,32 +148,119 @@ export class ProceduralMusicManager {
   private scheduleNote(step: number, bar: number, time: number) {
     if (!this.audioContext || !this.masterGain) return;
 
-    // Kick drum on beats 0, 4, 8, 12 - softer
-    if (step % 4 === 0) {
-      this.playKick(time);
+    const section = Math.floor(bar / 4); // 0-3 for 4 sections of 4 bars each
+
+    // Section 0 (bars 0-3): Intro - just pad and sparse kick
+    if (section === 0) {
+      if (step === 0 || step === 8) {
+        this.playKick(time);
+      }
+      // Subtle arp every 8 steps
+      if (step === 0) {
+        this.playArp(time, bar);
+      }
     }
 
-    // Hi-hat only on beats (less busy) - every 4th step, very quiet
-    if (step % 4 === 2) {
-      this.playHiHat(time, 0.03);
+    // Section 1 (bars 4-7): Build up - add hi-hats and bass
+    if (section === 1) {
+      if (step % 4 === 0) {
+        this.playKick(time);
+      }
+      if (step % 4 === 2) {
+        this.playHiHat(time, 0.02);
+      }
+      const bassNote = this.bassPatterns[1][step];
+      if (bassNote > 0) {
+        this.playBass(time, bassNote);
+      }
+      if (step % 4 === 0) {
+        this.playArp(time, bar);
+      }
     }
 
-    // Snare/clap on beat 4 and 12 only - softer
-    if (step === 4 || step === 12) {
-      this.playSnare(time);
+    // Section 2 (bars 8-11): Full energy - all elements
+    if (section === 2) {
+      if (step % 4 === 0) {
+        this.playKick(time);
+      }
+      // More hi-hats
+      if (step % 2 === 0) {
+        this.playHiHat(time, step % 4 === 0 ? 0.04 : 0.02);
+      }
+      // Snare on beats 4 and 12
+      if (step === 4 || step === 12) {
+        this.playSnare(time);
+      }
+      const bassNote = this.bassPatterns[2][step];
+      if (bassNote > 0) {
+        this.playBass(time, bassNote);
+      }
+      // More active arp
+      if (step % 2 === 0) {
+        this.playArp(time, bar);
+      }
+      // Add melody on some bars
+      if (bar % 2 === 0 && step === 0) {
+        this.playMelody(time, bar);
+      }
     }
 
-    // Bass pattern changes every 4 bars
-    const patternIndex = Math.floor(bar / 4) % 4;
-    const bassNote = this.bassPatterns[patternIndex][step];
-    if (bassNote > 0) {
-      this.playBass(time, bassNote);
+    // Section 3 (bars 12-15): Breakdown/resolution - strip back
+    if (section === 3) {
+      // Sparse kick
+      if (step === 0 || step === 8) {
+        this.playKick(time);
+      }
+      // Very sparse hi-hat
+      if (step === 4 || step === 12) {
+        this.playHiHat(time, 0.02);
+      }
+      const bassNote = this.bassPatterns[3][step];
+      if (bassNote > 0) {
+        this.playBass(time, bassNote);
+      }
+      // Slow arp
+      if (step === 0) {
+        this.playArp(time, bar);
+      }
+      // Fill at end of section to loop back
+      if (bar === 15 && step >= 12) {
+        this.playHiHat(time, 0.03);
+        if (step === 14) {
+          this.playSnare(time);
+        }
+      }
     }
+  }
 
-    // Arpeggio only on every 4th step - less busy, quieter
-    if (step % 4 === 0 && bar % 2 === 0) {
-      this.playArp(time, bar);
-    }
+  private playMelody(time: number, bar: number) {
+    if (!this.audioContext || !this.masterGain) return;
+
+    // Simple melody notes based on bar
+    const melodyNotes = [0, 3, 5, 7]; // A minor pentatonic offsets
+    const baseFreq = 220; // A3
+    const noteIndex = bar % 4;
+    const freq = baseFreq * Math.pow(2, melodyNotes[noteIndex] / 12);
+
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    const filter = this.audioContext.createBiquadFilter();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, time);
+
+    filter.type = 'lowpass';
+    filter.frequency.value = 600;
+
+    gain.gain.setValueAtTime(0.05, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start(time);
+    osc.stop(time + 0.4);
   }
 
   private playKick(time: number) {
