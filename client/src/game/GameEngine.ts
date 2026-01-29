@@ -1,3 +1,5 @@
+import { soundManager } from './SoundManager';
+
 export interface Point {
   x: number;
   y: number;
@@ -164,6 +166,7 @@ export class GameEngine {
 
   private showLowChargeFlash() {
     this.lowChargeFlashAlpha = 0.6;
+    soundManager.playLowCharge();
   }
 
   private lastAbilityTime = 0;
@@ -232,10 +235,20 @@ export class GameEngine {
         break;
 
       case 'PICKUP_DELTA':
+        // Play pickup sound before applying delta (so we can find the pickup type)
+        if (message.payload.collected && message.payload.collectorId === this.localPlayerId) {
+          const pickup = this.pickups.find(p => p.id === message.payload.collected);
+          if (pickup?.type === 'HP') {
+            soundManager.playPickupHP();
+          } else if (pickup?.type === 'CHARGE') {
+            soundManager.playPickupCharge();
+          }
+        }
         this.applyPickupDelta(message.payload);
         break;
 
       case 'ELIMINATED':
+        soundManager.playElimination();
         if (message.payload.isSpectating) {
           // Stake mode - become spectator
           this.isSpectating = true;
@@ -270,11 +283,14 @@ export class GameEngine {
       case 'ABILITY_EFFECT':
         console.log('Received ABILITY_EFFECT:', message.payload);
         this.handleAbilityEffect(message.payload);
+        // Play ability sound
+        soundManager.playAbility(message.payload.type);
         break;
 
       case 'DAMAGE':
         if (message.payload.targetId === this.localPlayerId) {
           this.showDamageFlash();
+          soundManager.playDamage();
         }
         break;
     }

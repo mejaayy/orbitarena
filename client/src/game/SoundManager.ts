@@ -1,0 +1,362 @@
+export class SoundManager {
+  private audioContext: AudioContext | null = null;
+  private masterGain: GainNode | null = null;
+  private enabled: boolean = true;
+
+  constructor() {
+    this.initAudio();
+  }
+
+  private initAudio() {
+    try {
+      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      this.masterGain = this.audioContext.createGain();
+      this.masterGain.connect(this.audioContext.destination);
+      this.masterGain.gain.value = 0.5;
+    } catch (e) {
+      console.warn('Web Audio API not supported');
+    }
+  }
+
+  private ensureContext() {
+    if (this.audioContext?.state === 'suspended') {
+      this.audioContext.resume();
+    }
+  }
+
+  setEnabled(enabled: boolean) {
+    this.enabled = enabled;
+  }
+
+  setVolume(volume: number) {
+    if (this.masterGain) {
+      this.masterGain.gain.value = Math.max(0, Math.min(1, volume));
+    }
+  }
+
+  // Dash - quick whoosh sound
+  playDash() {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+    this.ensureContext();
+
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    const filter = this.audioContext.createBiquadFilter();
+
+    filter.type = 'lowpass';
+    filter.frequency.value = 2000;
+    filter.frequency.exponentialRampToValueAtTime(500, this.audioContext.currentTime + 0.15);
+
+    osc.type = 'sawtooth';
+    osc.frequency.value = 400;
+    osc.frequency.exponentialRampToValueAtTime(150, this.audioContext.currentTime + 0.15);
+
+    gain.gain.value = 0.25;
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start();
+    osc.stop(this.audioContext.currentTime + 0.15);
+  }
+
+  // Slam - heavy impact thud
+  playSlam() {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+    this.ensureContext();
+
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.value = 80;
+    osc.frequency.exponentialRampToValueAtTime(30, this.audioContext.currentTime + 0.3);
+
+    gain.gain.value = 0.4;
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start();
+    osc.stop(this.audioContext.currentTime + 0.3);
+
+    // Add noise burst for impact
+    const noise = this.createNoise(0.1);
+    const noiseGain = this.audioContext.createGain();
+    noiseGain.gain.value = 0.15;
+    noiseGain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
+    noise.connect(noiseGain);
+    noiseGain.connect(this.masterGain);
+  }
+
+  // Pull - suction/vacuum sound
+  playPull() {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+    this.ensureContext();
+
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    const filter = this.audioContext.createBiquadFilter();
+
+    filter.type = 'bandpass';
+    filter.frequency.value = 300;
+    filter.Q.value = 5;
+
+    osc.type = 'sawtooth';
+    osc.frequency.value = 150;
+    osc.frequency.exponentialRampToValueAtTime(400, this.audioContext.currentTime + 0.25);
+
+    gain.gain.value = 0.2;
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.25);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start();
+    osc.stop(this.audioContext.currentTime + 0.25);
+  }
+
+  // Push - burst outward sound
+  playPush() {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+    this.ensureContext();
+
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'square';
+    osc.frequency.value = 200;
+    osc.frequency.exponentialRampToValueAtTime(80, this.audioContext.currentTime + 0.2);
+
+    gain.gain.value = 0.25;
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start();
+    osc.stop(this.audioContext.currentTime + 0.2);
+
+    // Add burst
+    const burst = this.audioContext.createOscillator();
+    const burstGain = this.audioContext.createGain();
+    burst.type = 'sine';
+    burst.frequency.value = 120;
+    burstGain.gain.value = 0.2;
+    burstGain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
+    burst.connect(burstGain);
+    burstGain.connect(this.masterGain);
+    burst.start();
+    burst.stop(this.audioContext.currentTime + 0.15);
+  }
+
+  // Pierce - sharp projectile sound
+  playPierce() {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+    this.ensureContext();
+
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.value = 800;
+    osc.frequency.exponentialRampToValueAtTime(400, this.audioContext.currentTime + 0.12);
+
+    gain.gain.value = 0.2;
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.12);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start();
+    osc.stop(this.audioContext.currentTime + 0.12);
+  }
+
+  // Stun Wave - electric buzz
+  playStunWave() {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+    this.ensureContext();
+
+    const osc1 = this.audioContext.createOscillator();
+    const osc2 = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc1.type = 'square';
+    osc1.frequency.value = 220;
+    osc2.type = 'square';
+    osc2.frequency.value = 225;
+
+    gain.gain.value = 0.15;
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc1.start();
+    osc2.start();
+    osc1.stop(this.audioContext.currentTime + 0.3);
+    osc2.stop(this.audioContext.currentTime + 0.3);
+  }
+
+  // Taking damage - short hit sound
+  playDamage() {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+    this.ensureContext();
+
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.value = 300;
+    osc.frequency.exponentialRampToValueAtTime(100, this.audioContext.currentTime + 0.1);
+
+    gain.gain.value = 0.25;
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start();
+    osc.stop(this.audioContext.currentTime + 0.1);
+  }
+
+  // Elimination - dramatic death sound
+  playElimination() {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+    this.ensureContext();
+
+    // Descending tones
+    const notes = [400, 300, 200, 100];
+    notes.forEach((freq, i) => {
+      const osc = this.audioContext!.createOscillator();
+      const gain = this.audioContext!.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+
+      const startTime = this.audioContext!.currentTime + i * 0.08;
+      gain.gain.setValueAtTime(0.2, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+
+      osc.start(startTime);
+      osc.stop(startTime + 0.15);
+    });
+  }
+
+  // HP Pickup - soft healing chime (quiet)
+  playPickupHP() {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+    this.ensureContext();
+
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.value = 523; // C5
+    osc.frequency.setValueAtTime(523, this.audioContext.currentTime);
+    osc.frequency.setValueAtTime(659, this.audioContext.currentTime + 0.05); // E5
+
+    gain.gain.value = 0.08; // Very quiet
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start();
+    osc.stop(this.audioContext.currentTime + 0.15);
+  }
+
+  // Charge Pickup - soft energy blip (quiet)
+  playPickupCharge() {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+    this.ensureContext();
+
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.value = 440; // A4
+    osc.frequency.exponentialRampToValueAtTime(660, this.audioContext.currentTime + 0.1);
+
+    gain.gain.value = 0.08; // Very quiet
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start();
+    osc.stop(this.audioContext.currentTime + 0.1);
+  }
+
+  // Low charge warning - subtle warning beep
+  playLowCharge() {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+    this.ensureContext();
+
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.value = 200;
+
+    gain.gain.value = 0.1;
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.08);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start();
+    osc.stop(this.audioContext.currentTime + 0.08);
+  }
+
+  private createNoise(duration: number): AudioBufferSourceNode {
+    const bufferSize = this.audioContext!.sampleRate * duration;
+    const buffer = this.audioContext!.createBuffer(1, bufferSize, this.audioContext!.sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+
+    const noise = this.audioContext!.createBufferSource();
+    noise.buffer = buffer;
+    noise.start();
+    noise.stop(this.audioContext!.currentTime + duration);
+
+    return noise;
+  }
+
+  // Play ability sound by type
+  playAbility(type: string) {
+    switch (type) {
+      case 'DASH':
+        this.playDash();
+        break;
+      case 'SLAM':
+        this.playSlam();
+        break;
+      case 'PULL':
+        this.playPull();
+        break;
+      case 'PUSH':
+        this.playPush();
+        break;
+      case 'PIERCE':
+        this.playPierce();
+        break;
+      case 'STUN_WAVE':
+        this.playStunWave();
+        break;
+    }
+  }
+}
+
+export const soundManager = new SoundManager();
