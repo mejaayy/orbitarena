@@ -29,8 +29,8 @@ export class ProceduralMusicManager {
     [27.5, 0, 0, 0, 36.7, 0, 0, 0, 41.2, 0, 0, 0, 27.5, 0, 0, 0]
   ];
 
-  // Arpeggio pattern (notes relative to root) - simpler, less busy
-  private arpPattern: number[] = [0, 7, 12, 7];
+  // Arpeggio pattern - dark minor intervals
+  private arpPattern: number[] = [0, 3, 7, 3, 0, -5, 0, 3]; // A minor with tension
   private arpIndex: number = 0;
 
   constructor() {
@@ -92,30 +92,37 @@ export class ProceduralMusicManager {
   private startPad() {
     if (!this.audioContext || !this.masterGain) return;
 
-    // Atmospheric pad with two detuned oscillators - deeper and warmer
+    // Dark atmospheric synth pad - sawtooth for that dark synthwave feel
     this.padGain = this.audioContext.createGain();
-    this.padGain.gain.value = 0.06; // Quieter
+    this.padGain.gain.value = 0.12; // More prominent
 
     const filter = this.audioContext.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.value = 400; // Lower cutoff for warmer sound
-    filter.Q.value = 0.5;
+    filter.frequency.value = 600; // Rich harmonics
+    filter.Q.value = 2;
 
     this.padOsc1 = this.audioContext.createOscillator();
-    this.padOsc1.type = 'sine'; // Softer than sawtooth
-    this.padOsc1.frequency.value = 55; // A1 - one octave lower
+    this.padOsc1.type = 'sawtooth'; // Dark synth sound
+    this.padOsc1.frequency.value = 55; // A1
 
     this.padOsc2 = this.audioContext.createOscillator();
-    this.padOsc2.type = 'sine';
-    this.padOsc2.frequency.value = 55.2; // Slightly detuned for warmth
+    this.padOsc2.type = 'sawtooth';
+    this.padOsc2.frequency.value = 55.3; // Detuned for thickness
+
+    // Add a third oscillator for minor third - darker feel
+    const padOsc3 = this.audioContext.createOscillator();
+    padOsc3.type = 'sawtooth';
+    padOsc3.frequency.value = 65.4; // C2 - minor third
 
     this.padOsc1.connect(filter);
     this.padOsc2.connect(filter);
+    padOsc3.connect(filter);
     filter.connect(this.padGain);
     this.padGain.connect(this.masterGain);
 
     this.padOsc1.start();
     this.padOsc2.start();
+    padOsc3.start();
   }
 
   private stopPad() {
@@ -307,21 +314,21 @@ export class ProceduralMusicManager {
   private playMelody(time: number, bar: number) {
     if (!this.audioContext || !this.masterGain) return;
 
-    // Simple melody notes based on bar
-    const melodyNotes = [0, 3, 5, 7]; // A minor pentatonic offsets
+    // Dark minor melody - ominous feel
+    const melodyNotes = [0, -2, 3, 0, -5, 3, 0, -2]; // Descending dark phrases
     const baseFreq = 220; // A3
-    const noteIndex = bar % 4;
+    const noteIndex = bar % 8;
     const freq = baseFreq * Math.pow(2, melodyNotes[noteIndex] / 12);
 
     const osc = this.audioContext.createOscillator();
     const gain = this.audioContext.createGain();
     const filter = this.audioContext.createBiquadFilter();
 
-    osc.type = 'sine';
+    osc.type = 'sawtooth'; // Darker synth tone
     osc.frequency.setValueAtTime(freq, time);
 
     filter.type = 'lowpass';
-    filter.frequency.value = 600;
+    filter.frequency.value = 800;
 
     gain.gain.setValueAtTime(0.05, time);
     gain.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
@@ -463,7 +470,7 @@ export class ProceduralMusicManager {
   private playArp(time: number, bar: number) {
     if (!this.audioContext || !this.masterGain) return;
 
-    // Base frequency A2 = 110Hz (one octave lower)
+    // Base frequency A2 = 110Hz
     const baseFreq = 110;
     const semitone = this.arpPattern[this.arpIndex];
     const freq = baseFreq * Math.pow(2, semitone / 12);
@@ -474,24 +481,23 @@ export class ProceduralMusicManager {
     const gain = this.audioContext.createGain();
     const filter = this.audioContext.createBiquadFilter();
 
-    osc.type = 'triangle'; // Softer than square
+    osc.type = 'sawtooth'; // Dark synth sound
     osc.frequency.setValueAtTime(freq, time);
 
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(800, time); // Lower, less harsh
-    filter.frequency.exponentialRampToValueAtTime(300, time + 0.2);
-    filter.Q.value = 2;
+    filter.frequency.setValueAtTime(1200, time);
+    filter.frequency.exponentialRampToValueAtTime(400, time + 0.15);
+    filter.Q.value = 4; // Resonant for that synth character
 
-    // Very quiet - background only
-    gain.gain.setValueAtTime(0.04, time);
-    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+    gain.gain.setValueAtTime(0.06, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
 
     osc.connect(filter);
     filter.connect(gain);
     gain.connect(this.masterGain);
 
     osc.start(time);
-    osc.stop(time + 0.2);
+    osc.stop(time + 0.15);
   }
 }
 
