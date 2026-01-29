@@ -5,8 +5,10 @@ export class ProceduralMusicManager {
   private schedulerId: number | null = null;
   private nextNoteTime: number = 0;
   private currentStep: number = 0;
-  private tempo: number = 128; // BPM
+  private currentBar: number = 0;
+  private tempo: number = 118; // BPM - slower, more relaxed
   private stepDuration: number = 0;
+  private totalSteps: number = 256; // 16 bars × 16 steps
 
   // Instrument nodes
   private bassOsc: OscillatorNode | null = null;
@@ -15,14 +17,20 @@ export class ProceduralMusicManager {
   private padOsc2: OscillatorNode | null = null;
   private padGain: GainNode | null = null;
 
-  // Bass pattern (16 steps, note values in Hz, 0 = rest)
-  private bassPattern: number[] = [
-    55, 0, 55, 0, 55, 0, 73.4, 0, // A1, rest, A1, rest, A1, rest, D2, rest
-    55, 0, 55, 0, 82.4, 0, 73.4, 0  // A1, rest, A1, rest, E2, rest, D2, rest
+  // Bass patterns for different bars (deeper notes - dropped an octave)
+  private bassPatterns: number[][] = [
+    // Bars 1-4: Simple A pattern
+    [27.5, 0, 0, 0, 27.5, 0, 0, 0, 27.5, 0, 0, 0, 36.7, 0, 0, 0],
+    // Bars 5-8: Move to D
+    [36.7, 0, 0, 0, 36.7, 0, 0, 0, 27.5, 0, 0, 0, 27.5, 0, 0, 0],
+    // Bars 9-12: E variation  
+    [41.2, 0, 0, 0, 41.2, 0, 0, 0, 36.7, 0, 0, 0, 27.5, 0, 0, 0],
+    // Bars 13-16: Resolution
+    [27.5, 0, 0, 0, 36.7, 0, 0, 0, 41.2, 0, 0, 0, 27.5, 0, 0, 0]
   ];
 
-  // Arpeggio pattern (notes relative to root)
-  private arpPattern: number[] = [0, 4, 7, 12, 7, 4, 0, -5];
+  // Arpeggio pattern (notes relative to root) - simpler, less busy
+  private arpPattern: number[] = [0, 7, 12, 7];
   private arpIndex: number = 0;
 
   constructor() {
@@ -35,7 +43,7 @@ export class ProceduralMusicManager {
     try {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       this.masterGain = this.audioContext.createGain();
-      this.masterGain.gain.value = 0.3;
+      this.masterGain.gain.value = 0.25; // Slightly quieter overall
       this.masterGain.connect(this.audioContext.destination);
     } catch (e) {
       console.warn('Web Audio API not supported');
@@ -84,22 +92,22 @@ export class ProceduralMusicManager {
   private startPad() {
     if (!this.audioContext || !this.masterGain) return;
 
-    // Atmospheric pad with two detuned oscillators
+    // Atmospheric pad with two detuned oscillators - deeper and warmer
     this.padGain = this.audioContext.createGain();
-    this.padGain.gain.value = 0.08;
+    this.padGain.gain.value = 0.06; // Quieter
 
     const filter = this.audioContext.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.value = 800;
-    filter.Q.value = 1;
+    filter.frequency.value = 400; // Lower cutoff for warmer sound
+    filter.Q.value = 0.5;
 
     this.padOsc1 = this.audioContext.createOscillator();
-    this.padOsc1.type = 'sawtooth';
-    this.padOsc1.frequency.value = 110; // A2
+    this.padOsc1.type = 'sine'; // Softer than sawtooth
+    this.padOsc1.frequency.value = 55; // A1 - one octave lower
 
     this.padOsc2 = this.audioContext.createOscillator();
-    this.padOsc2.type = 'sawtooth';
-    this.padOsc2.frequency.value = 110.5; // Slightly detuned for chorus effect
+    this.padOsc2.type = 'sine';
+    this.padOsc2.frequency.value = 55.2; // Slightly detuned for warmth
 
     this.padOsc1.connect(filter);
     this.padOsc2.connect(filter);
@@ -125,39 +133,46 @@ export class ProceduralMusicManager {
 
     // Schedule notes ahead of time
     while (this.nextNoteTime < this.audioContext.currentTime + 0.1) {
-      this.scheduleNote(this.currentStep, this.nextNoteTime);
+      this.scheduleNote(this.currentStep, this.currentBar, this.nextNoteTime);
       this.nextNoteTime += this.stepDuration;
-      this.currentStep = (this.currentStep + 1) % 16;
+      this.currentStep++;
+      if (this.currentStep >= 16) {
+        this.currentStep = 0;
+        this.currentBar = (this.currentBar + 1) % 16;
+      }
     }
 
     this.schedulerId = requestAnimationFrame(() => this.scheduler());
   }
 
-  private scheduleNote(step: number, time: number) {
+  private scheduleNote(step: number, bar: number, time: number) {
     if (!this.audioContext || !this.masterGain) return;
 
-    // Kick drum on beats 0, 4, 8, 12
+    // Kick drum on beats 0, 4, 8, 12 - softer
     if (step % 4 === 0) {
       this.playKick(time);
     }
 
-    // Hi-hat on every step
-    this.playHiHat(time, step % 2 === 0 ? 0.08 : 0.04);
+    // Hi-hat only on beats (less busy) - every 4th step, very quiet
+    if (step % 4 === 2) {
+      this.playHiHat(time, 0.03);
+    }
 
-    // Snare/clap on beats 4 and 12
+    // Snare/clap on beat 4 and 12 only - softer
     if (step === 4 || step === 12) {
       this.playSnare(time);
     }
 
-    // Bass on pattern
-    const bassNote = this.bassPattern[step];
+    // Bass pattern changes every 4 bars
+    const patternIndex = Math.floor(bar / 4) % 4;
+    const bassNote = this.bassPatterns[patternIndex][step];
     if (bassNote > 0) {
       this.playBass(time, bassNote);
     }
 
-    // Arpeggio on every other step
-    if (step % 2 === 0) {
-      this.playArp(time);
+    // Arpeggio only on every 4th step - less busy, quieter
+    if (step % 4 === 0 && bar % 2 === 0) {
+      this.playArp(time, bar);
     }
   }
 
@@ -168,17 +183,19 @@ export class ProceduralMusicManager {
     const gain = this.audioContext.createGain();
 
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(150, time);
-    osc.frequency.exponentialRampToValueAtTime(30, time + 0.1);
+    // Deeper kick - starts lower
+    osc.frequency.setValueAtTime(80, time);
+    osc.frequency.exponentialRampToValueAtTime(25, time + 0.15);
 
-    gain.gain.setValueAtTime(0.5, time);
-    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+    // Softer attack
+    gain.gain.setValueAtTime(0.35, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
 
     osc.connect(gain);
     gain.connect(this.masterGain);
 
     osc.start(time);
-    osc.stop(time + 0.15);
+    osc.stop(time + 0.2);
   }
 
   private playHiHat(time: number, volume: number) {
@@ -214,8 +231,8 @@ export class ProceduralMusicManager {
   private playSnare(time: number) {
     if (!this.audioContext || !this.masterGain) return;
 
-    // Noise component
-    const bufferSize = this.audioContext.sampleRate * 0.1;
+    // Noise component - softer, lower frequency
+    const bufferSize = this.audioContext.sampleRate * 0.08;
     const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
     const data = buffer.getChannelData(0);
 
@@ -228,35 +245,35 @@ export class ProceduralMusicManager {
 
     const noiseFilter = this.audioContext.createBiquadFilter();
     noiseFilter.type = 'bandpass';
-    noiseFilter.frequency.value = 3000;
+    noiseFilter.frequency.value = 1500; // Lower, less harsh
 
     const noiseGain = this.audioContext.createGain();
-    noiseGain.gain.setValueAtTime(0.2, time);
-    noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+    noiseGain.gain.setValueAtTime(0.1, time); // Quieter
+    noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.08);
 
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
     noiseGain.connect(this.masterGain);
 
     noise.start(time);
-    noise.stop(time + 0.1);
+    noise.stop(time + 0.08);
 
-    // Body tone
+    // Body tone - deeper
     const osc = this.audioContext.createOscillator();
     const oscGain = this.audioContext.createGain();
 
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(200, time);
-    osc.frequency.exponentialRampToValueAtTime(100, time + 0.05);
+    osc.type = 'sine'; // Softer than triangle
+    osc.frequency.setValueAtTime(150, time);
+    osc.frequency.exponentialRampToValueAtTime(80, time + 0.05);
 
-    oscGain.gain.setValueAtTime(0.15, time);
-    oscGain.gain.exponentialRampToValueAtTime(0.01, time + 0.08);
+    oscGain.gain.setValueAtTime(0.1, time);
+    oscGain.gain.exponentialRampToValueAtTime(0.01, time + 0.06);
 
     osc.connect(oscGain);
     oscGain.connect(this.masterGain);
 
     osc.start(time);
-    osc.stop(time + 0.08);
+    osc.stop(time + 0.06);
   }
 
   private playBass(time: number, freq: number) {
@@ -266,29 +283,30 @@ export class ProceduralMusicManager {
     const gain = this.audioContext.createGain();
     const filter = this.audioContext.createBiquadFilter();
 
-    osc.type = 'sawtooth';
+    osc.type = 'sine'; // Softer, rounder bass
     osc.frequency.setValueAtTime(freq, time);
 
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(400, time);
-    filter.frequency.exponentialRampToValueAtTime(100, time + 0.1);
+    filter.frequency.setValueAtTime(200, time); // Lower cutoff for warmer sound
+    filter.frequency.exponentialRampToValueAtTime(80, time + 0.2);
 
-    gain.gain.setValueAtTime(0.25, time);
-    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.12);
+    // Longer, warmer bass
+    gain.gain.setValueAtTime(0.35, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.25);
 
     osc.connect(filter);
     filter.connect(gain);
     gain.connect(this.masterGain);
 
     osc.start(time);
-    osc.stop(time + 0.12);
+    osc.stop(time + 0.25);
   }
 
-  private playArp(time: number) {
+  private playArp(time: number, bar: number) {
     if (!this.audioContext || !this.masterGain) return;
 
-    // Base frequency A3 = 220Hz
-    const baseFreq = 220;
+    // Base frequency A2 = 110Hz (one octave lower)
+    const baseFreq = 110;
     const semitone = this.arpPattern[this.arpIndex];
     const freq = baseFreq * Math.pow(2, semitone / 12);
 
@@ -298,23 +316,24 @@ export class ProceduralMusicManager {
     const gain = this.audioContext.createGain();
     const filter = this.audioContext.createBiquadFilter();
 
-    osc.type = 'square';
+    osc.type = 'triangle'; // Softer than square
     osc.frequency.setValueAtTime(freq, time);
 
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(2000, time);
-    filter.frequency.exponentialRampToValueAtTime(500, time + 0.15);
-    filter.Q.value = 5;
+    filter.frequency.setValueAtTime(800, time); // Lower, less harsh
+    filter.frequency.exponentialRampToValueAtTime(300, time + 0.2);
+    filter.Q.value = 2;
 
-    gain.gain.setValueAtTime(0.08, time);
-    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+    // Very quiet - background only
+    gain.gain.setValueAtTime(0.04, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
 
     osc.connect(filter);
     filter.connect(gain);
     gain.connect(this.masterGain);
 
     osc.start(time);
-    osc.stop(time + 0.15);
+    osc.stop(time + 0.2);
   }
 }
 
