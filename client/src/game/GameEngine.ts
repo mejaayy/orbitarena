@@ -1,4 +1,5 @@
 import { soundManager } from './SoundManager';
+import { proceduralMusic } from './ProceduralMusic';
 
 export interface Point {
   x: number;
@@ -228,6 +229,8 @@ export class GameEngine {
         if (message.payload.pickups) {
           this.pickups = message.payload.pickups;
         }
+        // Start background music
+        proceduralMusic.start();
         break;
 
       case 'STATE':
@@ -543,6 +546,8 @@ export class GameEngine {
     this.canvas.removeEventListener('contextmenu', this.handleContextMenu);
     this.abilityEffects = [];
     this.damageFlashAlpha = 0;
+    // Stop background music
+    proceduralMusic.stop();
   }
 
   handleInput(vector: Point) {
