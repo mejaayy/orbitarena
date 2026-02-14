@@ -943,13 +943,13 @@ export class GameEngine {
     const viewBottom = this.camera.y + (cy / this.baseZoom) + viewPadding;
 
     // Hexagon grid parameters (pointy-top hexagons for beehive pattern)
-    const hexSize = 50;
+    const hexSize = 200;
     const hexHeight = hexSize * 2;
     const hexWidth = Math.sqrt(3) * hexSize;
     const vertSpacing = hexHeight * 0.75;
     const horizSpacing = hexWidth;
 
-    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
 
