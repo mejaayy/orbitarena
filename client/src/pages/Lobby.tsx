@@ -373,7 +373,7 @@ export default function Lobby() {
 
       <Card className="w-full max-w-md bg-card/80 backdrop-blur-xl border-white/10 shadow-2xl relative z-10">
         <CardHeader className="text-center pb-2">
-          <CardTitle className="text-4xl font-black tracking-tight text-white font-mono uppercase">
+          <CardTitle className="text-4xl font-black tracking-tight font-mono uppercase" style={{ color: '#D40046' }}>
             Orbit Arena
           </CardTitle>
           <CardDescription className="text-gray-400 font-medium">
@@ -621,7 +621,8 @@ export default function Lobby() {
 
             <Button 
               type="submit" 
-              className="w-full h-14 text-lg font-bold uppercase tracking-wider shadow-lg hover:shadow-primary/25 transition-all"
+              className="w-full h-14 text-lg font-bold uppercase tracking-wider shadow-lg hover:brightness-110 transition-all"
+              style={{ backgroundColor: '#D40046', color: 'white' }}
               size="lg"
               disabled={!canPlay}
               data-testid="button-enter-arena"
