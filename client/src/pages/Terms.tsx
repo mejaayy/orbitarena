@@ -53,51 +53,99 @@ export default function Terms() {
         </CardHeader>
         
         <CardContent className="space-y-6">
-          <div className="prose prose-invert prose-sm max-w-none space-y-4 text-gray-300">
+          <div className="prose prose-invert prose-sm max-w-none space-y-4 text-gray-300 max-h-[60vh] overflow-y-auto pr-2">
             <section>
-              <h3 className="text-lg font-bold text-white">1. Acceptance of Terms</h3>
-              <p>By accessing and playing Orbit Arena, you agree to be bound by these Terms and Conditions. If you do not agree, please do not use our service.</p>
+              <h3 className="text-lg font-bold text-white">1. Overview</h3>
+              <p>This game is a skill-based multiplayer game where players control shapes, collect points, and compete in short matches. All gameplay outcomes are determined by player skill, timing, and strategy, not chance.</p>
+              <p>The game includes:</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Free Mode:</strong> Play for fun, no monetary cost.</li>
+                <li><strong>Paid Mode (USDC Mode):</strong> Optional mode where players pay a small fixed fee to participate. Leaderboards track performance; the developer collects a service fee only.</li>
+              </ul>
+              <p>No element of chance determines outcomes beyond balanced, evenly randomized in-game objects, and the developer does not profit from player losses.</p>
             </section>
 
             <section>
               <h3 className="text-lg font-bold text-white">2. Eligibility</h3>
-              <p>You must be at least 18 years of age to play in Solana Mode (stake mode). Free play mode is available to all ages, subject to local laws.</p>
-            </section>
-
-            <section>
-              <h3 className="text-lg font-bold text-white">3. Game Rules</h3>
-              <p>Orbit Arena is a skill-based multiplayer game. Players control circular avatars, consume food to grow, and can eliminate smaller players by absorbing them.</p>
-            </section>
-
-            <section>
-              <h3 className="text-lg font-bold text-white">4. Solana Mode (Stake Mode)</h3>
               <ul className="list-disc pl-5 space-y-1">
-                <li>Entry fee: 1 USDC (Devnet)</li>
-                <li>Exit fee: 10% of balance when leaving</li>
-                <li>All transactions are on Solana Devnet</li>
-                <li>Earnings depend on gameplay skill and are not guaranteed</li>
-                <li>All deposits are non-refundable</li>
+                <li>Players must be at least [Insert Age] years old.</li>
+                <li>Players must comply with all applicable laws in their jurisdiction.</li>
               </ul>
             </section>
 
             <section>
-              <h3 className="text-lg font-bold text-white">5. Wallet Security</h3>
-              <p>You are responsible for maintaining the security of your Phantom wallet. We are not liable for any losses due to compromised wallet credentials.</p>
+              <h3 className="text-lg font-bold text-white">3. Paid Mode (USDC Mode)</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Entry is a fixed fee; there are no bets or wagers beyond this fee.</li>
+                <li>Players may leave a match at any time.</li>
+                <li>Results are based entirely on skill and strategic play.</li>
+                <li>Leaderboards display past performance; amounts are not guaranteed.</li>
+                <li>The developer collects a service fee only; player losses are not transferred to the developer.</li>
+              </ul>
             </section>
 
             <section>
-              <h3 className="text-lg font-bold text-white">6. Fair Play</h3>
-              <p>Use of bots, scripts, or any form of cheating is strictly prohibited. Violators may be banned without refund.</p>
+              <h3 className="text-lg font-bold text-white">4. Gameplay Rules</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Outcomes are skill-based only. Player decisions, timing, and strategy determine success.</li>
+                <li>Random in-game elements (orbs) are evenly distributed and accessible to all players. While collecting them affects scores, no spawn location gives any player an unfair advantage.</li>
+                <li>Cheating, exploiting, or manipulating gameplay may result in account suspension or ban.</li>
+              </ul>
             </section>
 
             <section>
-              <h3 className="text-lg font-bold text-white">7. Disclaimer</h3>
-              <p>The game is provided "as is" without warranties of any kind. We are not responsible for any losses, damages, or technical issues that may occur during gameplay.</p>
+              <h3 className="text-lg font-bold text-white">5. Points, Skins, and Rewards</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Points track player performance only.</li>
+                <li>Cosmetic items or skins may be unlocked via playtime or eliminations.</li>
+                <li>Skins or cosmetics do not provide competitive advantages.</li>
+              </ul>
             </section>
 
             <section>
-              <h3 className="text-lg font-bold text-white">8. Changes to Terms</h3>
-              <p>We reserve the right to modify these terms at any time. Continued use of the service constitutes acceptance of modified terms.</p>
+              <h3 className="text-lg font-bold text-white">6. Disclaimers</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>All results are based on player performance.</li>
+                <li>Displayed amounts in USDC Mode are not guaranteed.</li>
+                <li>Entry fees are non-refundable.</li>
+                <li>Developer provides no financial advice or guarantee of profit.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h3 className="text-lg font-bold text-white">7. Conduct</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Players must behave respectfully.</li>
+                <li>Exploiting or attempting to manipulate the game is prohibited.</li>
+                <li>The developer reserves the right to adjust game mechanics, balance, or servers to ensure fairness.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h3 className="text-lg font-bold text-white">8. Limitation of Liability</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>The game is provided "as is".</li>
+                <li>Developer is not liable for lost points, lost USDC, or technical issues.</li>
+                <li>Participation is at the player's own risk.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h3 className="text-lg font-bold text-white">9. Legal Jurisdictions & Skill-Game Clause</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>The game is designed as a skill-based contest, not gambling.</li>
+                <li>Outcomes are determined entirely by player skill, not chance, with all random in-game elements evenly distributed.</li>
+                <li>This T&C is intended to comply with applicable US and UK law regarding skill-based games.</li>
+                <li>By participating, players confirm that they understand this is not a gambling activity.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h3 className="text-lg font-bold text-white">10. Changes to T&C</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>The developer may update these terms at any time.</li>
+                <li>Updates will be communicated via in-game notice or email.</li>
+              </ul>
             </section>
           </div>
 
