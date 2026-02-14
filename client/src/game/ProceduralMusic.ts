@@ -10,7 +10,8 @@ export class ProceduralMusicManager {
     try {
       this.audio = new Audio('/music.mp3');
       this.audio.loop = false;
-      this.audio.volume = 0.25;
+      this.audio.volume = 0.125;
+      this.audio.currentTime = 13;
 
       this.audio.addEventListener('timeupdate', () => {
         if (this.audio && this.audio.currentTime >= 115) {

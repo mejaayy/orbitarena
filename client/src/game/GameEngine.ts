@@ -1100,8 +1100,8 @@ export class GameEngine {
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     this.ctx.fillRect(barX, barY, barWidth, barHeight);
     
-    // Charge bar fill (yellow)
-    this.ctx.fillStyle = '#FFCC00';
+    // Charge bar fill (purple)
+    this.ctx.fillStyle = '#AA44FF';
     this.ctx.fillRect(barX, barY, barWidth * chargePercent, barHeight);
     
     // Draw section dividers at 20, 40, 60, 80 charge
