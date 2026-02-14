@@ -87,87 +87,79 @@
 }
 
 .glitch-scanlines {
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 1px,
-    rgba(0, 255, 0, 0.015) 1px,
-    rgba(0, 255, 0, 0.015) 2px
-  );
-  animation: glitch-scroll 4s linear infinite;
+  display: none;
 }
 
 .glitch-flicker {
   position: absolute;
   inset: 0;
-  animation: glitch-flicker 4s step-end infinite;
-}
-
-@keyframes glitch-scroll {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(50px); }
+  animation: glitch-flicker 5s step-end infinite;
 }
 
 @keyframes glitch-flicker {
   0%, 100% { opacity: 0; }
-  2% {
+  3% {
     opacity: 1;
-    background: linear-gradient(
-      transparent 30%,
-      rgba(0, 204, 122, 0.04) 30.5%,
-      rgba(0, 204, 122, 0.04) 31.5%,
-      transparent 32%
-    );
-    clip-path: inset(30% 0 68% 0);
+    clip-path: inset(42% 0 55% 0);
+    transform: translateX(3px);
+    background: rgba(0, 204, 122, 0.06);
   }
-  2.5% { opacity: 0; }
-  8% {
-    opacity: 1;
-    background: rgba(0, 204, 122, 0.02);
-    clip-path: inset(60% 0 38% 0);
+  3.3% {
+    transform: translateX(-2px);
+    clip-path: inset(42% 0 55% 0);
+    background: rgba(0, 204, 122, 0.04);
   }
-  8.3% { opacity: 0; }
-  15% {
+  3.5% { opacity: 0; transform: none; clip-path: none; }
+  12% {
     opacity: 1;
-    background: linear-gradient(
-      transparent 75%,
-      rgba(0, 204, 122, 0.03) 75.5%,
-      rgba(0, 204, 122, 0.03) 76.5%,
-      transparent 77%
-    );
+    clip-path: inset(15% 0 82% 0);
+    transform: translateX(-4px);
+    background: rgba(0, 204, 122, 0.05);
   }
-  15.4% { opacity: 0; }
-  30% {
+  12.2% { opacity: 0; transform: none; clip-path: none; }
+  25% {
     opacity: 1;
-    background: none;
-    clip-path: inset(45% 5% 53% 0);
-    transform: translateX(2px);
-    box-shadow: -2px 0 rgba(0, 204, 122, 0.06);
+    clip-path: inset(70% 0 27% 0);
+    transform: translateX(2px) skewX(-1deg);
+    background: rgba(0, 204, 122, 0.04);
   }
-  30.2% { opacity: 0; transform: none; clip-path: none; }
-  52% {
-    opacity: 1;
-    background: rgba(0, 204, 122, 0.015);
-    clip-path: inset(10% 0 85% 0);
-  }
-  52.4% { opacity: 0; clip-path: none; }
-  70% {
-    opacity: 1;
-    background: linear-gradient(
-      transparent 50%,
-      rgba(0, 204, 122, 0.03) 50.3%,
-      rgba(0, 204, 122, 0.03) 50.8%,
-      transparent 51%
-    );
-  }
-  70.3% { opacity: 0; }
-  85% {
-    opacity: 1;
-    clip-path: inset(80% 0 18% 0);
+  25.4% {
     transform: translateX(-1px);
-    background: rgba(0, 204, 122, 0.02);
+    clip-path: inset(70% 0 27% 0);
   }
-  85.2% { opacity: 0; transform: none; clip-path: none; }
+  25.5% { opacity: 0; transform: none; clip-path: none; }
+  40% {
+    opacity: 1;
+    clip-path: inset(33% 0 64% 0);
+    transform: translateX(5px);
+    background: rgba(0, 204, 122, 0.05);
+  }
+  40.15% {
+    transform: translateX(-3px);
+  }
+  40.3% { opacity: 0; transform: none; clip-path: none; }
+  58% {
+    opacity: 1;
+    clip-path: inset(85% 0 12% 0);
+    transform: translateX(-2px);
+    background: rgba(0, 204, 122, 0.04);
+  }
+  58.2% { opacity: 0; transform: none; clip-path: none; }
+  72% {
+    opacity: 1;
+    clip-path: inset(5% 0 92% 0);
+    transform: translateX(3px);
+    background: rgba(0, 204, 122, 0.06);
+  }
+  72.15% {
+    transform: translateX(-4px) skewX(0.5deg);
+  }
+  72.3% { opacity: 0; transform: none; clip-path: none; }
+  90% {
+    opacity: 1;
+    clip-path: inset(55% 0 42% 0);
+    transform: translateX(-3px);
+    background: rgba(0, 204, 122, 0.04);
+  }
+  90.2% { opacity: 0; transform: none; clip-path: none; }
 }
