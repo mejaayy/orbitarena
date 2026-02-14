@@ -82,7 +82,6 @@ export default function Lobby() {
     { name: 'Purple', hex: '#A300CC' },
     { name: 'Yellow', hex: '#CCCC00' },
     { name: 'Pink', hex: '#FF69B4' },
-    { name: 'Cyan', hex: '#00FFFF' },
   ];
 
   const fetchInternalBalance = async (address: string) => {
@@ -128,7 +127,7 @@ export default function Lobby() {
     }
     
     const savedColor = localStorage.getItem('orbit-arena-color');
-    const validColors = ['#D40046', '#00CC7A', '#00A3CC', '#A300CC', '#CCCC00', '#FF69B4', '#00FFFF'];
+    const validColors = ['#D40046', '#00CC7A', '#00A3CC', '#A300CC', '#CCCC00', '#FF69B4'];
     if (savedColor && validColors.includes(savedColor)) setSelectedColor(savedColor);
     
     const savedShape = localStorage.getItem('orbit-arena-shape') as 'circle' | 'triangle' | 'square' | null;
