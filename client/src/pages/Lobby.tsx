@@ -460,7 +460,7 @@ export default function Lobby() {
                     </svg>
                     <span className="text-xs font-medium text-white">Triangle</span>
                     <div className="text-[10px] text-gray-400 leading-tight text-center">
-                      Dash • Pierce
+                      Dash • Shoot
                     </div>
                   </div>
                 </button>
