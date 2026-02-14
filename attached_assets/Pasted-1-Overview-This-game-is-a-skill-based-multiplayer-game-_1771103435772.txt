@@ -1,0 +1,87 @@
+1. Overview
+
+This game is a skill-based multiplayer game where players control shapes, collect points, and compete in short matches. All gameplay outcomes are determined by player skill, timing, and strategy, not chance.
+
+The game includes:
+
+Free Mode: Play for fun, no monetary cost.
+
+Paid Mode (USDC Mode): Optional mode where players pay a small fixed fee to participate. Leaderboards track performance; the developer collects a service fee only.
+
+No element of chance determines outcomes beyond balanced, evenly randomized in-game objects, and the developer does not profit from player losses.
+
+2. Eligibility
+
+Players must be at least [Insert Age] years old.
+
+Players must comply with all applicable laws in their jurisdiction.
+
+3. Paid Mode (USDC Mode)
+
+Entry is a fixed fee; there are no bets or wagers beyond this fee.
+
+Players may leave a match at any time.
+
+Results are based entirely on skill and strategic play.
+
+Leaderboards display past performance; amounts are not guaranteed.
+
+The developer collects a service fee only; player losses are not transferred to the developer.
+
+4. Gameplay Rules
+
+Outcomes are skill-based only. Player decisions, timing, and strategy determine success.
+
+Random in-game elements (orbs) are evenly distributed and accessible to all players. While collecting them affects scores, no spawn location gives any player an unfair advantage.
+
+Cheating, exploiting, or manipulating gameplay may result in account suspension or ban.
+
+5. Points, Skins, and Rewards
+
+Points track player performance only.
+
+Cosmetic items or skins may be unlocked via playtime or eliminations.
+
+Skins or cosmetics do not provide competitive advantages.
+
+6. Disclaimers
+
+All results are based on player performance.
+
+Displayed amounts in USDC Mode are not guaranteed.
+
+Entry fees are non-refundable.
+
+Developer provides no financial advice or guarantee of profit.
+
+7. Conduct
+
+Players must behave respectfully.
+
+Exploiting or attempting to manipulate the game is prohibited.
+
+The developer reserves the right to adjust game mechanics, balance, or servers to ensure fairness.
+
+8. Limitation of Liability
+
+The game is provided “as is”.
+
+Developer is not liable for lost points, lost USDC, or technical issues.
+
+Participation is at the player’s own risk.
+
+9. Legal Jurisdictions & Skill-Game Clause
+
+The game is designed as a skill-based contest, not gambling.
+
+Outcomes are determined entirely by player skill, not chance, with all random in-game elements evenly distributed.
+
+This T&C is intended to comply with applicable US and UK law regarding skill-based games.
+
+By participating, players confirm that they understand this is not a gambling activity.
+
+10. Changes to T&C
+
+The developer may update these terms at any time.
+
+Updates will be communicated via in-game notice or email.

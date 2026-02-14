@@ -257,6 +257,35 @@ export class SoundManager {
     });
   }
 
+  // Kill ping - satisfying chime when you eliminate someone
+  playKillPing() {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+    this.ensureContext();
+
+    const t = this.audioContext.currentTime;
+
+    const osc1 = this.audioContext.createOscillator();
+    const osc2 = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc1.type = 'sine';
+    osc1.frequency.value = 1200;
+    osc2.type = 'sine';
+    osc2.frequency.value = 1600;
+
+    gain.gain.setValueAtTime(0.12, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.35);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc1.start(t);
+    osc2.start(t + 0.08);
+    osc1.stop(t + 0.2);
+    osc2.stop(t + 0.35);
+  }
+
   // HP Pickup - dark low thud with filtered noise
   playPickupHP() {
     if (!this.enabled || !this.pickupSoundsEnabled || !this.audioContext || !this.masterGain) return;

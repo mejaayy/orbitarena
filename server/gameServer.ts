@@ -59,7 +59,7 @@ interface ClientMessage {
 }
 
 interface ServerMessage {
-  type: 'STATE' | 'JOINED' | 'ELIMINATED' | 'PLAYER_LEFT' | 'ERROR' | 'ROOM_INFO' | 'PICKUP_DELTA' | 'ROUND_STATUS' | 'ROUND_END' | 'DAMAGE' | 'ABILITY_EFFECT';
+  type: 'STATE' | 'JOINED' | 'ELIMINATED' | 'PLAYER_LEFT' | 'ERROR' | 'ROOM_INFO' | 'PICKUP_DELTA' | 'ROUND_STATUS' | 'ROUND_END' | 'DAMAGE' | 'ABILITY_EFFECT' | 'KILL';
   payload: any;
 }
 
@@ -560,6 +560,16 @@ class GameRoom {
           balance: victim.balance
         }
       });
+    }
+
+    if (attacker) {
+      const attackerWs = this.clients.get(attacker.id);
+      if (attackerWs) {
+        this.send(attackerWs, {
+          type: 'KILL',
+          payload: { victimName: victim.name }
+        });
+      }
     }
 
     log(`${attacker ? attacker.name : 'Environment'} eliminated ${victim.name} in room ${this.id}`, 'room');

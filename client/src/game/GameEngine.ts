@@ -288,6 +288,10 @@ export class GameEngine {
         this.onRoundEnd?.(message.payload);
         break;
 
+      case 'KILL':
+        soundManager.playKillPing();
+        break;
+
       case 'PLAYER_LEFT':
         this.players.delete(message.payload.playerId);
         break;
