@@ -308,7 +308,7 @@ export default function Lobby() {
           const hexSize = 100;
           const hexWidth = Math.sqrt(3) * hexSize;
           const vertSpacing = hexSize * 1.5;
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.012)';
           ctx.lineWidth = 1;
           ctx.beginPath();
           const rows = Math.ceil(canvas.height / vertSpacing) + 2;
