@@ -44,46 +44,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     };
   }, []); // Run once on mount
 
-  useEffect(() => {
-    const keys = new Set<string>();
-
-    const updateMovement = () => {
-      if (!engineRef.current) return;
-      let x = 0, y = 0;
-      if (keys.has('w') || keys.has('arrowup')) y -= 1;
-      if (keys.has('s') || keys.has('arrowdown')) y += 1;
-      if (keys.has('a') || keys.has('arrowleft')) x -= 1;
-      if (keys.has('d') || keys.has('arrowright')) x += 1;
-      engineRef.current.handleInput({ x, y });
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
-      if (['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)) {
-        e.preventDefault();
-        if (!keys.has(key)) {
-          keys.add(key);
-          updateMovement();
-        }
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
-      if (keys.has(key)) {
-        keys.delete(key);
-        updateMovement();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, []);
-
   return (
     <canvas 
       ref={canvasRef} 
