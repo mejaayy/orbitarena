@@ -706,11 +706,22 @@ export class GameEngine {
     this.pickups.forEach(pickup => {
       if (pickup.x < viewLeft || pickup.x > viewRight || pickup.y < viewTop || pickup.y > viewBottom) return;
 
-      const color = pickup.type === 'HP' ? '#FF4466' : '#FFCC00';
-      this.ctx.fillStyle = color;
-      this.ctx.beginPath();
-      this.ctx.arc(pickup.x, pickup.y, pickup.radius, 0, Math.PI * 2);
-      this.ctx.fill();
+      if (pickup.type === 'HP') {
+        // HP pickups: red squares
+        const size = pickup.radius * 1.6;
+        this.ctx.fillStyle = '#FF4466';
+        this.ctx.fillRect(pickup.x - size / 2, pickup.y - size / 2, size, size);
+      } else {
+        // Charge pickups: purple triangles
+        const r = pickup.radius * 1.4;
+        this.ctx.fillStyle = '#AA44FF';
+        this.ctx.beginPath();
+        this.ctx.moveTo(pickup.x, pickup.y - r);
+        this.ctx.lineTo(pickup.x + r * Math.cos(Math.PI / 6), pickup.y + r * Math.sin(Math.PI / 6));
+        this.ctx.lineTo(pickup.x - r * Math.cos(Math.PI / 6), pickup.y + r * Math.sin(Math.PI / 6));
+        this.ctx.closePath();
+        this.ctx.fill();
+      }
     });
 
     // Draw dash trails first (underneath players)
