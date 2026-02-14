@@ -1165,7 +1165,6 @@ export class GameServer {
     this.wss = new WebSocketServer({ 
       server: httpServer, 
       path: '/ws',
-      maxPayload: MAX_WS_MESSAGE_SIZE,
     });
     
     this.createRoom(false);
