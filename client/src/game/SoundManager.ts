@@ -251,49 +251,58 @@ export class SoundManager {
     });
   }
 
-  // HP Pickup - soft healing chime (quiet)
+  // HP Pickup - dark low thud with filtered noise
   playPickupHP() {
     if (!this.enabled || !this.audioContext || !this.masterGain) return;
     this.ensureContext();
 
     const osc = this.audioContext.createOscillator();
     const gain = this.audioContext.createGain();
+    const filter = this.audioContext.createBiquadFilter();
 
-    osc.type = 'sine';
-    osc.frequency.value = 494; // B4 (one semitone lower than C5)
-    osc.frequency.setValueAtTime(494, this.audioContext.currentTime);
-    osc.frequency.setValueAtTime(622, this.audioContext.currentTime + 0.05); // D#5 (one semitone lower)
+    filter.type = 'lowpass';
+    filter.frequency.value = 400;
 
-    gain.gain.value = 0.08; // Very quiet
+    osc.type = 'triangle';
+    osc.frequency.value = 103.8; // G#2 - low and dark
+    osc.frequency.exponentialRampToValueAtTime(82.4, this.audioContext.currentTime + 0.12);
+
+    gain.gain.value = 0.1;
     gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
 
-    osc.connect(gain);
+    osc.connect(filter);
+    filter.connect(gain);
     gain.connect(this.masterGain);
 
     osc.start();
     osc.stop(this.audioContext.currentTime + 0.15);
   }
 
-  // Charge Pickup - soft energy blip (quiet)
+  // Charge Pickup - subdued filtered pulse
   playPickupCharge() {
     if (!this.enabled || !this.audioContext || !this.masterGain) return;
     this.ensureContext();
 
     const osc = this.audioContext.createOscillator();
     const gain = this.audioContext.createGain();
+    const filter = this.audioContext.createBiquadFilter();
 
-    osc.type = 'sine';
-    osc.frequency.value = 415; // G#4 (one semitone lower than A4)
-    osc.frequency.exponentialRampToValueAtTime(622, this.audioContext.currentTime + 0.1);
+    filter.type = 'lowpass';
+    filter.frequency.value = 600;
 
-    gain.gain.value = 0.08; // Very quiet
-    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
+    osc.type = 'sawtooth';
+    osc.frequency.value = 155.6; // D#3 - low mid
+    osc.frequency.exponentialRampToValueAtTime(103.8, this.audioContext.currentTime + 0.1);
 
-    osc.connect(gain);
+    gain.gain.value = 0.07;
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.12);
+
+    osc.connect(filter);
+    filter.connect(gain);
     gain.connect(this.masterGain);
 
     osc.start();
-    osc.stop(this.audioContext.currentTime + 0.1);
+    osc.stop(this.audioContext.currentTime + 0.12);
   }
 
   // Low charge warning - subtle warning beep
