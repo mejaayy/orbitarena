@@ -82,6 +82,46 @@
   }
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    overflow: hidden; /* Prevent scrolling for game */
+    overflow: hidden;
   }
+}
+
+.glitch-scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 255, 255, 0.01) 2px,
+    rgba(255, 255, 255, 0.01) 4px
+  );
+  animation: glitch-scroll 8s linear infinite;
+}
+
+.glitch-flicker {
+  position: absolute;
+  inset: 0;
+  animation: glitch-flicker 6s step-end infinite;
+}
+
+@keyframes glitch-scroll {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100px); }
+}
+
+@keyframes glitch-flicker {
+  0%, 100% { opacity: 0; }
+  3% { opacity: 1; background: linear-gradient(transparent 40%, rgba(163, 0, 204, 0.03) 40.5%, rgba(163, 0, 204, 0.03) 41%, transparent 41.5%); }
+  3.5% { opacity: 0; }
+  10% { opacity: 1; background: linear-gradient(transparent 70%, rgba(0, 255, 255, 0.02) 70.5%, rgba(0, 255, 255, 0.02) 71.5%, transparent 72%); }
+  10.5% { opacity: 0; }
+  22% { opacity: 1; background: linear-gradient(transparent 20%, rgba(212, 0, 70, 0.02) 20.5%, rgba(212, 0, 70, 0.02) 21%, transparent 21.5%); }
+  22.3% { opacity: 0; }
+  45% { opacity: 1; background: linear-gradient(transparent 55%, rgba(0, 255, 255, 0.03) 55.5%, rgba(0, 255, 255, 0.03) 56%, transparent 56.5%); }
+  45.4% { opacity: 0; }
+  67% { opacity: 1; background: linear-gradient(transparent 85%, rgba(163, 0, 204, 0.02) 85.5%, rgba(163, 0, 204, 0.02) 86%, transparent 86.5%); }
+  67.3% { opacity: 0; }
+  88% { opacity: 1; background: linear-gradient(transparent 35%, rgba(212, 0, 70, 0.03) 35.5%, rgba(212, 0, 70, 0.03) 36.5%, transparent 37%); }
+  88.4% { opacity: 0; }
 }

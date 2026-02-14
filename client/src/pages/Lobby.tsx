@@ -303,7 +303,10 @@ export default function Lobby() {
         ))}
       </div>
       
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/20 blur-[100px] rounded-full pointer-events-none animate-pulse" />
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="glitch-scanlines" />
+        <div className="glitch-flicker" />
+      </div>
 
       {(mockLeaderboardEnabled ? MOCK_LEADERBOARD : weeklyLeaderboard).length > 0 && (
         <div className="fixed top-4 left-4 z-20" data-testid="weekly-leaderboard">
@@ -345,7 +348,7 @@ export default function Lobby() {
 
       <Card className="w-full max-w-md bg-card/80 backdrop-blur-xl border-white/10 shadow-2xl relative z-10">
         <CardHeader className="text-center pb-2">
-          <div className="mx-auto w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center mb-4 border border-primary/50 shadow-[0_0_15px_rgba(124,58,237,0.5)]">
+          <div className="mx-auto w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center mb-4 border border-primary/50">
             <Gamepad2 className="w-8 h-8 text-primary-foreground" />
           </div>
           <CardTitle className="text-4xl font-black tracking-tight bg-gradient-to-br from-white to-gray-500 bg-clip-text text-transparent font-mono uppercase">
