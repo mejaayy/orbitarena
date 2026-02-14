@@ -9,8 +9,15 @@ export class ProceduralMusicManager {
 
     try {
       this.audio = new Audio('/music.mp3');
-      this.audio.loop = true;
+      this.audio.loop = false;
       this.audio.volume = 0.25;
+
+      this.audio.addEventListener('timeupdate', () => {
+        if (this.audio && this.audio.currentTime >= 115) {
+          this.audio.currentTime = 13;
+        }
+      });
+
       this.audio.play().catch(e => {
         console.warn('Music autoplay blocked, will retry on interaction');
         const resume = () => {
