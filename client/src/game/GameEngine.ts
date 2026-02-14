@@ -635,7 +635,9 @@ export class GameEngine {
       const now = performance.now();
       const angleDelta = newAngle !== null ? Math.abs(newAngle - this.lastSentFacingAngle) : 0;
       const facingChanged = angleDelta > 0.05;
-      if (facingChanged && now - this.lastInputSendTime >= 66) {
+      const isMoving = this.localInputVector.x !== 0 || this.localInputVector.y !== 0;
+      const needsSend = facingChanged || isMoving;
+      if (needsSend && now - this.lastInputSendTime >= this.inputSendInterval) {
         this.sendInput(this.localInputVector);
         this.lastInputSendTime = now;
       }
