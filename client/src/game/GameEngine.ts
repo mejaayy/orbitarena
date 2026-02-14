@@ -709,12 +709,12 @@ export class GameEngine {
       if (pickup.type === 'HP') {
         // HP pickups: red squares
         const size = pickup.radius * 1.6;
-        this.ctx.fillStyle = '#FF4466';
+        this.ctx.fillStyle = '#D40046';
         this.ctx.fillRect(pickup.x - size / 2, pickup.y - size / 2, size, size);
       } else {
         // Charge pickups: purple triangles
         const r = pickup.radius * 1.4;
-        this.ctx.fillStyle = '#AA44FF';
+        this.ctx.fillStyle = '#A300CC';
         this.ctx.beginPath();
         this.ctx.moveTo(pickup.x, pickup.y - r);
         this.ctx.lineTo(pickup.x + r * Math.cos(Math.PI / 6), pickup.y + r * Math.sin(Math.PI / 6));
@@ -799,7 +799,7 @@ export class GameEngine {
     const radius = 150 * (1 - progress);
     this.ctx.beginPath();
     this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-    this.ctx.strokeStyle = `rgba(255, 100, 255, ${alpha * 0.6})`;
+    this.ctx.strokeStyle = `rgba(163, 0, 204, ${alpha * 0.6})`;
     this.ctx.lineWidth = 3;
     this.ctx.stroke();
   }
@@ -808,9 +808,9 @@ export class GameEngine {
     const radius = 150 * progress;
     this.ctx.beginPath();
     this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-    this.ctx.fillStyle = `rgba(255, 50, 50, ${alpha * 0.3})`;
+    this.ctx.fillStyle = `rgba(212, 0, 70, ${alpha * 0.3})`;
     this.ctx.fill();
-    this.ctx.strokeStyle = `rgba(255, 100, 100, ${alpha * 0.8})`;
+    this.ctx.strokeStyle = `rgba(212, 0, 70, ${alpha * 0.8})`;
     this.ctx.lineWidth = 4;
     this.ctx.stroke();
   }
@@ -830,8 +830,8 @@ export class GameEngine {
     
     // Create gradient for trail fade
     const gradient = this.ctx.createLinearGradient(currentX, currentY, trailEndX, trailEndY);
-    gradient.addColorStop(0, `rgba(100, 220, 255, ${alpha * 0.9})`);
-    gradient.addColorStop(1, `rgba(100, 220, 255, 0)`);
+    gradient.addColorStop(0, `rgba(0, 255, 255, ${alpha * 0.9})`);
+    gradient.addColorStop(1, `rgba(0, 255, 255, 0)`);
     
     this.ctx.beginPath();
     this.ctx.moveTo(currentX, currentY);
@@ -849,13 +849,13 @@ export class GameEngine {
     
     this.ctx.beginPath();
     this.ctx.arc(px, py, 15, 0, Math.PI * 2);
-    this.ctx.fillStyle = `rgba(255, 200, 50, ${alpha})`;
+    this.ctx.fillStyle = `rgba(204, 204, 0, ${alpha})`;
     this.ctx.fill();
     
     this.ctx.beginPath();
     this.ctx.moveTo(x, y);
     this.ctx.lineTo(px, py);
-    this.ctx.strokeStyle = `rgba(255, 200, 50, ${alpha * 0.4})`;
+    this.ctx.strokeStyle = `rgba(204, 204, 0, ${alpha * 0.4})`;
     this.ctx.lineWidth = 4;
     this.ctx.stroke();
   }
@@ -864,7 +864,7 @@ export class GameEngine {
     const radius = 150 * progress;
     this.ctx.beginPath();
     this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-    this.ctx.strokeStyle = `rgba(100, 200, 255, ${alpha * 0.7})`;
+    this.ctx.strokeStyle = `rgba(0, 163, 204, ${alpha * 0.7})`;
     this.ctx.lineWidth = 5;
     this.ctx.stroke();
   }
@@ -873,9 +873,9 @@ export class GameEngine {
     const radius = 150 * progress;
     this.ctx.beginPath();
     this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-    this.ctx.fillStyle = `rgba(255, 255, 100, ${alpha * 0.25})`;
+    this.ctx.fillStyle = `rgba(204, 204, 0, ${alpha * 0.25})`;
     this.ctx.fill();
-    this.ctx.strokeStyle = `rgba(255, 255, 50, ${alpha * 0.8})`;
+    this.ctx.strokeStyle = `rgba(204, 204, 0, ${alpha * 0.8})`;
     this.ctx.lineWidth = 3;
     this.ctx.stroke();
   }
@@ -901,7 +901,7 @@ export class GameEngine {
     const height = window.innerHeight;
     
     if (this.damageFlashAlpha > 0) {
-      this.ctx.fillStyle = `rgba(255, 0, 0, ${this.damageFlashAlpha})`;
+      this.ctx.fillStyle = `rgba(212, 0, 70, ${this.damageFlashAlpha})`;
       this.ctx.fillRect(0, 0, width, height);
       
       this.damageFlashAlpha -= 0.02;
@@ -915,8 +915,8 @@ export class GameEngine {
       const innerRadius = outerRadius * 0.7;
       
       const gradient = this.ctx.createRadialGradient(cx, cy, innerRadius, cx, cy, outerRadius);
-      gradient.addColorStop(0, 'rgba(120, 0, 200, 0)');
-      gradient.addColorStop(1, `rgba(120, 0, 200, ${this.lowChargeFlashAlpha * 0.5})`);
+      gradient.addColorStop(0, 'rgba(163, 0, 204, 0)');
+      gradient.addColorStop(1, `rgba(163, 0, 204, ${this.lowChargeFlashAlpha * 0.5})`);
       
       this.ctx.fillStyle = gradient;
       this.ctx.fillRect(0, 0, width, height);
@@ -947,10 +947,10 @@ export class GameEngine {
       
       this.ctx.beginPath();
       if (player.id === this.localPlayerId) {
-        this.ctx.fillStyle = '#00FF99';
+        this.ctx.fillStyle = '#00CC7A';
         this.ctx.arc(px, py, 3, 0, Math.PI * 2);
       } else {
-        this.ctx.fillStyle = 'rgba(255, 0, 85, 0.8)';
+        this.ctx.fillStyle = 'rgba(212, 0, 70, 0.8)';
         this.ctx.arc(px, py, 2, 0, Math.PI * 2);
       }
       this.ctx.fill();
@@ -1022,7 +1022,7 @@ export class GameEngine {
     this.ctx.stroke();
     this.ctx.restore();
     
-    this.ctx.strokeStyle = '#FF0055';
+    this.ctx.strokeStyle = '#D40046';
     this.ctx.lineWidth = 5;
     this.ctx.strokeRect(0, 0, GameEngine.WORLD_SIZE, GameEngine.WORLD_SIZE);
   }
@@ -1117,7 +1117,7 @@ export class GameEngine {
     this.ctx.fillRect(barX, barY, barWidth, barHeight);
     
     // Charge bar fill (purple)
-    this.ctx.fillStyle = '#AA44FF';
+    this.ctx.fillStyle = '#A300CC';
     this.ctx.fillRect(barX, barY, barWidth * chargePercent, barHeight);
     
     // Draw section dividers at 20, 40, 60, 80 charge
@@ -1136,9 +1136,9 @@ export class GameEngine {
       textColor = '#FFFFFF';
     } else if (localPlayer) {
       if ((player.hp || 100) > (localPlayer.hp || 100)) {
-        textColor = '#FF4444'; // Red - more HP (danger)
+        textColor = '#D40046'; // Red - more HP (danger)
       } else {
-        textColor = '#44FF44'; // Green - less HP (weaker)
+        textColor = '#00CC7A'; // Green - less HP (weaker)
       }
     } else {
       textColor = '#FFFFFF';
