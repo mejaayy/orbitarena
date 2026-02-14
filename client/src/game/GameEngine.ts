@@ -949,7 +949,7 @@ export class GameEngine {
     const vertSpacing = hexHeight * 0.75;
     const horizSpacing = hexWidth;
 
-    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
 
@@ -959,49 +959,41 @@ export class GameEngine {
     const startCol = Math.floor(viewLeft / horizSpacing) - 1;
     const endCol = Math.ceil(viewRight / horizSpacing) + 1;
 
-    // Draw hexagons - only draw top-right 3 edges to avoid overlap
+    // Use canvas clipping to cut hexagons at world border
+    this.ctx.save();
+    this.ctx.rect(0, 0, GameEngine.WORLD_SIZE, GameEngine.WORLD_SIZE);
+    this.ctx.clip();
+
     for (let row = startRow; row <= endRow; row++) {
       for (let col = startCol; col <= endCol; col++) {
         const offsetX = (row % 2 === 0) ? 0 : hexWidth / 2;
         const centerX = col * horizSpacing + offsetX;
         const centerY = row * vertSpacing;
-        
-        // Skip if outside world bounds
+
         if (centerX < -hexSize || centerX > GameEngine.WORLD_SIZE + hexSize ||
             centerY < -hexSize || centerY > GameEngine.WORLD_SIZE + hexSize) continue;
 
-        // Draw only 3 edges per hexagon to avoid overlap (top, top-right, bottom-right)
         const angles = [
-          -Math.PI / 2,      // top
-          -Math.PI / 6,      // top-right
-          Math.PI / 6,       // bottom-right
-          Math.PI / 2        // bottom (end point)
+          -Math.PI / 2,
+          -Math.PI / 6,
+          Math.PI / 6,
+          Math.PI / 2
         ];
-        
+
         for (let i = 0; i < 3; i++) {
-          let x1 = centerX + hexSize * Math.cos(angles[i]);
-          let y1 = centerY + hexSize * Math.sin(angles[i]);
-          let x2 = centerX + hexSize * Math.cos(angles[i + 1]);
-          let y2 = centerY + hexSize * Math.sin(angles[i + 1]);
-          
-          // Clip lines to world boundaries
-          const worldSize = GameEngine.WORLD_SIZE;
-          if ((x1 < 0 && x2 < 0) || (x1 > worldSize && x2 > worldSize) ||
-              (y1 < 0 && y2 < 0) || (y1 > worldSize && y2 > worldSize)) continue;
-          
-          // Clamp coordinates to world bounds
-          x1 = Math.max(0, Math.min(worldSize, x1));
-          y1 = Math.max(0, Math.min(worldSize, y1));
-          x2 = Math.max(0, Math.min(worldSize, x2));
-          y2 = Math.max(0, Math.min(worldSize, y2));
-          
+          const x1 = centerX + hexSize * Math.cos(angles[i]);
+          const y1 = centerY + hexSize * Math.sin(angles[i]);
+          const x2 = centerX + hexSize * Math.cos(angles[i + 1]);
+          const y2 = centerY + hexSize * Math.sin(angles[i + 1]);
+
           this.ctx.moveTo(x1, y1);
           this.ctx.lineTo(x2, y2);
         }
       }
     }
-    
+
     this.ctx.stroke();
+    this.ctx.restore();
     
     this.ctx.strokeStyle = '#FF0055';
     this.ctx.lineWidth = 5;
