@@ -373,9 +373,9 @@ export default function Lobby() {
 
       <Card className="w-full max-w-md bg-card/80 backdrop-blur-xl border-white/10 shadow-2xl relative z-10">
         <CardHeader className="text-center pb-2">
-          <CardTitle className="text-4xl font-black tracking-tight font-mono uppercase" style={{ color: '#D40046' }}>
+          <h1 className="text-4xl font-black tracking-tight font-mono uppercase" style={{ color: '#D40046' }}>
             Orbit Arena
-          </CardTitle>
+          </h1>
           <CardDescription className="text-gray-400 font-medium">
             Dominate the grid. Eat or be eaten.
           </CardDescription>
