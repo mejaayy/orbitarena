@@ -60,7 +60,7 @@ export default function Lobby() {
   const [serverStatus, setServerStatus] = useState<{ playerCount: number; maxPlayers: number; roomCount: number } | null>(null);
   const [showTerms, setShowTerms] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [selectedColor, setSelectedColor] = useState('#B0003A');
+  const [selectedColor, setSelectedColor] = useState('#D40046');
   const [selectedShape, setSelectedShape] = useState<'circle' | 'triangle' | 'square'>('circle');
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [internalBalance, setInternalBalance] = useState<InternalBalance | null>(null);
@@ -76,7 +76,7 @@ export default function Lobby() {
   const [, setLocation] = useLocation();
 
   const AVATAR_COLORS = [
-    { name: 'Red', hex: '#B0003A' },
+    { name: 'Red', hex: '#D40046' },
     { name: 'Green', hex: '#00CC7A' },
     { name: 'Blue', hex: '#00A3CC' },
     { name: 'Purple', hex: '#A300CC' },
@@ -128,7 +128,7 @@ export default function Lobby() {
     }
     
     const savedColor = localStorage.getItem('orbit-arena-color');
-    const validColors = ['#B0003A', '#00CC7A', '#00A3CC', '#A300CC', '#CCCC00', '#FF69B4', '#00FFFF'];
+    const validColors = ['#D40046', '#00CC7A', '#00A3CC', '#A300CC', '#CCCC00', '#FF69B4', '#00FFFF'];
     if (savedColor && validColors.includes(savedColor)) setSelectedColor(savedColor);
     
     const savedShape = localStorage.getItem('orbit-arena-shape') as 'circle' | 'triangle' | 'square' | null;
@@ -373,7 +373,7 @@ export default function Lobby() {
 
       <Card className="w-full max-w-md bg-card/80 backdrop-blur-xl border-white/10 shadow-2xl relative z-10">
         <CardHeader className="text-center pb-2">
-          <h1 className="text-4xl font-black tracking-tight font-mono uppercase !text-[#B0003A]">
+          <h1 className="text-4xl font-black tracking-tight font-mono uppercase" style={{ color: '#D40046', textShadow: '0 0 10px rgba(212, 0, 70, 0.5)' }}>
             Orbit Arena
           </h1>
           <CardDescription className="text-gray-400 font-medium">
@@ -622,7 +622,7 @@ export default function Lobby() {
             <Button 
               type="submit" 
               className="w-full h-14 text-lg font-bold uppercase tracking-wider shadow-lg hover:brightness-110 transition-all"
-              style={{ backgroundColor: '#B0003A', color: 'white' }}
+              style={{ backgroundColor: '#D40046', color: 'white', boxShadow: '0 0 15px rgba(212, 0, 70, 0.4)' }}
               size="lg"
               disabled={!canPlay}
               data-testid="button-enter-arena"
