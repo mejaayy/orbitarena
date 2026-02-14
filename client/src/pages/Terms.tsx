@@ -47,9 +47,6 @@ export default function Terms() {
       
       <Card className="w-full max-w-2xl bg-card/80 backdrop-blur-xl border-white/10 shadow-2xl relative z-10">
         <CardHeader className="text-center pb-2">
-          <div className="mx-auto w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center mb-4 border border-primary/50">
-            <FileText className="w-6 h-6 text-primary-foreground" />
-          </div>
           <CardTitle className="text-3xl font-black tracking-tight bg-gradient-to-br from-white to-gray-500 bg-clip-text text-transparent font-mono uppercase">
             Terms & Conditions
           </CardTitle>
