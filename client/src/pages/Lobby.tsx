@@ -402,8 +402,8 @@ export default function Lobby() {
                   data-testid="shape-circle"
                 >
                   <div className="flex flex-col items-center gap-2">
-                    <svg viewBox="0 0 24 24" className="w-8 h-8" fill={selectedColor}>
-                      <circle cx="12" cy="12" r="10" />
+                    <svg viewBox="0 0 24 24" className="w-8 h-8">
+                      <circle cx="12" cy="12" r="10" fill={selectedColor} />
                     </svg>
                     <span className="text-xs font-medium text-white">Circle</span>
                     <div className="text-[10px] text-gray-400 leading-tight text-center">
@@ -422,8 +422,8 @@ export default function Lobby() {
                   data-testid="shape-triangle"
                 >
                   <div className="flex flex-col items-center gap-2">
-                    <svg viewBox="0 0 24 24" className="w-8 h-8" fill={selectedColor}>
-                      <polygon points="12,2 22,20 2,20" />
+                    <svg viewBox="0 0 24 24" className="w-8 h-8">
+                      <polygon points="12,2 22,20 2,20" fill={selectedColor} />
                     </svg>
                     <span className="text-xs font-medium text-white">Triangle</span>
                     <div className="text-[10px] text-gray-400 leading-tight text-center">
@@ -442,8 +442,8 @@ export default function Lobby() {
                   data-testid="shape-square"
                 >
                   <div className="flex flex-col items-center gap-2">
-                    <svg viewBox="0 0 24 24" className="w-8 h-8" fill={selectedColor}>
-                      <rect x="2" y="2" width="20" height="20" />
+                    <svg viewBox="0 0 24 24" className="w-8 h-8">
+                      <rect x="2" y="2" width="20" height="20" fill={selectedColor} />
                     </svg>
                     <span className="text-xs font-medium text-white">Square</span>
                     <div className="text-[10px] text-gray-400 leading-tight text-center">
@@ -456,14 +456,14 @@ export default function Lobby() {
 
             <div className="flex items-center justify-between">
               <Label className="text-xs uppercase tracking-widest text-gray-500">Color</Label>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 {AVATAR_COLORS.map((color) => (
                   <button
                     key={color.hex}
                     type="button"
                     onClick={() => setSelectedColor(color.hex)}
-                    className={`w-7 h-7 rounded-full transition-all hover:scale-110 ${
-                      selectedColor === color.hex ? 'ring-2 ring-white ring-offset-2 ring-offset-black scale-110' : 'opacity-50 hover:opacity-100'
+                    className={`w-5 h-5 rounded-full transition-all hover:scale-110 ${
+                      selectedColor === color.hex ? 'ring-2 ring-white ring-offset-1 ring-offset-black' : 'opacity-60 hover:opacity-100'
                     }`}
                     style={{ backgroundColor: color.hex }}
                     title={color.name}
