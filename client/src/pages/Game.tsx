@@ -54,6 +54,16 @@ export default function Game() {
     return () => clearInterval(interval);
   }, [engine]);
 
+  useEffect(() => {
+    const preventSpaceButtons = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && e.target instanceof HTMLButtonElement) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', preventSpaceButtons);
+    return () => window.removeEventListener('keydown', preventSpaceButtons);
+  }, []);
+
   const handleGameOver = (stats: { score: number, killer?: string, balance?: number }) => {
     setGameOverStats(stats);
   };
