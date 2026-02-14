@@ -740,6 +740,7 @@ export class GameEngine {
 
     this.ctx.restore();
 
+    this.drawVignette();
     this.drawDamageFlash();
     this.drawMinimap();
   }
@@ -880,6 +881,22 @@ export class GameEngine {
     this.ctx.stroke();
   }
 
+  private drawVignette() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const cx = width / 2;
+    const cy = height / 2;
+    const outerRadius = Math.sqrt(cx * cx + cy * cy);
+    const innerRadius = outerRadius * 0.55;
+
+    const gradient = this.ctx.createRadialGradient(cx, cy, innerRadius, cx, cy, outerRadius);
+    gradient.addColorStop(0, 'rgba(30, 0, 40, 0)');
+    gradient.addColorStop(1, 'rgba(30, 0, 40, 0.4)');
+
+    this.ctx.fillStyle = gradient;
+    this.ctx.fillRect(0, 0, width, height);
+  }
+
   private drawDamageFlash() {
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -899,8 +916,8 @@ export class GameEngine {
       const innerRadius = outerRadius * 0.7;
       
       const gradient = this.ctx.createRadialGradient(cx, cy, innerRadius, cx, cy, outerRadius);
-      gradient.addColorStop(0, 'rgba(255, 200, 0, 0)');
-      gradient.addColorStop(1, `rgba(255, 180, 0, ${this.lowChargeFlashAlpha * 0.5})`);
+      gradient.addColorStop(0, 'rgba(120, 0, 200, 0)');
+      gradient.addColorStop(1, `rgba(120, 0, 200, ${this.lowChargeFlashAlpha * 0.5})`);
       
       this.ctx.fillStyle = gradient;
       this.ctx.fillRect(0, 0, width, height);
