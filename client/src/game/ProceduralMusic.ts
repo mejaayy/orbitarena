@@ -15,6 +15,7 @@ export class ProceduralMusicManager {
       this.audio = new Audio('/music.mp3');
       this.audio.loop = false;
       this.audio.volume = 0.125;
+      this.audio.playbackRate = 1.1;
       this.audio.currentTime = 13;
 
       this.audio.addEventListener('timeupdate', () => {
