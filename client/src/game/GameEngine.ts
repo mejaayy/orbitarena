@@ -93,6 +93,9 @@ export class GameEngine {
   private localInputVector: Point = { x: 0, y: 0 };
   private lastInputSendTime: number = 0;
   private inputSendInterval: number = 33;
+  private mouseScreenX: number = -1;
+  private mouseScreenY: number = -1;
+  private lastSentFacingAngle: number = 0;
   
   onGameOver: (stats: { score: number, killer?: string, balance?: number }) => void;
   onUpdateStats: (stats: { fps: number, population: number, balance?: number }) => void;
@@ -121,12 +124,18 @@ export class GameEngine {
     this.handleResize();
     
     window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('mousemove', this.handleMouseMove);
     this.canvas.addEventListener('mousedown', this.handleMouseDown);
     this.canvas.addEventListener('contextmenu', this.handleContextMenu);
   }
 
   private handleContextMenu = (e: Event) => {
     e.preventDefault();
+  };
+
+  private handleMouseMove = (e: MouseEvent) => {
+    this.mouseScreenX = e.clientX;
+    this.mouseScreenY = e.clientY;
   };
 
   private handleKeyDown = (e: KeyboardEvent) => {
@@ -492,12 +501,36 @@ export class GameEngine {
     }
   }
 
+  private getFacingAngle(): number | null {
+    if (this.mouseScreenX < 0) return null;
+    
+    const localPlayer = this.players.get(this.localPlayerId!);
+    if (!localPlayer) return null;
+    
+    const rect = this.canvas.getBoundingClientRect();
+    const canvasMouseX = this.mouseScreenX - rect.left;
+    const canvasMouseY = this.mouseScreenY - rect.top;
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    
+    const zoomMultiplier = this.dashZoom.active ? 1 + Math.sin(((performance.now() - this.dashZoom.startTime) / this.dashZoom.duration) * Math.PI) * 0.08 : 1;
+    const zoom = this.baseZoom * zoomMultiplier;
+    
+    const worldMouseX = (canvasMouseX - cx - this.screenShake.offsetX) / zoom + this.camera.x;
+    const worldMouseY = (canvasMouseY - cy - this.screenShake.offsetY) / zoom + this.camera.y;
+    
+    return Math.atan2(worldMouseY - localPlayer.y, worldMouseX - localPlayer.x);
+  }
+
   private sendInput(vector: Point) {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({
-        type: 'INPUT',
-        payload: { x: vector.x, y: vector.y }
-      }));
+      const facingAngle = this.getFacingAngle();
+      const payload: { x: number; y: number; facingAngle?: number } = { x: vector.x, y: vector.y };
+      if (facingAngle !== null) {
+        payload.facingAngle = facingAngle;
+        this.lastSentFacingAngle = facingAngle;
+      }
+      this.ws.send(JSON.stringify({ type: 'INPUT', payload }));
     }
   }
 
@@ -522,7 +555,7 @@ export class GameEngine {
     
     // Scale context to match DPR
     this.ctx.scale(dpr, dpr);
-    this.ctx.imageSmoothingEnabled = true;
+    this.ctx.imageSmoothingEnabled = false;
   };
 
   start(playerName: string, isStakeMode: boolean, walletAddress?: string, playerColor?: string, characterShape?: CharacterShape) {
@@ -546,6 +579,7 @@ export class GameEngine {
     this.pendingJoin = null;
     window.removeEventListener('resize', this.handleResize);
     window.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('mousemove', this.handleMouseMove);
     this.canvas.removeEventListener('mousedown', this.handleMouseDown);
     this.canvas.removeEventListener('contextmenu', this.handleContextMenu);
     this.abilityEffects = [];
@@ -590,9 +624,25 @@ export class GameEngine {
 
     this.updateInterpolation(timestamp, dt);
     this.updateCamera();
-    this.render();
     
     const localPlayer = this.players.get(this.localPlayerId!);
+    if (localPlayer && !this.isSpectating) {
+      const newAngle = this.getFacingAngle();
+      if (newAngle !== null) {
+        localPlayer.facingAngle = newAngle;
+      }
+      
+      const now = performance.now();
+      const angleDelta = newAngle !== null ? Math.abs(newAngle - this.lastSentFacingAngle) : 0;
+      const facingChanged = angleDelta > 0.05;
+      if (facingChanged && now - this.lastInputSendTime >= 66) {
+        this.sendInput(this.localInputVector);
+        this.lastInputSendTime = now;
+      }
+    }
+    
+    this.render();
+    
     if (localPlayer) {
       this.onUpdateStats({
         fps: this.currentFps,
@@ -712,23 +762,10 @@ export class GameEngine {
 
       if (pickup.type === 'HP') {
         const size = pickup.radius * 1.6;
-        this.ctx.shadowColor = '#D40046';
-        this.ctx.shadowBlur = 10;
         this.ctx.fillStyle = '#D40046';
         this.ctx.fillRect(pickup.x - size / 2, pickup.y - size / 2, size, size);
-        this.ctx.shadowBlur = 0;
-        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        this.ctx.lineWidth = 1;
-        this.ctx.strokeRect(pickup.x - size / 2, pickup.y - size / 2, size, size);
-        this.ctx.fillStyle = '#FFFFFF';
-        this.ctx.font = `bold ${size * 0.6}px Outfit`;
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillText('+', pickup.x, pickup.y);
       } else {
         const r = pickup.radius * 1.4;
-        this.ctx.shadowColor = '#A300CC';
-        this.ctx.shadowBlur = 10;
         this.ctx.fillStyle = '#A300CC';
         this.ctx.beginPath();
         this.ctx.moveTo(pickup.x, pickup.y - r);
@@ -736,10 +773,6 @@ export class GameEngine {
         this.ctx.lineTo(pickup.x - r * Math.cos(Math.PI / 6), pickup.y + r * Math.sin(Math.PI / 6));
         this.ctx.closePath();
         this.ctx.fill();
-        this.ctx.shadowBlur = 0;
-        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        this.ctx.lineWidth = 1;
-        this.ctx.stroke();
       }
     });
 
@@ -1097,30 +1130,16 @@ export class GameEngine {
     this.ctx.translate(player.x, player.y);
     this.ctx.rotate(angle);
     
+    this.ctx.fillStyle = player.color;
+    
     if (player.isStunned) {
       this.ctx.globalAlpha = 0.5;
     }
-    
-    this.ctx.shadowColor = player.color;
-    this.ctx.shadowBlur = 18;
-    
-    this.ctx.fillStyle = player.color;
-    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-    this.ctx.lineWidth = 2;
     
     if (shape === 'circle') {
       this.ctx.beginPath();
       this.ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
       this.ctx.fill();
-      this.ctx.shadowBlur = 0;
-      this.ctx.stroke();
-      
-      const innerR = player.radius * 0.55;
-      this.ctx.beginPath();
-      this.ctx.arc(0, 0, innerR, 0, Math.PI * 2);
-      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-      this.ctx.lineWidth = 1.5;
-      this.ctx.stroke();
     } else if (shape === 'triangle') {
       const size = player.radius;
       this.ctx.beginPath();
@@ -1129,31 +1148,11 @@ export class GameEngine {
       this.ctx.lineTo(-size * 0.7, size * 0.8);
       this.ctx.closePath();
       this.ctx.fill();
-      this.ctx.shadowBlur = 0;
-      this.ctx.stroke();
-      
-      const inner = 0.5;
-      this.ctx.beginPath();
-      this.ctx.moveTo(size * inner, 0);
-      this.ctx.lineTo(-size * 0.7 * inner, -size * 0.8 * inner);
-      this.ctx.lineTo(-size * 0.7 * inner, size * 0.8 * inner);
-      this.ctx.closePath();
-      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-      this.ctx.lineWidth = 1.5;
-      this.ctx.stroke();
     } else if (shape === 'square') {
       const size = player.radius * 0.8;
       this.ctx.fillRect(-size, -size, size * 2, size * 2);
-      this.ctx.shadowBlur = 0;
-      this.ctx.strokeRect(-size, -size, size * 2, size * 2);
-      
-      const inner = size * 0.55;
-      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-      this.ctx.lineWidth = 1.5;
-      this.ctx.strokeRect(-inner, -inner, inner * 2, inner * 2);
     }
     
-    this.ctx.shadowBlur = 0;
     this.ctx.globalAlpha = 1;
     this.ctx.restore();
     

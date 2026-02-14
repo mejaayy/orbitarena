@@ -47,12 +47,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   // Handle Input
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!engineRef.current) return;
-      const { width, height } = canvasRef.current!;
-      const cx = width / 2;
-      const cy = height / 2;
+      if (!engineRef.current || !canvasRef.current) return;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
       
-      // Calculate vector from center to mouse
       const dx = e.clientX - cx;
       const dy = e.clientY - cy;
       

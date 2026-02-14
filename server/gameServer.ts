@@ -266,7 +266,7 @@ class GameRoom {
     return true;
   }
 
-  handleInput(playerId: string, payload: { x: number; y: number }) {
+  handleInput(playerId: string, payload: { x: number; y: number; facingAngle?: number }) {
     const player = this.gameState.players.get(playerId);
     if (!player || player.isSpectator || player.isStunned) return;
 
@@ -276,7 +276,9 @@ class GameRoom {
       payload.y /= length;
     }
     player.inputVector = { x: payload.x, y: payload.y };
-    if (length > 0.1) {
+    if (typeof payload.facingAngle === 'number' && isFinite(payload.facingAngle)) {
+      player.facingAngle = Math.atan2(Math.sin(payload.facingAngle), Math.cos(payload.facingAngle));
+    } else if (length > 0.1) {
       player.facingAngle = Math.atan2(payload.y, payload.x);
     }
   }
@@ -964,7 +966,7 @@ class StakeGameRoom extends GameRoom {
     log(`Stake room ${this.id} reset for next round`, 'room');
   }
 
-  handleInput(playerId: string, payload: { x: number; y: number }) {
+  handleInput(playerId: string, payload: { x: number; y: number; facingAngle?: number }) {
     if (this.roundState !== 'PLAYING') return;
     super.handleInput(playerId, payload);
   }
@@ -1376,15 +1378,17 @@ export class GameServer {
     return this.freeRooms.get(roomId);
   }
 
-  private handleInput(playerId: string, payload: { x: number; y: number }) {
+  private handleInput(playerId: string, payload: { x: number; y: number; facingAngle?: number }) {
     if (!payload || typeof payload.x !== 'number' || typeof payload.y !== 'number' 
         || !isFinite(payload.x) || !isFinite(payload.y)) {
       return;
     }
     const x = Math.max(-1, Math.min(1, payload.x));
     const y = Math.max(-1, Math.min(1, payload.y));
+    const facingAngle = (typeof payload.facingAngle === 'number' && isFinite(payload.facingAngle)) 
+      ? payload.facingAngle : undefined;
     const room = this.getRoom(playerId);
-    room?.handleInput(playerId, { x, y });
+    room?.handleInput(playerId, { x, y, facingAngle });
   }
 
   private handleLeave(playerId: string) {
