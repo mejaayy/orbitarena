@@ -10,6 +10,7 @@ import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle, Ar
 import solanaLogo from '@assets/generated_images/solana_crypto_coin_logo_icon.png';
 import { connectPhantom, disconnectPhantom, isPhantomInstalled, getConnectedWallet, shortenAddress, ENTRY_FEE_USDC, getUSDCBalance } from '@/lib/phantom';
 import { AdminPanel } from '@/components/AdminPanel';
+import { containsProfanity } from '@/lib/profanityFilter';
 
 const MOCK_LEADERBOARD: WeeklyPlayer[] = [
   { wallet: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', earnedUsd: '42.50' },
@@ -256,9 +257,17 @@ export default function Lobby() {
     }
   };
 
+  const [nameError, setNameError] = useState('');
+
   const handlePlay = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nickname.trim()) return;
+
+    if (containsProfanity(nickname)) {
+      setNameError('That name contains inappropriate language. Please choose another.');
+      return;
+    }
+    setNameError('');
     
     if (isStakeMode && !walletAddress) {
       return;
@@ -409,6 +418,9 @@ export default function Lobby() {
                 autoFocus
                 autoComplete="off"
               />
+              {nameError && (
+                <p className="text-red-400 text-xs mt-1" data-testid="text-name-error">{nameError}</p>
+              )}
             </div>
 
             <div className="space-y-2">
