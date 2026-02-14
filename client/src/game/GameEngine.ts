@@ -831,9 +831,12 @@ export class GameEngine {
         case 'SLAM':
           this.drawSlamEffect(effect.x, effect.y, progress, alpha);
           break;
-        case 'PIERCE':
-          this.drawPierceEffect(effect.x, effect.y, effect.angle, progress, alpha);
+        case 'PIERCE': {
+          const piercePlayer = this.players.get(effect.playerId);
+          const pierceColor = piercePlayer?.color || '#cccc00';
+          this.drawPierceEffect(effect.x, effect.y, effect.angle, progress, alpha, pierceColor);
           break;
+        }
         case 'PUSH':
           this.drawPushEffect(effect.x, effect.y, progress, alpha);
           break;
@@ -893,20 +896,36 @@ export class GameEngine {
     this.ctx.stroke();
   }
 
-  private drawPierceEffect(x: number, y: number, angle: number, progress: number, alpha: number) {
+  private parseHexColor(hex: string): [number, number, number] {
+    let h = hex.replace('#', '');
+    if (h.length === 3) h = h.split('').map(c => c + c).join('');
+    return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
+  }
+
+  private drawPierceEffect(x: number, y: number, angle: number, progress: number, alpha: number, color: string) {
     const projectileDistance = 500 * progress;
     const px = x + Math.cos(angle) * projectileDistance;
     const py = y + Math.sin(angle) * projectileDistance;
     
+    const [r, g, b] = color.startsWith('#') ? this.parseHexColor(color) : [204, 204, 0];
+    const size = 15;
+
+    this.ctx.save();
+    this.ctx.translate(px, py);
+    this.ctx.rotate(angle);
     this.ctx.beginPath();
-    this.ctx.arc(px, py, 15, 0, Math.PI * 2);
-    this.ctx.fillStyle = `rgba(204, 204, 0, ${alpha})`;
+    this.ctx.moveTo(size, 0);
+    this.ctx.lineTo(-size * 0.7, -size * 0.6);
+    this.ctx.lineTo(-size * 0.7, size * 0.6);
+    this.ctx.closePath();
+    this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
     this.ctx.fill();
+    this.ctx.restore();
     
     this.ctx.beginPath();
     this.ctx.moveTo(x, y);
     this.ctx.lineTo(px, py);
-    this.ctx.strokeStyle = `rgba(204, 204, 0, ${alpha * 0.4})`;
+    this.ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.4})`;
     this.ctx.lineWidth = 4;
     this.ctx.stroke();
   }
