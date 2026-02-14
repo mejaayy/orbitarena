@@ -9,11 +9,41 @@ export default function Terms() {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-background p-4">
-      <div className="absolute inset-0 grid grid-cols-[repeat(20,1fr)] grid-rows-[repeat(20,1fr)] opacity-20 pointer-events-none">
-        {Array.from({ length: 400 }).map((_, i) => (
-          <div key={i} className="border-[0.5px] border-white/5" />
-        ))}
-      </div>
+      <canvas
+        ref={(canvas) => {
+          if (!canvas || canvas.dataset.drawn) return;
+          canvas.dataset.drawn = 'true';
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          canvas.width = canvas.offsetWidth;
+          canvas.height = canvas.offsetHeight;
+          const hexSize = 100;
+          const hexWidth = Math.sqrt(3) * hexSize;
+          const vertSpacing = hexSize * 1.5;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          const rows = Math.ceil(canvas.height / vertSpacing) + 2;
+          const cols = Math.ceil(canvas.width / hexWidth) + 2;
+          for (let row = -1; row <= rows; row++) {
+            for (let col = -1; col <= cols; col++) {
+              const offsetX = (row % 2 === 0) ? 0 : hexWidth / 2;
+              const cx = col * hexWidth + offsetX;
+              const cy = row * vertSpacing;
+              for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i - Math.PI / 6;
+                const x = cx + hexSize * Math.cos(angle);
+                const y = cy + hexSize * Math.sin(angle);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+              }
+              ctx.closePath();
+            }
+          }
+          ctx.stroke();
+        }}
+        className="absolute inset-0 w-full h-full pointer-events-none"
+      />
       
       <Card className="w-full max-w-2xl bg-card/80 backdrop-blur-xl border-white/10 shadow-2xl relative z-10">
         <CardHeader className="text-center pb-2">
