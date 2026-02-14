@@ -38,6 +38,8 @@
 }
 
 :root {
+  color-scheme: dark;
+  forced-color-adjust: none;
   /* Dark Future / Cyber Minimal Theme */
   --background: 240 10% 4%; /* Almost black */
   --foreground: 0 0% 98%;

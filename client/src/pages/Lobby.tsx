@@ -371,7 +371,7 @@ export default function Lobby() {
         </div>
       )}
 
-      <Card className="w-full max-w-md bg-card border-white/10 shadow-2xl relative z-10">
+      <Card className="w-full max-w-md bg-card/80 backdrop-blur-xl border-white/10 shadow-2xl relative z-10">
         <CardHeader className="text-center pb-2">
           <h1 className="text-4xl font-black tracking-tight font-mono uppercase" style={{ color: '#D40046' }}>
             Orbit Arena
