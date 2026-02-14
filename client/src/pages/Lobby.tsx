@@ -669,7 +669,8 @@ export default function Lobby() {
           <DialogFooter className="sm:justify-center">
             <Button 
               onClick={handleAcceptTerms}
-              className="bg-primary hover:bg-primary/90 text-white w-full"
+              className="hover:brightness-110 text-white w-full"
+              style={{ backgroundColor: '#D40046' }}
               data-testid="button-accept-terms"
             >
               I Accept
