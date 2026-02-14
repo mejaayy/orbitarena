@@ -373,7 +373,7 @@ export default function Lobby() {
 
       <Card className="w-full max-w-md bg-card/80 backdrop-blur-xl border-white/10 shadow-2xl relative z-10">
         <CardHeader className="text-center pb-2">
-          <CardTitle className="text-4xl font-black tracking-tight bg-gradient-to-br from-white to-gray-500 bg-clip-text text-transparent font-mono uppercase">
+          <CardTitle className="text-4xl font-black tracking-tight bg-gradient-to-br from-white to-gray-300 bg-clip-text text-transparent font-mono uppercase">
             Orbit Arena
           </CardTitle>
           <CardDescription className="text-gray-400 font-medium">
