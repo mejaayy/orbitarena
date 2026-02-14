@@ -211,7 +211,7 @@ class GameRoom {
       return false;
     }
 
-    const defaultColors = ['#D40046', '#00CC7A', '#00A3CC', '#CC7A00', '#A300CC', '#CCCC00'];
+    const defaultColors = ['#D40046', '#00CC7A', '#00A3CC', '#A300CC', '#CCCC00', '#FF69B4', '#00FFFF'];
     const player: Player = {
       id: playerId,
       name: payload.name || 'Anonymous',
@@ -813,7 +813,7 @@ class StakeGameRoom extends GameRoom {
     this.initPickups();
 
     // Create players from lobby
-    const defaultColors = ['#D40046', '#00CC7A', '#00A3CC', '#CC7A00', '#A300CC', '#CCCC00'];
+    const defaultColors = ['#D40046', '#00CC7A', '#00A3CC', '#A300CC', '#CCCC00', '#FF69B4', '#00FFFF'];
     
     this.lobbyPlayers.forEach((data, playerId) => {
       const player: Player = {
