@@ -1,7 +1,17 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
+import { IncomingMessage } from 'http';
 import { log } from './index';
 import { balanceService } from './balanceService';
+import { containsProfanity } from './profanityFilter';
+
+const VALID_SHAPES: CharacterShape[] = ['circle', 'triangle', 'square'];
+const VALID_COLORS = ['#D40046', '#00CC7A', '#00A3CC', '#A300CC', '#CCCC00', '#FF69B4'];
+const MAX_NAME_LENGTH = 10;
+const MAX_WS_MESSAGE_SIZE = 512;
+const WS_FLOOD_WINDOW_MS = 1000;
+const WS_FLOOD_MAX_MESSAGES = 60;
+const WS_MAX_CONNECTIONS_PER_IP = 5;
 
 interface Point {
   x: number;
@@ -1148,34 +1158,79 @@ export class GameServer {
   private playerToRoom: Map<string, string> = new Map();
   private playerStakeMode: Map<string, boolean> = new Map();
   private roomIdCounter: number = 0;
+  private ipConnections: Map<string, number> = new Map();
+  private playerMessageCounts: Map<string, { count: number; windowStart: number }> = new Map();
 
   constructor(httpServer: Server) {
-    this.wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+    this.wss = new WebSocketServer({ 
+      server: httpServer, 
+      path: '/ws',
+      maxPayload: MAX_WS_MESSAGE_SIZE,
+    });
     
     this.createRoom(false);
     this.createStakeRoom();
 
-    this.wss.on('connection', (ws) => {
-      const playerId = `player-${Math.random().toString(36).substr(2, 9)}`;
+    this.wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+      const ip = req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() 
+        || req.socket.remoteAddress || 'unknown';
+      
+      const currentConns = this.ipConnections.get(ip) || 0;
+      if (currentConns >= WS_MAX_CONNECTIONS_PER_IP) {
+        log(`Rejected WS connection from ${ip}: too many connections (${currentConns})`, 'security');
+        ws.close(1008, 'Too many connections');
+        return;
+      }
+      this.ipConnections.set(ip, currentConns + 1);
+
+      const playerId = `player-${Math.random().toString(36).substr(2, 9)}-${Date.now().toString(36)}`;
       
       ws.on('message', (data) => {
+        const raw = data.toString();
+        if (raw.length > MAX_WS_MESSAGE_SIZE) {
+          log(`Oversized message from ${playerId} (${raw.length} bytes)`, 'security');
+          return;
+        }
+
+        const now = Date.now();
+        const flood = this.playerMessageCounts.get(playerId) || { count: 0, windowStart: now };
+        if (now - flood.windowStart > WS_FLOOD_WINDOW_MS) {
+          flood.count = 0;
+          flood.windowStart = now;
+        }
+        flood.count++;
+        this.playerMessageCounts.set(playerId, flood);
+
+        if (flood.count > WS_FLOOD_MAX_MESSAGES) {
+          log(`Flood detected from ${playerId} (${flood.count} msgs/sec)`, 'security');
+          ws.close(1008, 'Message flood detected');
+          return;
+        }
+
         try {
-          const message: ClientMessage = JSON.parse(data.toString());
-          if (message.type === 'ABILITY') {
-            log(`Ability message from ${playerId}: ${JSON.stringify(message.payload)}`, 'ws');
+          const message: ClientMessage = JSON.parse(raw);
+          if (!message || typeof message.type !== 'string') {
+            return;
           }
           this.handleMessage(playerId, ws, message);
         } catch (e) {
-          log(`Invalid message from ${playerId}: ${data.toString().substring(0, 100)}`, 'ws');
+          log(`Invalid message from ${playerId}`, 'ws');
         }
       });
 
       ws.on('close', () => {
+        const conns = this.ipConnections.get(ip) || 1;
+        if (conns <= 1) {
+          this.ipConnections.delete(ip);
+        } else {
+          this.ipConnections.set(ip, conns - 1);
+        }
+        this.playerMessageCounts.delete(playerId);
         this.handleDisconnect(playerId);
       });
 
       ws.on('error', (err) => {
-        log(`WebSocket error for ${playerId}: ${err.message}`, 'ws');
+        log(`WebSocket error for ${playerId}`, 'ws');
       });
     });
 
@@ -1258,9 +1313,43 @@ export class GameServer {
     }
   }
 
+  private validateJoinPayload(payload: any): { valid: boolean; error?: string; sanitized?: { name: string; isStakeMode: boolean; walletAddress?: string; playerColor: string; characterShape: CharacterShape } } {
+    if (!payload || typeof payload !== 'object') {
+      return { valid: false, error: 'Invalid payload' };
+    }
+
+    if (typeof payload.name !== 'string' || payload.name.trim().length === 0) {
+      return { valid: false, error: 'Name is required' };
+    }
+
+    const name = payload.name.trim().substring(0, MAX_NAME_LENGTH);
+    if (containsProfanity(name)) {
+      return { valid: false, error: 'Inappropriate name detected' };
+    }
+
+    const characterShape: CharacterShape = VALID_SHAPES.includes(payload.characterShape) 
+      ? payload.characterShape : 'circle';
+
+    const playerColor = VALID_COLORS.includes(payload.playerColor) 
+      ? payload.playerColor : VALID_COLORS[0];
+
+    const isStakeMode = payload.isStakeMode === true;
+
+    const walletAddress = typeof payload.walletAddress === 'string' && payload.walletAddress.length <= 64
+      ? payload.walletAddress : undefined;
+
+    return { valid: true, sanitized: { name, isStakeMode, walletAddress, playerColor, characterShape } };
+  }
+
   private handleJoin(playerId: string, ws: WebSocket, payload: { name: string; isStakeMode?: boolean; walletAddress?: string; playerColor?: string; characterShape?: CharacterShape }) {
-    const isStakeMode = payload.isStakeMode ?? false;
-    const room = this.findAvailableRoom(isStakeMode);
+    const validation = this.validateJoinPayload(payload);
+    if (!validation.valid || !validation.sanitized) {
+      ws.send(JSON.stringify({ type: 'ERROR', payload: { message: validation.error || 'Invalid join request' } }));
+      return;
+    }
+
+    const sanitized = validation.sanitized;
+    const room = this.findAvailableRoom(sanitized.isStakeMode);
     
     if (!room) {
       ws.send(JSON.stringify({ 
@@ -1270,11 +1359,11 @@ export class GameServer {
       return;
     }
 
-    const added = room.addPlayer(playerId, ws, payload);
+    const added = room.addPlayer(playerId, ws, sanitized);
     if (added) {
       this.playerToRoom.set(playerId, room.id);
-      this.playerStakeMode.set(playerId, isStakeMode);
-      log(`Player ${payload.name} (${playerId}) matched to ${room.id} (${isStakeMode ? 'stake' : 'free'}). Total players: ${this.getTotalPlayerCount()}`, 'ws');
+      this.playerStakeMode.set(playerId, sanitized.isStakeMode);
+      log(`Player ${sanitized.name} (${playerId}) matched to ${room.id} (${sanitized.isStakeMode ? 'stake' : 'free'}). Total players: ${this.getTotalPlayerCount()}`, 'ws');
     }
   }
 
@@ -1289,8 +1378,14 @@ export class GameServer {
   }
 
   private handleInput(playerId: string, payload: { x: number; y: number }) {
+    if (!payload || typeof payload.x !== 'number' || typeof payload.y !== 'number' 
+        || !isFinite(payload.x) || !isFinite(payload.y)) {
+      return;
+    }
+    const x = Math.max(-1, Math.min(1, payload.x));
+    const y = Math.max(-1, Math.min(1, payload.y));
     const room = this.getRoom(playerId);
-    room?.handleInput(playerId, payload);
+    room?.handleInput(playerId, { x, y });
   }
 
   private handleLeave(playerId: string) {
