@@ -297,19 +297,41 @@ export default function Lobby() {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-background">
-      <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id="hex-pattern" width="173.2" height="300" patternUnits="userSpaceOnUse" patternTransform="scale(1)">
-            <path d="M86.6,0 L173.2,50 L173.2,150 L86.6,200 L0,150 L0,50 Z" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-            <path d="M86.6,200 L173.2,250 L173.2,350 L86.6,400 L0,350 L0,250 Z" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1" transform="translate(0,-100)" />
-          </pattern>
-          <pattern id="hex-offset" width="173.2" height="300" patternUnits="userSpaceOnUse" patternTransform="translate(86.6,150)">
-            <path d="M86.6,0 L173.2,50 L173.2,150 L86.6,200 L0,150 L0,50 Z" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#hex-pattern)" />
-        <rect width="100%" height="100%" fill="url(#hex-offset)" />
-      </svg>
+      <canvas
+        ref={(canvas) => {
+          if (!canvas || canvas.dataset.drawn) return;
+          canvas.dataset.drawn = 'true';
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          canvas.width = canvas.offsetWidth;
+          canvas.height = canvas.offsetHeight;
+          const hexSize = 100;
+          const hexWidth = Math.sqrt(3) * hexSize;
+          const vertSpacing = hexSize * 1.5;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          const rows = Math.ceil(canvas.height / vertSpacing) + 2;
+          const cols = Math.ceil(canvas.width / hexWidth) + 2;
+          for (let row = -1; row <= rows; row++) {
+            for (let col = -1; col <= cols; col++) {
+              const offsetX = (row % 2 === 0) ? 0 : hexWidth / 2;
+              const cx = col * hexWidth + offsetX;
+              const cy = row * vertSpacing;
+              for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i - Math.PI / 6;
+                const x = cx + hexSize * Math.cos(angle);
+                const y = cy + hexSize * Math.sin(angle);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+              }
+              ctx.closePath();
+            }
+          }
+          ctx.stroke();
+        }}
+        className="absolute inset-0 w-full h-full pointer-events-none"
+      />
 
       {(mockLeaderboardEnabled ? MOCK_LEADERBOARD : weeklyLeaderboard).length > 0 && (
         <div className="fixed top-4 left-4 z-20" data-testid="weekly-leaderboard">
