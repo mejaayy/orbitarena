@@ -79,7 +79,6 @@ export default function Lobby() {
     { name: 'Red', hex: '#D40046' },
     { name: 'Green', hex: '#00CC7A' },
     { name: 'Blue', hex: '#00A3CC' },
-    { name: 'Orange', hex: '#CC7A00' },
     { name: 'Purple', hex: '#A300CC' },
     { name: 'Yellow', hex: '#CCCC00' },
     { name: 'Pink', hex: '#FF69B4' },

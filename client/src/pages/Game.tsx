@@ -187,7 +187,7 @@ export default function Game() {
                 engine?.sendLeave();
                 setLocation('/');
               }}
-              className="gap-2"
+              className="gap-2 border-[#D40046]/50 text-[#D40046] hover:bg-[#D40046]/20"
               data-testid="button-leave-lobby"
             >
               <LogOut className="w-4 h-4" /> Leave Lobby
@@ -254,7 +254,7 @@ export default function Game() {
           <Button
             variant="outline"
             size="sm"
-            className="gap-2 border-destructive/50 text-destructive hover:bg-destructive/20"
+            className="gap-2 border-[#D40046]/50 text-[#D40046] hover:bg-[#D40046]/20"
             onClick={() => {
               engine?.sendLeave();
               setLocation('/');
