@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, History, Crown, Volume2 } from 'lucide-react';
+import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, History, Crown, Volume2, Settings } from 'lucide-react';
 import solanaLogo from '@assets/generated_images/solana_crypto_coin_logo_icon.png';
 import { connectPhantom, disconnectPhantom, isPhantomInstalled, getConnectedWallet, shortenAddress, ENTRY_FEE_USDC, getUSDCBalance } from '@/lib/phantom';
 import { AdminPanel } from '@/components/AdminPanel';
@@ -67,6 +67,7 @@ export default function Lobby() {
   const [musicEnabled, setMusicEnabled] = useState(proceduralMusic.enabled);
   const [pickupSoundsEnabled, setPickupSoundsEnabled] = useState(soundManager.pickupSoundsEnabled);
   const [abilitySoundsEnabled, setAbilitySoundsEnabled] = useState(soundManager.abilitySoundsEnabled);
+  const [showSettings, setShowSettings] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [internalBalance, setInternalBalance] = useState<InternalBalance | null>(null);
   const [showDeposit, setShowDeposit] = useState(false);
@@ -309,6 +310,14 @@ export default function Lobby() {
       </div>
       
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/20 blur-[100px] rounded-full pointer-events-none animate-pulse" />
+
+      <button
+        onClick={() => setShowSettings(true)}
+        className="fixed top-4 right-4 z-30 p-2 rounded-lg bg-card/80 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-colors"
+        data-testid="button-settings"
+      >
+        <Settings className="w-5 h-5 text-gray-400" />
+      </button>
 
       {(mockLeaderboardEnabled ? MOCK_LEADERBOARD : weeklyLeaderboard).length > 0 && (
         <div className="fixed top-4 left-4 z-20" data-testid="weekly-leaderboard">
@@ -618,50 +627,6 @@ export default function Lobby() {
               Terms & Conditions
             </button>
           </form>
-
-          <div className="bg-black/30 p-4 rounded-xl border border-white/5 space-y-3 mt-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Volume2 className="w-4 h-4 text-gray-400" />
-              <Label className="text-xs uppercase tracking-widest text-gray-500">Sound</Label>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-300">Background Music</span>
-              <Switch
-                checked={musicEnabled}
-                onCheckedChange={(checked) => {
-                  setMusicEnabled(checked);
-                  proceduralMusic.enabled = checked;
-                  localStorage.setItem('orbit-arena-music', String(checked));
-                  if (!checked) proceduralMusic.stop();
-                }}
-                data-testid="switch-music"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-300">Pickup Sounds</span>
-              <Switch
-                checked={pickupSoundsEnabled}
-                onCheckedChange={(checked) => {
-                  setPickupSoundsEnabled(checked);
-                  soundManager.pickupSoundsEnabled = checked;
-                  localStorage.setItem('orbit-arena-pickup-sounds', String(checked));
-                }}
-                data-testid="switch-pickup-sounds"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-300">Ability Sounds</span>
-              <Switch
-                checked={abilitySoundsEnabled}
-                onCheckedChange={(checked) => {
-                  setAbilitySoundsEnabled(checked);
-                  soundManager.abilitySoundsEnabled = checked;
-                  localStorage.setItem('orbit-arena-ability-sounds', String(checked));
-                }}
-                data-testid="switch-ability-sounds"
-              />
-            </div>
-          </div>
         </CardContent>
       </Card>
 
