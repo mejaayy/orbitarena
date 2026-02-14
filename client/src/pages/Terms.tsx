@@ -68,7 +68,7 @@ export default function Terms() {
             <section>
               <h3 className="text-lg font-bold text-white">2. Eligibility</h3>
               <ul className="list-disc pl-5 space-y-1">
-                <li>Players must be at least [Insert Age] years old.</li>
+                <li>Players must be at least 18 years old.</li>
                 <li>Players must comply with all applicable laws in their jurisdiction.</li>
               </ul>
             </section>
