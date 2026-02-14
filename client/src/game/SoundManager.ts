@@ -231,30 +231,31 @@ export class SoundManager {
     osc.stop(this.audioContext.currentTime + 0.1);
   }
 
-  // Elimination - dramatic death sound
+  // Elimination - deep beep similar to pickup but deeper and longer
   playElimination() {
     if (!this.enabled || !this.audioContext || !this.masterGain) return;
     this.ensureContext();
 
-    // Descending tones (one semitone lower)
-    const notes = [378, 283, 189, 94.4];
-    notes.forEach((freq, i) => {
-      const osc = this.audioContext!.createOscillator();
-      const gain = this.audioContext!.createGain();
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    const filter = this.audioContext.createBiquadFilter();
 
-      osc.type = 'sine';
-      osc.frequency.value = freq;
+    filter.type = 'lowpass';
+    filter.frequency.value = 300;
 
-      const startTime = this.audioContext!.currentTime + i * 0.08;
-      gain.gain.setValueAtTime(0.2, startTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
+    osc.type = 'triangle';
+    osc.frequency.value = 130;
+    osc.frequency.exponentialRampToValueAtTime(80, this.audioContext.currentTime + 0.25);
 
-      osc.connect(gain);
-      gain.connect(this.masterGain!);
+    gain.gain.value = 0.25;
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
 
-      osc.start(startTime);
-      osc.stop(startTime + 0.15);
-    });
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start();
+    osc.stop(this.audioContext.currentTime + 0.3);
   }
 
   // Kill ping - satisfying chime when you eliminate someone
