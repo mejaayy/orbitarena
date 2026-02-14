@@ -92,36 +92,82 @@
   background: repeating-linear-gradient(
     0deg,
     transparent,
-    transparent 2px,
-    rgba(255, 255, 255, 0.01) 2px,
-    rgba(255, 255, 255, 0.01) 4px
+    transparent 1px,
+    rgba(0, 255, 0, 0.015) 1px,
+    rgba(0, 255, 0, 0.015) 2px
   );
-  animation: glitch-scroll 8s linear infinite;
+  animation: glitch-scroll 4s linear infinite;
 }
 
 .glitch-flicker {
   position: absolute;
   inset: 0;
-  animation: glitch-flicker 6s step-end infinite;
+  animation: glitch-flicker 4s step-end infinite;
 }
 
 @keyframes glitch-scroll {
   0% { transform: translateY(0); }
-  100% { transform: translateY(100px); }
+  100% { transform: translateY(50px); }
 }
 
 @keyframes glitch-flicker {
   0%, 100% { opacity: 0; }
-  3% { opacity: 1; background: linear-gradient(transparent 40%, rgba(163, 0, 204, 0.03) 40.5%, rgba(163, 0, 204, 0.03) 41%, transparent 41.5%); }
-  3.5% { opacity: 0; }
-  10% { opacity: 1; background: linear-gradient(transparent 70%, rgba(0, 255, 255, 0.02) 70.5%, rgba(0, 255, 255, 0.02) 71.5%, transparent 72%); }
-  10.5% { opacity: 0; }
-  22% { opacity: 1; background: linear-gradient(transparent 20%, rgba(212, 0, 70, 0.02) 20.5%, rgba(212, 0, 70, 0.02) 21%, transparent 21.5%); }
-  22.3% { opacity: 0; }
-  45% { opacity: 1; background: linear-gradient(transparent 55%, rgba(0, 255, 255, 0.03) 55.5%, rgba(0, 255, 255, 0.03) 56%, transparent 56.5%); }
-  45.4% { opacity: 0; }
-  67% { opacity: 1; background: linear-gradient(transparent 85%, rgba(163, 0, 204, 0.02) 85.5%, rgba(163, 0, 204, 0.02) 86%, transparent 86.5%); }
-  67.3% { opacity: 0; }
-  88% { opacity: 1; background: linear-gradient(transparent 35%, rgba(212, 0, 70, 0.03) 35.5%, rgba(212, 0, 70, 0.03) 36.5%, transparent 37%); }
-  88.4% { opacity: 0; }
+  2% {
+    opacity: 1;
+    background: linear-gradient(
+      transparent 30%,
+      rgba(0, 204, 122, 0.04) 30.5%,
+      rgba(0, 204, 122, 0.04) 31.5%,
+      transparent 32%
+    );
+    clip-path: inset(30% 0 68% 0);
+  }
+  2.5% { opacity: 0; }
+  8% {
+    opacity: 1;
+    background: rgba(0, 204, 122, 0.02);
+    clip-path: inset(60% 0 38% 0);
+  }
+  8.3% { opacity: 0; }
+  15% {
+    opacity: 1;
+    background: linear-gradient(
+      transparent 75%,
+      rgba(0, 204, 122, 0.03) 75.5%,
+      rgba(0, 204, 122, 0.03) 76.5%,
+      transparent 77%
+    );
+  }
+  15.4% { opacity: 0; }
+  30% {
+    opacity: 1;
+    background: none;
+    clip-path: inset(45% 5% 53% 0);
+    transform: translateX(2px);
+    box-shadow: -2px 0 rgba(0, 204, 122, 0.06);
+  }
+  30.2% { opacity: 0; transform: none; clip-path: none; }
+  52% {
+    opacity: 1;
+    background: rgba(0, 204, 122, 0.015);
+    clip-path: inset(10% 0 85% 0);
+  }
+  52.4% { opacity: 0; clip-path: none; }
+  70% {
+    opacity: 1;
+    background: linear-gradient(
+      transparent 50%,
+      rgba(0, 204, 122, 0.03) 50.3%,
+      rgba(0, 204, 122, 0.03) 50.8%,
+      transparent 51%
+    );
+  }
+  70.3% { opacity: 0; }
+  85% {
+    opacity: 1;
+    clip-path: inset(80% 0 18% 0);
+    transform: translateX(-1px);
+    background: rgba(0, 204, 122, 0.02);
+  }
+  85.2% { opacity: 0; transform: none; clip-path: none; }
 }
