@@ -740,7 +740,6 @@ export class GameEngine {
 
     this.ctx.restore();
 
-    this.drawVignette();
     this.drawDamageFlash();
     this.drawMinimap();
   }
