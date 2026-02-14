@@ -6,10 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, History, Crown } from 'lucide-react';
+import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, History, Crown, Volume2 } from 'lucide-react';
 import solanaLogo from '@assets/generated_images/solana_crypto_coin_logo_icon.png';
 import { connectPhantom, disconnectPhantom, isPhantomInstalled, getConnectedWallet, shortenAddress, ENTRY_FEE_USDC, getUSDCBalance } from '@/lib/phantom';
 import { AdminPanel } from '@/components/AdminPanel';
+import { soundManager } from '@/game/SoundManager';
+import { proceduralMusic } from '@/game/ProceduralMusic';
 
 const MOCK_LEADERBOARD: WeeklyPlayer[] = [
   { wallet: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', earnedUsd: '42.50' },
@@ -62,6 +64,9 @@ export default function Lobby() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [selectedColor, setSelectedColor] = useState('#D40046');
   const [selectedShape, setSelectedShape] = useState<'circle' | 'triangle' | 'square'>('circle');
+  const [musicEnabled, setMusicEnabled] = useState(proceduralMusic.enabled);
+  const [pickupSoundsEnabled, setPickupSoundsEnabled] = useState(soundManager.pickupSoundsEnabled);
+  const [abilitySoundsEnabled, setAbilitySoundsEnabled] = useState(soundManager.abilitySoundsEnabled);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [internalBalance, setInternalBalance] = useState<InternalBalance | null>(null);
   const [showDeposit, setShowDeposit] = useState(false);
@@ -613,6 +618,50 @@ export default function Lobby() {
               Terms & Conditions
             </button>
           </form>
+
+          <div className="bg-black/30 p-4 rounded-xl border border-white/5 space-y-3 mt-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Volume2 className="w-4 h-4 text-gray-400" />
+              <Label className="text-xs uppercase tracking-widest text-gray-500">Sound</Label>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-300">Background Music</span>
+              <Switch
+                checked={musicEnabled}
+                onCheckedChange={(checked) => {
+                  setMusicEnabled(checked);
+                  proceduralMusic.enabled = checked;
+                  localStorage.setItem('orbit-arena-music', String(checked));
+                  if (!checked) proceduralMusic.stop();
+                }}
+                data-testid="switch-music"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-300">Pickup Sounds</span>
+              <Switch
+                checked={pickupSoundsEnabled}
+                onCheckedChange={(checked) => {
+                  setPickupSoundsEnabled(checked);
+                  soundManager.pickupSoundsEnabled = checked;
+                  localStorage.setItem('orbit-arena-pickup-sounds', String(checked));
+                }}
+                data-testid="switch-pickup-sounds"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-300">Ability Sounds</span>
+              <Switch
+                checked={abilitySoundsEnabled}
+                onCheckedChange={(checked) => {
+                  setAbilitySoundsEnabled(checked);
+                  soundManager.abilitySoundsEnabled = checked;
+                  localStorage.setItem('orbit-arena-ability-sounds', String(checked));
+                }}
+                data-testid="switch-ability-sounds"
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 

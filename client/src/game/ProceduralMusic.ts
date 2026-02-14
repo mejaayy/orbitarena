@@ -1,11 +1,15 @@
 export class ProceduralMusicManager {
   private audio: HTMLAudioElement | null = null;
   private isPlaying: boolean = false;
+  enabled: boolean = true;
 
-  constructor() {}
+  constructor() {
+    const saved = localStorage.getItem('orbit-arena-music');
+    if (saved !== null) this.enabled = saved !== 'false';
+  }
 
   start() {
-    if (this.isPlaying) return;
+    if (this.isPlaying || !this.enabled) return;
 
     try {
       this.audio = new Audio('/music.mp3');

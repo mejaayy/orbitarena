@@ -2,9 +2,15 @@ export class SoundManager {
   private audioContext: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private enabled: boolean = true;
+  pickupSoundsEnabled: boolean = true;
+  abilitySoundsEnabled: boolean = true;
 
   constructor() {
     this.initAudio();
+    const savedPickup = localStorage.getItem('orbit-arena-pickup-sounds');
+    const savedAbility = localStorage.getItem('orbit-arena-ability-sounds');
+    if (savedPickup !== null) this.pickupSoundsEnabled = savedPickup !== 'false';
+    if (savedAbility !== null) this.abilitySoundsEnabled = savedAbility !== 'false';
   }
 
   private initAudio() {
@@ -253,7 +259,7 @@ export class SoundManager {
 
   // HP Pickup - dark low thud with filtered noise
   playPickupHP() {
-    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+    if (!this.enabled || !this.pickupSoundsEnabled || !this.audioContext || !this.masterGain) return;
     this.ensureContext();
 
     const osc = this.audioContext.createOscillator();
@@ -280,7 +286,7 @@ export class SoundManager {
 
   // Charge Pickup - subdued filtered pulse
   playPickupCharge() {
-    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+    if (!this.enabled || !this.pickupSoundsEnabled || !this.audioContext || !this.masterGain) return;
     this.ensureContext();
 
     const osc = this.audioContext.createOscillator();
@@ -345,6 +351,7 @@ export class SoundManager {
 
   // Play ability sound by type
   playAbility(type: string) {
+    if (!this.abilitySoundsEnabled) return;
     switch (type) {
       case 'DASH':
         this.playDash();
