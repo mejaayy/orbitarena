@@ -128,7 +128,8 @@ export default function Lobby() {
     }
     
     const savedColor = localStorage.getItem('orbit-arena-color');
-    if (savedColor) setSelectedColor(savedColor);
+    const validColors = ['#D40046', '#00CC7A', '#00A3CC', '#A300CC', '#CCCC00', '#FF69B4', '#00FFFF'];
+    if (savedColor && validColors.includes(savedColor)) setSelectedColor(savedColor);
     
     const savedShape = localStorage.getItem('orbit-arena-shape') as 'circle' | 'triangle' | 'square' | null;
     if (savedShape) setSelectedShape(savedShape);
@@ -455,14 +456,14 @@ export default function Lobby() {
 
             <div className="flex items-center justify-between">
               <Label className="text-xs uppercase tracking-widest text-gray-500">Color</Label>
-              <div className="flex gap-1.5">
+              <div className="flex gap-2">
                 {AVATAR_COLORS.map((color) => (
                   <button
                     key={color.hex}
                     type="button"
                     onClick={() => setSelectedColor(color.hex)}
-                    className={`w-5 h-5 rounded-full transition-all hover:scale-110 ${
-                      selectedColor === color.hex ? 'ring-2 ring-white ring-offset-1 ring-offset-black' : 'opacity-60 hover:opacity-100'
+                    className={`w-7 h-7 rounded-full transition-all hover:scale-110 ${
+                      selectedColor === color.hex ? 'ring-2 ring-white ring-offset-2 ring-offset-black scale-110' : 'opacity-50 hover:opacity-100'
                     }`}
                     style={{ backgroundColor: color.hex }}
                     title={color.name}
