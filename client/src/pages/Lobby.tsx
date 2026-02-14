@@ -400,11 +400,10 @@ export default function Lobby() {
                 onChange={(e) => {
                   const value = e.target.value;
                   // Block 'q' characters for 500ms after mount (from holding Q to leave game)
-                  if (Date.now() - mountTimeRef.current < 500) {
-                    setNickname(value.replace(/[qQ]/g, ''));
-                  } else {
-                    setNickname(value);
-                  }
+                  const cleaned = Date.now() - mountTimeRef.current < 500
+                    ? value.replace(/[qQ]/g, '')
+                    : value;
+                  setNickname(cleaned.slice(0, 10));
                 }}
                 className="bg-black/20 border-white/10 h-12 text-lg font-medium focus-visible:ring-primary/50 transition-all hover:border-white/20"
                 autoFocus
