@@ -297,16 +297,19 @@ export default function Lobby() {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-background">
-      <div className="absolute inset-0 grid grid-cols-[repeat(20,1fr)] grid-rows-[repeat(20,1fr)] opacity-20 pointer-events-none">
-        {Array.from({ length: 400 }).map((_, i) => (
-          <div key={i} className="border-[0.5px] border-white/5" />
-        ))}
-      </div>
-      
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="glitch-scanlines" />
-        <div className="glitch-flicker" />
-      </div>
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="hex-pattern" width="173.2" height="300" patternUnits="userSpaceOnUse" patternTransform="scale(1)">
+            <path d="M86.6,0 L173.2,50 L173.2,150 L86.6,200 L0,150 L0,50 Z" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+            <path d="M86.6,200 L173.2,250 L173.2,350 L86.6,400 L0,350 L0,250 Z" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1" transform="translate(0,-100)" />
+          </pattern>
+          <pattern id="hex-offset" width="173.2" height="300" patternUnits="userSpaceOnUse" patternTransform="translate(86.6,150)">
+            <path d="M86.6,0 L173.2,50 L173.2,150 L86.6,200 L0,150 L0,50 Z" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#hex-pattern)" />
+        <rect width="100%" height="100%" fill="url(#hex-offset)" />
+      </svg>
 
       {(mockLeaderboardEnabled ? MOCK_LEADERBOARD : weeklyLeaderboard).length > 0 && (
         <div className="fixed top-4 left-4 z-20" data-testid="weekly-leaderboard">
