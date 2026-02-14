@@ -25,12 +25,17 @@ export default function Game() {
   const leaveStartRef = useRef<number>(0);
   const isHoldingQRef = useRef<boolean>(false);
 
-  const searchParams = new URLSearchParams(window.location.search);
-  const playerName = searchParams.get('name') || 'Unknown';
-  const isStakeMode = searchParams.get('stake') === 'true';
-  const walletAddress = searchParams.get('wallet') || undefined;
-  const playerColor = searchParams.get('color') || undefined;
-  const characterShape = (searchParams.get('shape') as 'circle' | 'triangle' | 'square') || 'circle';
+  const initialParams = useRef(() => {
+    const sp = new URLSearchParams(window.location.search);
+    return {
+      playerName: sp.get('name') || 'Unknown',
+      isStakeMode: sp.get('stake') === 'true',
+      walletAddress: sp.get('wallet') || undefined,
+      playerColor: sp.get('color') || undefined,
+      characterShape: (sp.get('shape') as 'circle' | 'triangle' | 'square') || 'circle',
+    };
+  }).current();
+  const { playerName, isStakeMode, walletAddress, playerColor, characterShape } = initialParams;
 
   useEffect(() => {
     if (engine) {
