@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, X, Eye, EyeOff, Trash2, RefreshCw, Trophy, Lock, AlertTriangle, Ban, Shield, Snowflake, RotateCcw, LogOut } from 'lucide-react';
+import { Settings, X, Eye, EyeOff, Trash2, RefreshCw, Trophy, Lock, AlertTriangle, Ban, Shield, Snowflake, RotateCcw, LogOut, Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { soundManager } from '@/game/SoundManager';
+import { proceduralMusic } from '@/game/ProceduralMusic';
 
 interface AdminPanelProps {
   onMockLeaderboard: (enabled: boolean) => void;
@@ -44,6 +46,9 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [leaderboardFrozen, setLeaderboardFrozen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [musicEnabled, setMusicEnabled] = useState(proceduralMusic.enabled);
+  const [pickupSoundsEnabled, setPickupSoundsEnabled] = useState(soundManager.pickupSoundsEnabled);
+  const [abilitySoundsEnabled, setAbilitySoundsEnabled] = useState(soundManager.abilitySoundsEnabled);
 
   const getAuthToken = () => sessionStorage.getItem(ADMIN_TOKEN_KEY);
   const setAuthToken = (token: string) => sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
@@ -407,7 +412,7 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
       <div className="flex items-center justify-between p-3 border-b border-white/10 shrink-0">
         <div className="flex items-center gap-2">
           <Settings className="w-4 h-4 text-primary" />
-          <span className="font-bold text-white text-sm">Admin Panel</span>
+          <span className="font-bold text-white text-sm">Settings</span>
           {isAuthenticated && alerts.length > 0 && (
             <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${
               criticalAlertCount > 0 ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'
@@ -429,6 +434,57 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
       </div>
 
       <div className="p-4 overflow-y-auto flex-1">
+        <div className="space-y-3 mb-4">
+          <div className="flex items-center gap-2">
+            <Volume2 className="w-4 h-4 text-gray-400" />
+            <span className="text-xs uppercase tracking-widest text-gray-500 font-medium">Sound</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-300">Background Music</span>
+            <Switch
+              checked={musicEnabled}
+              onCheckedChange={(checked) => {
+                setMusicEnabled(checked);
+                proceduralMusic.enabled = checked;
+                localStorage.setItem('orbit-arena-music', String(checked));
+                if (!checked) proceduralMusic.stop();
+              }}
+              data-testid="switch-music"
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-300">Pickup Sounds</span>
+            <Switch
+              checked={pickupSoundsEnabled}
+              onCheckedChange={(checked) => {
+                setPickupSoundsEnabled(checked);
+                soundManager.pickupSoundsEnabled = checked;
+                localStorage.setItem('orbit-arena-pickup-sounds', String(checked));
+              }}
+              data-testid="switch-pickup-sounds"
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-300">Ability Sounds</span>
+            <Switch
+              checked={abilitySoundsEnabled}
+              onCheckedChange={(checked) => {
+                setAbilitySoundsEnabled(checked);
+                soundManager.abilitySoundsEnabled = checked;
+                localStorage.setItem('orbit-arena-ability-sounds', String(checked));
+              }}
+              data-testid="switch-ability-sounds"
+            />
+          </div>
+        </div>
+
+        <div className="border-t border-white/10 pt-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Shield className="w-4 h-4 text-gray-400" />
+            <span className="text-xs uppercase tracking-widest text-gray-500 font-medium">Admin</span>
+          </div>
+        </div>
+
         {!isAuthenticated ? (
           <div className="space-y-4">
             {!hasPassword ? (

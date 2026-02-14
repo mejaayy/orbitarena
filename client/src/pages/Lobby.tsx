@@ -6,12 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, History, Crown, Volume2, Settings } from 'lucide-react';
+import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, History, Crown } from 'lucide-react';
 import solanaLogo from '@assets/generated_images/solana_crypto_coin_logo_icon.png';
 import { connectPhantom, disconnectPhantom, isPhantomInstalled, getConnectedWallet, shortenAddress, ENTRY_FEE_USDC, getUSDCBalance } from '@/lib/phantom';
 import { AdminPanel } from '@/components/AdminPanel';
-import { soundManager } from '@/game/SoundManager';
-import { proceduralMusic } from '@/game/ProceduralMusic';
 
 const MOCK_LEADERBOARD: WeeklyPlayer[] = [
   { wallet: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', earnedUsd: '42.50' },
@@ -64,10 +62,6 @@ export default function Lobby() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [selectedColor, setSelectedColor] = useState('#D40046');
   const [selectedShape, setSelectedShape] = useState<'circle' | 'triangle' | 'square'>('circle');
-  const [musicEnabled, setMusicEnabled] = useState(proceduralMusic.enabled);
-  const [pickupSoundsEnabled, setPickupSoundsEnabled] = useState(soundManager.pickupSoundsEnabled);
-  const [abilitySoundsEnabled, setAbilitySoundsEnabled] = useState(soundManager.abilitySoundsEnabled);
-  const [showSettings, setShowSettings] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [internalBalance, setInternalBalance] = useState<InternalBalance | null>(null);
   const [showDeposit, setShowDeposit] = useState(false);
@@ -310,14 +304,6 @@ export default function Lobby() {
       </div>
       
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/20 blur-[100px] rounded-full pointer-events-none animate-pulse" />
-
-      <button
-        onClick={() => setShowSettings(true)}
-        className="fixed top-4 right-4 z-30 p-2 rounded-lg bg-card/80 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-colors"
-        data-testid="button-settings"
-      >
-        <Settings className="w-5 h-5 text-gray-400" />
-      </button>
 
       {(mockLeaderboardEnabled ? MOCK_LEADERBOARD : weeklyLeaderboard).length > 0 && (
         <div className="fixed top-4 left-4 z-20" data-testid="weekly-leaderboard">
