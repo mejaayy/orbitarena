@@ -264,11 +264,11 @@ export class SoundManager {
     filter.frequency.value = 400;
 
     osc.type = 'triangle';
-    osc.frequency.value = 103.8; // G#2 - low and dark
-    osc.frequency.exponentialRampToValueAtTime(82.4, this.audioContext.currentTime + 0.12);
+    osc.frequency.value = 207.6; // G#3 - dark but audible
+    osc.frequency.exponentialRampToValueAtTime(155.6, this.audioContext.currentTime + 0.12);
 
-    gain.gain.value = 0.1;
-    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
+    gain.gain.value = 0.25;
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.18);
 
     osc.connect(filter);
     filter.connect(gain);
@@ -291,11 +291,11 @@ export class SoundManager {
     filter.frequency.value = 600;
 
     osc.type = 'sawtooth';
-    osc.frequency.value = 155.6; // D#3 - low mid
-    osc.frequency.exponentialRampToValueAtTime(103.8, this.audioContext.currentTime + 0.1);
+    osc.frequency.value = 233.1; // A#3 - mid dark
+    osc.frequency.exponentialRampToValueAtTime(155.6, this.audioContext.currentTime + 0.1);
 
-    gain.gain.value = 0.07;
-    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.12);
+    gain.gain.value = 0.2;
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
 
     osc.connect(filter);
     filter.connect(gain);
