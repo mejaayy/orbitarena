@@ -26,13 +26,25 @@ export default function Game() {
   const isHoldingQRef = useRef<boolean>(false);
 
   const initialParams = useRef(() => {
-    const sp = new URLSearchParams(window.location.search);
+    const raw = sessionStorage.getItem('orbit-arena-session');
+    if (raw) {
+      try {
+        const data = JSON.parse(raw);
+        return {
+          playerName: data.name || 'Unknown',
+          isStakeMode: !!data.stake,
+          walletAddress: data.wallet || undefined,
+          playerColor: data.color || undefined,
+          characterShape: (data.shape as 'circle' | 'triangle' | 'square') || 'circle',
+        };
+      } catch {}
+    }
     return {
-      playerName: sp.get('name') || 'Unknown',
-      isStakeMode: sp.get('stake') === 'true',
-      walletAddress: sp.get('wallet') || undefined,
-      playerColor: sp.get('color') || undefined,
-      characterShape: (sp.get('shape') as 'circle' | 'triangle' | 'square') || 'circle',
+      playerName: 'Unknown',
+      isStakeMode: false,
+      walletAddress: undefined,
+      playerColor: undefined,
+      characterShape: 'circle' as const,
     };
   }).current();
   const { playerName, isStakeMode, walletAddress, playerColor, characterShape } = initialParams;

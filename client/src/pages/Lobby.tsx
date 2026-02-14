@@ -282,17 +282,15 @@ export default function Lobby() {
     localStorage.setItem('orbit-arena-color', selectedColor);
     localStorage.setItem('orbit-arena-shape', selectedShape);
     
-    const params = new URLSearchParams({
+    sessionStorage.setItem('orbit-arena-session', JSON.stringify({
       name: nickname,
-      stake: String(isStakeMode),
+      stake: isStakeMode,
       color: selectedColor,
-      shape: selectedShape
-    });
-    if (walletAddress) {
-      params.set('wallet', walletAddress);
-    }
+      shape: selectedShape,
+      wallet: walletAddress || '',
+    }));
     
-    setLocation(`/game?${params.toString()}`);
+    setLocation('/game');
   };
 
   const handleAcceptTerms = () => {
