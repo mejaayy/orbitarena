@@ -522,7 +522,7 @@ export class GameEngine {
     
     // Scale context to match DPR
     this.ctx.scale(dpr, dpr);
-    this.ctx.imageSmoothingEnabled = false;
+    this.ctx.imageSmoothingEnabled = true;
   };
 
   start(playerName: string, isStakeMode: boolean, walletAddress?: string, playerColor?: string, characterShape?: CharacterShape) {
@@ -711,13 +711,24 @@ export class GameEngine {
       if (pickup.x < viewLeft || pickup.x > viewRight || pickup.y < viewTop || pickup.y > viewBottom) return;
 
       if (pickup.type === 'HP') {
-        // HP pickups: red squares
         const size = pickup.radius * 1.6;
+        this.ctx.shadowColor = '#D40046';
+        this.ctx.shadowBlur = 10;
         this.ctx.fillStyle = '#D40046';
         this.ctx.fillRect(pickup.x - size / 2, pickup.y - size / 2, size, size);
+        this.ctx.shadowBlur = 0;
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(pickup.x - size / 2, pickup.y - size / 2, size, size);
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.font = `bold ${size * 0.6}px Outfit`;
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText('+', pickup.x, pickup.y);
       } else {
-        // Charge pickups: purple triangles
         const r = pickup.radius * 1.4;
+        this.ctx.shadowColor = '#A300CC';
+        this.ctx.shadowBlur = 10;
         this.ctx.fillStyle = '#A300CC';
         this.ctx.beginPath();
         this.ctx.moveTo(pickup.x, pickup.y - r);
@@ -725,6 +736,10 @@ export class GameEngine {
         this.ctx.lineTo(pickup.x - r * Math.cos(Math.PI / 6), pickup.y + r * Math.sin(Math.PI / 6));
         this.ctx.closePath();
         this.ctx.fill();
+        this.ctx.shadowBlur = 0;
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        this.ctx.lineWidth = 1;
+        this.ctx.stroke();
       }
     });
 
@@ -1082,17 +1097,30 @@ export class GameEngine {
     this.ctx.translate(player.x, player.y);
     this.ctx.rotate(angle);
     
-    this.ctx.fillStyle = player.color;
-    
-    // Draw stunned effect
     if (player.isStunned) {
       this.ctx.globalAlpha = 0.5;
     }
+    
+    this.ctx.shadowColor = player.color;
+    this.ctx.shadowBlur = 18;
+    
+    this.ctx.fillStyle = player.color;
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    this.ctx.lineWidth = 2;
     
     if (shape === 'circle') {
       this.ctx.beginPath();
       this.ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
       this.ctx.fill();
+      this.ctx.shadowBlur = 0;
+      this.ctx.stroke();
+      
+      const innerR = player.radius * 0.55;
+      this.ctx.beginPath();
+      this.ctx.arc(0, 0, innerR, 0, Math.PI * 2);
+      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      this.ctx.lineWidth = 1.5;
+      this.ctx.stroke();
     } else if (shape === 'triangle') {
       const size = player.radius;
       this.ctx.beginPath();
@@ -1101,11 +1129,31 @@ export class GameEngine {
       this.ctx.lineTo(-size * 0.7, size * 0.8);
       this.ctx.closePath();
       this.ctx.fill();
+      this.ctx.shadowBlur = 0;
+      this.ctx.stroke();
+      
+      const inner = 0.5;
+      this.ctx.beginPath();
+      this.ctx.moveTo(size * inner, 0);
+      this.ctx.lineTo(-size * 0.7 * inner, -size * 0.8 * inner);
+      this.ctx.lineTo(-size * 0.7 * inner, size * 0.8 * inner);
+      this.ctx.closePath();
+      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      this.ctx.lineWidth = 1.5;
+      this.ctx.stroke();
     } else if (shape === 'square') {
       const size = player.radius * 0.8;
       this.ctx.fillRect(-size, -size, size * 2, size * 2);
+      this.ctx.shadowBlur = 0;
+      this.ctx.strokeRect(-size, -size, size * 2, size * 2);
+      
+      const inner = size * 0.55;
+      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      this.ctx.lineWidth = 1.5;
+      this.ctx.strokeRect(-inner, -inner, inner * 2, inner * 2);
     }
     
+    this.ctx.shadowBlur = 0;
     this.ctx.globalAlpha = 1;
     this.ctx.restore();
     
