@@ -515,7 +515,7 @@ export class GameEngine {
     }
   }
 
-  private getFacingAngle(): number | null {
+  private getMouseWorldInfo(): { angle: number; distance: number; dx: number; dy: number } | null {
     if (this.mouseScreenX < 0) return null;
     
     const localPlayer = this.players.get(this.localPlayerId!);
@@ -533,7 +533,17 @@ export class GameEngine {
     const worldMouseX = (canvasMouseX - cx - this.screenShake.offsetX) / zoom + this.camera.x;
     const worldMouseY = (canvasMouseY - cy - this.screenShake.offsetY) / zoom + this.camera.y;
     
-    return Math.atan2(worldMouseY - localPlayer.y, worldMouseX - localPlayer.x);
+    const dx = worldMouseX - localPlayer.x;
+    const dy = worldMouseY - localPlayer.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy, dx);
+    
+    return { angle, distance, dx, dy };
+  }
+
+  private getFacingAngle(): number | null {
+    const info = this.getMouseWorldInfo();
+    return info ? info.angle : null;
   }
 
   private sendInput(vector: Point) {
@@ -641,10 +651,22 @@ export class GameEngine {
     
     const localPlayer = this.players.get(this.localPlayerId!);
     if (localPlayer && !this.isSpectating) {
-      const newAngle = this.getFacingAngle();
-      if (newAngle !== null) {
-        localPlayer.facingAngle = newAngle;
-        this.localInputVector = { x: Math.cos(newAngle), y: Math.sin(newAngle) };
+      const mouseInfo = this.getMouseWorldInfo();
+      if (mouseInfo !== null) {
+        localPlayer.facingAngle = mouseInfo.angle;
+        
+        const DEAD_ZONE = 30;
+        const FULL_SPEED_DIST = 150;
+        
+        if (mouseInfo.distance < DEAD_ZONE) {
+          this.localInputVector = { x: 0, y: 0 };
+        } else {
+          const speed = Math.min(1, (mouseInfo.distance - DEAD_ZONE) / (FULL_SPEED_DIST - DEAD_ZONE));
+          this.localInputVector = { 
+            x: Math.cos(mouseInfo.angle) * speed, 
+            y: Math.sin(mouseInfo.angle) * speed 
+          };
+        }
       }
       
       const now = performance.now();
