@@ -77,7 +77,7 @@ type RoundState = 'LOBBY' | 'COUNTDOWN' | 'PLAYING' | 'ENDED';
 
 const WORLD_SIZE = 4000;
 const INITIAL_RADIUS = 20;
-const MAX_SPEED = 2.76;
+const MAX_SPEED = 4.69;
 const PICKUP_COUNT = 400;
 const MAX_PLAYERS_PER_ROOM = 10;
 const MAX_ROOMS = 10;
