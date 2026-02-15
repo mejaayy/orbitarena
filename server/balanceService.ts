@@ -143,17 +143,29 @@ class BalanceService {
     try {
       const balance = await this.getOrCreateBalance(walletAddress);
 
+      const lockRef = `match_lock_${matchId}_${walletAddress}`;
+      const unlockRef = `match_unlock_${matchId}_${walletAddress}`;
+
+      const existingLock = await db.query.balanceTransactions.findFirst({
+        where: eq(balanceTransactions.externalRef, lockRef),
+      });
+
+      if (existingLock) {
+        const existingUnlock = await db.query.balanceTransactions.findFirst({
+          where: eq(balanceTransactions.externalRef, unlockRef),
+        });
+        if (!existingUnlock) {
+          return { success: true };
+        }
+      }
+
       if (balance.availableCents < ENTRY_FEE_CENTS) {
         return { success: false, error: 'Insufficient balance for entry fee' };
       }
 
-      const existingLock = await db.query.balanceTransactions.findFirst({
-        where: eq(balanceTransactions.externalRef, `match_lock_${matchId}_${walletAddress}`),
-      });
-
-      if (existingLock) {
-        return { success: false, error: 'Already locked for this match' };
-      }
+      const uniqueLockRef = existingLock 
+        ? `match_lock_${matchId}_${walletAddress}_${Date.now()}`
+        : lockRef;
 
       await db.transaction(async (tx) => {
         await tx.update(playerBalances)
@@ -169,7 +181,7 @@ class BalanceService {
           transactionType: 'MATCH_LOCK' as TransactionType,
           deltaAvailableCents: -ENTRY_FEE_CENTS,
           deltaLockedCents: ENTRY_FEE_CENTS,
-          externalRef: `match_lock_${matchId}_${walletAddress}`,
+          externalRef: uniqueLockRef,
           metadata: { matchId, entryFee: ENTRY_FEE_CENTS },
         });
       });
@@ -184,21 +196,28 @@ class BalanceService {
 
   async releaseLock(walletAddress: string, matchId: string): Promise<TransactionResult> {
     try {
-      const existingLock = await db.query.balanceTransactions.findFirst({
-        where: eq(balanceTransactions.externalRef, `match_lock_${matchId}_${walletAddress}`),
+      const lockPrefix = `match_lock_${matchId}_${walletAddress}`;
+      const existingLocks = await db.query.balanceTransactions.findMany({
+        where: sql`${balanceTransactions.externalRef} LIKE ${lockPrefix + '%'} AND ${balanceTransactions.transactionType} = 'MATCH_LOCK'`,
+        orderBy: sql`${balanceTransactions.createdAt} DESC`,
       });
 
-      if (!existingLock) {
+      if (existingLocks.length === 0) {
         return { success: false, error: 'No lock found for this match' };
       }
 
-      const alreadyUnlocked = await db.query.balanceTransactions.findFirst({
-        where: eq(balanceTransactions.externalRef, `match_unlock_${matchId}_${walletAddress}`),
+      const unlockPrefix = `match_unlock_${matchId}_${walletAddress}`;
+      const existingUnlocks = await db.query.balanceTransactions.findMany({
+        where: sql`${balanceTransactions.externalRef} LIKE ${unlockPrefix + '%'} AND ${balanceTransactions.transactionType} = 'MATCH_UNLOCK'`,
       });
 
-      if (alreadyUnlocked) {
+      if (existingUnlocks.length >= existingLocks.length) {
         return { success: true };
       }
+
+      const unlockRef = existingUnlocks.length > 0
+        ? `match_unlock_${matchId}_${walletAddress}_${Date.now()}`
+        : `match_unlock_${matchId}_${walletAddress}`;
 
       await db.transaction(async (tx) => {
         await tx.update(playerBalances)
@@ -214,7 +233,7 @@ class BalanceService {
           transactionType: 'MATCH_UNLOCK' as TransactionType,
           deltaAvailableCents: ENTRY_FEE_CENTS,
           deltaLockedCents: -ENTRY_FEE_CENTS,
-          externalRef: `match_unlock_${matchId}_${walletAddress}`,
+          externalRef: unlockRef,
           metadata: { matchId, reason: 'countdown_cancelled_or_refund' },
         });
       });
@@ -224,6 +243,38 @@ class BalanceService {
     } catch (error: any) {
       log(`Match unlock failed: ${error.message}`, 'error');
       return { success: false, error: error.message };
+    }
+  }
+
+  async releaseAllOrphanedLocks(): Promise<void> {
+    try {
+      const allLocks = await db.query.balanceTransactions.findMany({
+        where: sql`${balanceTransactions.transactionType} = 'MATCH_LOCK'`,
+      });
+
+      for (const lock of allLocks) {
+        if (!lock.externalRef) continue;
+        const unlockRef = lock.externalRef.replace('match_lock_', 'match_unlock_');
+        const settleRef = lock.externalRef.replace('match_lock_', 'match_settle_');
+        const matchId = (lock.metadata as any)?.matchId;
+
+        const existingUnlock = await db.query.balanceTransactions.findFirst({
+          where: eq(balanceTransactions.externalRef, unlockRef),
+        });
+
+        if (existingUnlock) continue;
+
+        const existingSettle = await db.query.balanceTransactions.findFirst({
+          where: sql`${balanceTransactions.externalRef} LIKE ${'match_settle_' + (matchId || '') + '%'}`,
+        });
+
+        if (existingSettle) continue;
+
+        await this.releaseLock(lock.walletAddress, matchId || '');
+        log(`Released orphaned lock for wallet ${lock.walletAddress.slice(0, 8)}... match ${matchId}`, 'room');
+      }
+    } catch (error: any) {
+      log(`Orphaned lock cleanup failed: ${error.message}`, 'error');
     }
   }
 

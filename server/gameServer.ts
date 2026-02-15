@@ -1172,6 +1172,12 @@ export class GameServer {
     this.createRoom(false);
     this.createStakeRoom();
 
+    balanceService.releaseAllOrphanedLocks().then(() => {
+      log('Orphaned lock cleanup completed on startup', 'room');
+    }).catch(err => {
+      log(`Orphaned lock cleanup error: ${err.message}`, 'error');
+    });
+
     this.wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
       const ip = req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() 
         || req.socket.remoteAddress || 'unknown';
