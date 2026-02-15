@@ -293,7 +293,7 @@ class GameRoom {
       }
 
       const needsHp = player.hp < 120;
-      const needsCharge = player.charge < 60;
+      const needsCharge = player.charge < player.maxCharge;
       const wantsPickup = needsHp || needsCharge;
 
       let preferredPickup: Pickup | null = null;
