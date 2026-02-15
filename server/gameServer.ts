@@ -94,6 +94,7 @@ const ABILITY_CHARGE_COST = 20;
 const ABILITY_COOLDOWN = 500;
 const ABILITY_RANGE = 150;
 const ABILITY_DAMAGE = 25;
+const BOT_COUNT = 2;
 const DASH_DISTANCE = 360;
 const STUN_DURATION = 1500;
 const PROJECTILE_SPEED = 15;
@@ -109,6 +110,21 @@ const PRIZE_1ST = 6.00;
 const PRIZE_2ND = 4.50;
 const PRIZE_3RD = 3.00;
 
+const BOT_NAMES = ['Orby', 'Cosmo', 'Nebula', 'Quasar', 'Nova', 'Comet', 'Astro', 'Lunar'];
+const BOT_SHAPES: CharacterShape[] = ['circle', 'triangle', 'square'];
+const BOT_COLORS = ['#D40046', '#00CC7A', '#00A3CC', '#A300CC', '#CCCC00', '#FF69B4'];
+
+interface BotState {
+  id: string;
+  targetX: number;
+  targetY: number;
+  wanderTimer: number;
+  chaseTargetId: string | null;
+  lastAbilityTime: number;
+  behaviorMode: 'wander' | 'chase' | 'flee' | 'collect';
+  nearestPickupId: string | null;
+}
+
 class GameRoom {
   id: string;
   isStakeMode: boolean;
@@ -117,6 +133,8 @@ class GameRoom {
   protected tickInterval: NodeJS.Timeout | null = null;
   protected spawnedPickups: Pickup[] = [];
   protected collectedPickupIds: string[] = [];
+  protected botStates: Map<string, BotState> = new Map();
+  protected botIds: Set<string> = new Set();
 
   constructor(id: string, isStakeMode: boolean = false) {
     this.id = id;
@@ -128,6 +146,232 @@ class GameRoom {
     this.initPickups();
     this.startGameLoop();
     log(`Game room ${id} created (${isStakeMode ? 'stake' : 'free'} mode)`, 'room');
+
+    if (!isStakeMode) {
+      this.spawnBots();
+    }
+  }
+
+  private spawnBots() {
+    for (let i = 0; i < BOT_COUNT; i++) {
+      const botId = `bot-${this.id}-${i}`;
+      const shape = BOT_SHAPES[i % BOT_SHAPES.length];
+      const color = BOT_COLORS[i % BOT_COLORS.length];
+      const name = BOT_NAMES[i % BOT_NAMES.length];
+
+      const player: Player = {
+        id: botId,
+        name,
+        x: 500 + Math.random() * (WORLD_SIZE - 1000),
+        y: 500 + Math.random() * (WORLD_SIZE - 1000),
+        radius: INITIAL_RADIUS,
+        color,
+        score: 0,
+        hp: INITIAL_HP,
+        maxHp: MAX_HP,
+        charge: INITIAL_CHARGE,
+        maxCharge: MAX_CHARGE,
+        characterShape: shape,
+        velocity: { x: 0, y: 0 },
+        balance: 0,
+        lastCombatTime: 0,
+        inputVector: { x: 0, y: 0 },
+        isSpectator: false,
+        isStunned: false,
+        stunEndTime: 0,
+        facingAngle: Math.random() * Math.PI * 2,
+        lastAbilityTime: 0
+      };
+
+      this.updatePlayerRadius(player);
+      this.gameState.players.set(botId, player);
+      this.botIds.add(botId);
+
+      this.botStates.set(botId, {
+        id: botId,
+        targetX: Math.random() * WORLD_SIZE,
+        targetY: Math.random() * WORLD_SIZE,
+        wanderTimer: 0,
+        chaseTargetId: null,
+        lastAbilityTime: 0,
+        behaviorMode: 'wander',
+        nearestPickupId: null,
+      });
+    }
+    log(`Spawned ${BOT_COUNT} bots in room ${this.id}`, 'room');
+  }
+
+  private respawnBot(botId: string) {
+    const botState = this.botStates.get(botId);
+    if (!botState) return;
+
+    const idx = Array.from(this.botIds).indexOf(botId);
+    const shape = BOT_SHAPES[idx % BOT_SHAPES.length];
+    const color = BOT_COLORS[idx % BOT_COLORS.length];
+    const name = BOT_NAMES[idx % BOT_NAMES.length];
+
+    const player: Player = {
+      id: botId,
+      name,
+      x: 500 + Math.random() * (WORLD_SIZE - 1000),
+      y: 500 + Math.random() * (WORLD_SIZE - 1000),
+      radius: INITIAL_RADIUS,
+      color,
+      score: 0,
+      hp: INITIAL_HP,
+      maxHp: MAX_HP,
+      charge: INITIAL_CHARGE,
+      maxCharge: MAX_CHARGE,
+      characterShape: shape,
+      velocity: { x: 0, y: 0 },
+      balance: 0,
+      lastCombatTime: 0,
+      inputVector: { x: 0, y: 0 },
+      isSpectator: false,
+      isStunned: false,
+      stunEndTime: 0,
+      facingAngle: Math.random() * Math.PI * 2,
+      lastAbilityTime: 0
+    };
+
+    this.updatePlayerRadius(player);
+    this.gameState.players.set(botId, player);
+
+    botState.targetX = Math.random() * WORLD_SIZE;
+    botState.targetY = Math.random() * WORLD_SIZE;
+    botState.wanderTimer = 0;
+    botState.chaseTargetId = null;
+    botState.behaviorMode = 'wander';
+    botState.nearestPickupId = null;
+  }
+
+  protected updateBots() {
+    const now = Date.now();
+
+    for (const botId of this.botIds) {
+      const player = this.gameState.players.get(botId);
+      const botState = this.botStates.get(botId);
+      if (!botState) continue;
+
+      if (!player || player.hp <= 0) {
+        if (now - (botState.lastAbilityTime || 0) > 5000) {
+          this.respawnBot(botId);
+          botState.lastAbilityTime = now;
+        }
+        continue;
+      }
+
+      if (player.isStunned) continue;
+
+      let nearestEnemy: Player | null = null;
+      let nearestEnemyDist = Infinity;
+      let nearestPickup: Pickup | null = null;
+      let nearestPickupDist = Infinity;
+
+      this.gameState.players.forEach(other => {
+        if (other.id === botId || other.isSpectator || this.botIds.has(other.id)) return;
+        const dx = other.x - player.x;
+        const dy = other.y - player.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < nearestEnemyDist) {
+          nearestEnemyDist = dist;
+          nearestEnemy = other;
+        }
+      });
+
+      for (const pickup of this.gameState.pickups) {
+        const dx = pickup.x - player.x;
+        const dy = pickup.y - player.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < nearestPickupDist) {
+          nearestPickupDist = dist;
+          nearestPickup = pickup;
+        }
+      }
+
+      if (player.hp < 50 && nearestEnemy && nearestEnemyDist < 300) {
+        botState.behaviorMode = 'flee';
+      } else if (nearestEnemy && nearestEnemyDist < 400) {
+        botState.behaviorMode = 'chase';
+        botState.chaseTargetId = nearestEnemy.id;
+      } else if (nearestPickup && nearestPickupDist < 600) {
+        botState.behaviorMode = 'collect';
+        botState.nearestPickupId = nearestPickup.id;
+      } else {
+        botState.behaviorMode = 'wander';
+      }
+
+      let moveX = 0;
+      let moveY = 0;
+
+      switch (botState.behaviorMode) {
+        case 'wander': {
+          botState.wanderTimer--;
+          if (botState.wanderTimer <= 0) {
+            botState.targetX = 200 + Math.random() * (WORLD_SIZE - 400);
+            botState.targetY = 200 + Math.random() * (WORLD_SIZE - 400);
+            botState.wanderTimer = 90 + Math.floor(Math.random() * 120);
+          }
+          const dx = botState.targetX - player.x;
+          const dy = botState.targetY - player.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 10) {
+            moveX = dx / dist;
+            moveY = dy / dist;
+          }
+          break;
+        }
+        case 'chase': {
+          const target = nearestEnemy;
+          if (target) {
+            const dx = target.x - player.x;
+            const dy = target.y - player.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 10) {
+              moveX = dx / dist;
+              moveY = dy / dist;
+            }
+
+            if (dist < ABILITY_RANGE + 50 && player.charge >= ABILITY_CHARGE_COST && now - botState.lastAbilityTime > 2000) {
+              const abilityType: AbilityType = Math.random() < 0.5 ? 'ABILITY_1' : 'ABILITY_2';
+              this.executeAbility(player, abilityType);
+              botState.lastAbilityTime = now;
+            }
+          }
+          break;
+        }
+        case 'flee': {
+          if (nearestEnemy) {
+            const dx = player.x - nearestEnemy.x;
+            const dy = player.y - nearestEnemy.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 0) {
+              moveX = dx / dist;
+              moveY = dy / dist;
+            }
+          }
+          break;
+        }
+        case 'collect': {
+          const pickup = nearestPickup;
+          if (pickup) {
+            const dx = pickup.x - player.x;
+            const dy = pickup.y - player.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 5) {
+              moveX = dx / dist;
+              moveY = dy / dist;
+            }
+          }
+          break;
+        }
+      }
+
+      player.inputVector = { x: moveX, y: moveY };
+      if (moveX !== 0 || moveY !== 0) {
+        player.facingAngle = Math.atan2(moveY, moveX);
+      }
+    }
   }
 
   protected initPickups() {
@@ -201,15 +445,23 @@ class GameRoom {
   }
 
   getPlayerCount(): number {
-    return this.gameState.players.size;
+    return this.gameState.players.size - this.botIds.size;
+  }
+
+  getHumanPlayerCount(): number {
+    return this.gameState.players.size - this.botIds.size;
   }
 
   isFull(): boolean {
-    return this.gameState.players.size >= MAX_PLAYERS_PER_ROOM;
+    return this.getHumanPlayerCount() >= MAX_PLAYERS_PER_ROOM;
   }
 
   isEmpty(): boolean {
-    return this.gameState.players.size === 0;
+    return this.getHumanPlayerCount() === 0;
+  }
+
+  isBot(playerId: string): boolean {
+    return this.botIds.has(playerId);
   }
 
   getClientCount(): number {
@@ -262,7 +514,7 @@ class GameRoom {
       payload: { roomId: this.id, playerCount: this.getPlayerCount(), maxPlayers: MAX_PLAYERS_PER_ROOM }
     });
 
-    log(`Player ${payload.name} (${playerId}) joined room ${this.id}. Room total: ${this.gameState.players.size}`, 'room');
+    log(`Player ${payload.name} (${playerId}) joined room ${this.id}. Room total: ${this.getHumanPlayerCount()}`, 'room');
     return true;
   }
 
@@ -490,7 +742,7 @@ class GameRoom {
   protected removePlayer(playerId: string, reason: string) {
     const player = this.gameState.players.get(playerId);
     if (player) {
-      log(`Player ${player.name} (${playerId}) ${reason} from room ${this.id}. Room total: ${this.gameState.players.size - 1}`, 'room');
+      log(`Player ${player.name} (${playerId}) ${reason} from room ${this.id}. Room total: ${this.getHumanPlayerCount() - (this.botIds.has(playerId) ? 0 : 1)}`, 'room');
     }
     this.gameState.players.delete(playerId);
     this.clients.delete(playerId);
@@ -504,6 +756,8 @@ class GameRoom {
   protected update() {
     const dt = 1 / TICK_RATE;
     const now = Date.now();
+
+    this.updateBots();
 
     this.gameState.players.forEach(player => {
       if (player.isSpectator) return;
