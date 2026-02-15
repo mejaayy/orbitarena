@@ -233,13 +233,27 @@ export class GameEngine {
     switch (message.type) {
       case 'JOINED':
         this.localPlayerId = message.payload.playerId;
-        const player = message.payload.player;
-        this.camera = { x: player.x, y: player.y };
-        if (message.payload.pickups) {
-          this.pickups = message.payload.pickups;
+        if (message.payload.player) {
+          const player = message.payload.player;
+          this.camera = { x: player.x, y: player.y };
+          if (message.payload.pickups) {
+            this.pickups = message.payload.pickups;
+          }
+          proceduralMusic.start();
         }
-        // Start background music
-        proceduralMusic.start();
+        if (message.payload.isLobby) {
+          this.roundStatus = {
+            roundState: 'LOBBY',
+            playerCount: message.payload.playerCount,
+            maxPlayers: message.payload.maxPlayers,
+            prizePool: message.payload.prizePool,
+            countdownRemaining: 0,
+            prizes: { first: 6.00, second: 4.50, third: 3.00 }
+          };
+          if (this.roundStatus) {
+            this.onRoundStatusChange?.(this.roundStatus);
+          }
+        }
         break;
 
       case 'STATE':
