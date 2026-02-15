@@ -292,14 +292,39 @@ class GameRoom {
         }
       }
 
+      const needsHp = player.hp < 120;
+      const needsCharge = player.charge < 60;
+      const wantsPickup = needsHp || needsCharge;
+
+      let preferredPickup: Pickup | null = null;
+      let preferredPickupDist = Infinity;
+      if (wantsPickup) {
+        const preferType: PickupType = needsHp ? 'HP' : 'CHARGE';
+        for (const pickup of this.gameState.pickups) {
+          if (pickup.type !== preferType) continue;
+          const dx = pickup.x - player.x;
+          const dy = pickup.y - player.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < preferredPickupDist) {
+            preferredPickupDist = dist;
+            preferredPickup = pickup;
+          }
+        }
+      }
+
       if (player.hp < 50 && nearestEnemy && nearestEnemyDist < 300) {
         botState.behaviorMode = 'flee';
-      } else if (nearestEnemy && nearestEnemyDist < 400) {
+      } else if (wantsPickup && preferredPickup && preferredPickupDist < 800) {
+        botState.behaviorMode = 'collect';
+        nearestPickup = preferredPickup;
+        nearestPickupDist = preferredPickupDist;
+      } else if (nearestPickup && nearestPickupDist < 400) {
+        botState.behaviorMode = 'collect';
+      } else if (nearestEnemy && nearestEnemyDist < 500 && player.charge >= ABILITY_CHARGE_COST) {
         botState.behaviorMode = 'chase';
         botState.chaseTargetId = nearestEnemy.id;
-      } else if (nearestPickup && nearestPickupDist < 600) {
+      } else if (nearestPickup && nearestPickupDist < 800) {
         botState.behaviorMode = 'collect';
-        botState.nearestPickupId = nearestPickup.id;
       } else {
         botState.behaviorMode = 'wander';
       }

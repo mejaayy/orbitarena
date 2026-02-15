@@ -1210,21 +1210,11 @@ export class GameEngine {
       this.ctx.fillRect(dividerX - 0.5, barY, 1, barHeight);
     }
     
-    // Get local player for comparison
-    const localPlayer = this.players.get(this.localPlayerId!);
-    
-    // Determine name color based on relative HP
     let textColor: string;
     if (player.id === this.localPlayerId) {
       textColor = '#FFFFFF';
-    } else if (localPlayer) {
-      if ((player.hp || 100) > (localPlayer.hp || 100)) {
-        textColor = '#D40046'; // Red - more HP (danger)
-      } else {
-        textColor = '#00CC7A'; // Green - less HP (weaker)
-      }
     } else {
-      textColor = '#FFFFFF';
+      textColor = '#D40046';
     }
     
     const fontSize = Math.max(12, player.radius * 0.35);
