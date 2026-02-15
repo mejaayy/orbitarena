@@ -77,7 +77,7 @@ export class GameEngine {
   static WORLD_SIZE = 4000;
   static INITIAL_RADIUS = 20;
   static INTERP_DURATION = 100;
-  static MAX_SPEED = 2.76;
+  static MAX_SPEED = 4.69;
   
   isRunning: boolean = false;
   isStakeMode: boolean = false;
@@ -272,7 +272,7 @@ export class GameEngine {
                 const dy = localPlayer.y - pickup.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 // If pickup was close to local player, they probably collected it
-                if (dist < localPlayer.radius + pickup.radius + 10) {
+                if (dist < localPlayer.radius + pickup.radius + 30) {
                   if (pickup.type === 'HP') {
                     soundManager.playPickupHP();
                   } else if (pickup.type === 'CHARGE') {
