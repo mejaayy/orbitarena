@@ -887,7 +887,7 @@ export class GameEngine {
       }
       
       const yOffset = -40 - counter.floatOffset;
-      const fontSize = Math.min(28, 18 + counter.totalDamage * 0.15);
+      const fontSize = Math.min(56, 36 + counter.totalDamage * 0.3);
       
       this.ctx.save();
       this.ctx.font = `bold ${fontSize}px Outfit`;
@@ -1284,10 +1284,12 @@ export class GameEngine {
     this.ctx.fillStyle = '#A300CC';
     this.ctx.fillRect(barX, barY, barWidth * chargePercent, barHeight);
     
-    // Draw section dividers at 20, 40, 60, 80 charge
+    // Draw section dividers at each 20-charge increment
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    for (let i = 1; i <= 4; i++) {
-      const dividerX = barX + (barWidth * i * 0.2);
+    const maxCharge = player.maxCharge || 200;
+    const sections = maxCharge / 20;
+    for (let i = 1; i < sections; i++) {
+      const dividerX = barX + (barWidth * i / sections);
       this.ctx.fillRect(dividerX - 0.5, barY, 1, barHeight);
     }
     

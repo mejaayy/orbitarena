@@ -87,7 +87,7 @@ const COMBAT_COOLDOWN = 3000;
 const INITIAL_HP = 100;
 const MAX_HP = 200;
 const INITIAL_CHARGE = 0;
-const MAX_CHARGE = 100;
+const MAX_CHARGE = 200;
 const PICKUP_VALUE = 5;
 
 const ABILITY_CHARGE_COST = 20;
