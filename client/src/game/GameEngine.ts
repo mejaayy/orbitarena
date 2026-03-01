@@ -1146,7 +1146,7 @@ export class GameEngine {
     
     this.ctx.beginPath();
     this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-    this.ctx.fillStyle = `rgba(180, 230, 255, ${alpha * 0.08})`;
+    this.ctx.fillStyle = `rgba(0, 204, 122, ${alpha * 0.08})`;
     this.ctx.fill();
     
     const segments = 32;
@@ -1159,7 +1159,7 @@ export class GameEngine {
       if (i === 0) this.ctx.moveTo(rx, ry);
       else this.ctx.lineTo(rx, ry);
     }
-    this.ctx.strokeStyle = `rgba(180, 230, 255, ${alpha * 0.8})`;
+    this.ctx.strokeStyle = `rgba(0, 204, 122, ${alpha * 0.8})`;
     this.ctx.lineWidth = 3;
     this.ctx.stroke();
     
@@ -1174,7 +1174,7 @@ export class GameEngine {
       this.ctx.translate(sx, sy);
       this.ctx.rotate(a + Math.PI / 4);
       const size = 4 * alpha;
-      this.ctx.fillStyle = `rgba(200, 240, 255, ${alpha * 0.7})`;
+      this.ctx.fillStyle = `rgba(0, 230, 140, ${alpha * 0.7})`;
       this.ctx.fillRect(-size / 2, -size / 2, size, size);
       this.ctx.restore();
     }
