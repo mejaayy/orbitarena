@@ -88,7 +88,8 @@ const INITIAL_HP = 100;
 const MAX_HP = 200;
 const INITIAL_CHARGE = 0;
 const MAX_CHARGE = 200;
-const PICKUP_VALUE = 9;
+const HP_PICKUP_VALUE = 7;
+const CHARGE_PICKUP_VALUE = 9;
 
 const ABILITY_CHARGE_COST = 20;
 const ABILITY_COOLDOWN = 500;
@@ -437,7 +438,7 @@ class GameRoom {
       y,
       radius: type === 'HP' ? 8 : 7,
       type,
-      value: PICKUP_VALUE
+      value: type === 'HP' ? HP_PICKUP_VALUE : CHARGE_PICKUP_VALUE
     };
     this.gameState.pickups.push(pickup);
     if (trackDelta) {
