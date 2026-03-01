@@ -88,7 +88,7 @@ const INITIAL_HP = 100;
 const MAX_HP = 200;
 const INITIAL_CHARGE = 0;
 const MAX_CHARGE = 200;
-const PICKUP_VALUE = 5;
+const PICKUP_VALUE = 9;
 
 const ABILITY_CHARGE_COST = 20;
 const ABILITY_COOLDOWN = 500;
