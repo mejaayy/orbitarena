@@ -330,6 +330,25 @@ export class GameEngine {
         soundManager.playAbility(message.payload.ability);
         break;
 
+      case 'HEAL': {
+        const now = performance.now();
+        if (this.healCounter && now - this.healCounter.lastHealTime < 1000) {
+          this.healCounter.totalHeal += message.payload.amount;
+          this.healCounter.lastHealTime = now;
+          this.healCounter.x = message.payload.x;
+          this.healCounter.y = message.payload.y;
+        } else {
+          this.healCounter = {
+            totalHeal: message.payload.amount,
+            x: message.payload.x,
+            y: message.payload.y,
+            lastHealTime: now,
+            floatOffset: 0,
+          };
+        }
+        break;
+      }
+
       case 'DAMAGE':
         if (message.payload.targetId === this.localPlayerId) {
           this.showDamageFlash();
@@ -367,6 +386,14 @@ export class GameEngine {
     lastHitTime: number;
     floatOffset: number;
   }> = new Map();
+
+  private healCounter: {
+    totalHeal: number;
+    x: number;
+    y: number;
+    lastHealTime: number;
+    floatOffset: number;
+  } | null = null;
 
   private abilityEffects: Array<{
     type: string;
@@ -627,6 +654,7 @@ export class GameEngine {
     this.canvas.removeEventListener('contextmenu', this.handleContextMenu);
     this.abilityEffects = [];
     this.damageCounters.clear();
+    this.healCounter = null;
     this.damageFlashAlpha = 0;
     // Stop background music
     proceduralMusic.stop();
@@ -836,6 +864,7 @@ export class GameEngine {
 
     this.drawAbilityEffects();
     this.drawDamageCounters();
+    this.drawHealCounter();
 
     this.ctx.restore();
 
@@ -904,6 +933,51 @@ export class GameEngine {
       
       this.ctx.restore();
     });
+  }
+
+  private drawHealCounter() {
+    if (!this.healCounter) return;
+    
+    const now = performance.now();
+    const timeSinceHeal = now - this.healCounter.lastHealTime;
+    
+    if (timeSinceHeal > 1500) {
+      this.healCounter = null;
+      return;
+    }
+    
+    const localPlayer = this.players.get(this.localPlayerId || '');
+    if (localPlayer) {
+      this.healCounter.x = localPlayer.x;
+      this.healCounter.y = localPlayer.y;
+    }
+    
+    if (timeSinceHeal > 1000) {
+      this.healCounter.floatOffset += 0.8;
+    }
+    
+    let alpha = 1;
+    if (timeSinceHeal > 1000) {
+      alpha = 1 - (timeSinceHeal - 1000) / 500;
+    }
+    
+    const yOffset = -40 - this.healCounter.floatOffset;
+    const fontSize = Math.min(56, 36 + this.healCounter.totalHeal * 0.3);
+    
+    this.ctx.save();
+    this.ctx.font = `bold ${fontSize}px Outfit`;
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'bottom';
+    this.ctx.globalAlpha = alpha;
+    
+    this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+    this.ctx.lineWidth = 3;
+    this.ctx.strokeText(`+${this.healCounter.totalHeal}`, this.healCounter.x, this.healCounter.y + yOffset);
+    
+    this.ctx.fillStyle = '#00DD44';
+    this.ctx.fillText(`+${this.healCounter.totalHeal}`, this.healCounter.x, this.healCounter.y + yOffset);
+    
+    this.ctx.restore();
   }
 
   private drawAbilityEffects() {
