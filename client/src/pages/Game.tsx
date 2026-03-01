@@ -246,13 +246,13 @@ export default function Game() {
           <div className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Abilities</div>
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <kbd className="px-2 py-1 bg-white/10 rounded text-xs font-mono text-white">SPACE</kbd>
+              <kbd className="px-2 py-1 bg-white/10 rounded text-xs font-mono text-white">RIGHT CLICK</kbd>
               <span className="text-sm text-white">
                 {characterShape === 'circle' ? 'Pull' : characterShape === 'triangle' ? 'Dash' : 'Push'}
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <kbd className="px-2 py-1 bg-white/10 rounded text-xs font-mono text-white">CLICK</kbd>
+              <kbd className="px-2 py-1 bg-white/10 rounded text-xs font-mono text-white">LEFT CLICK</kbd>
               <span className="text-sm text-white">
                 {characterShape === 'circle' ? 'Slam' : characterShape === 'triangle' ? 'Shoot' : 'Stun Wave'}
               </span>

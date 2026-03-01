@@ -440,7 +440,7 @@ export default function Lobby() {
                     </svg>
                     <span className="text-xs font-medium text-white">Circle</span>
                     <div className="text-[10px] text-gray-400 leading-tight text-center">
-                      Right Click • Left Click
+                      Pull • Slam
                     </div>
                   </div>
                 </button>
@@ -460,7 +460,7 @@ export default function Lobby() {
                     </svg>
                     <span className="text-xs font-medium text-white">Triangle</span>
                     <div className="text-[10px] text-gray-400 leading-tight text-center">
-                      Right Click • Left Click
+                      Pull • Slam
                     </div>
                   </div>
                 </button>
@@ -480,7 +480,7 @@ export default function Lobby() {
                     </svg>
                     <span className="text-xs font-medium text-white">Square</span>
                     <div className="text-[10px] text-gray-400 leading-tight text-center">
-                      Right Click • Left Click
+                      Pull • Slam
                     </div>
                   </div>
                 </button>
