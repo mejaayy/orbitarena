@@ -1112,7 +1112,7 @@ export class GameEngine {
     return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
   }
 
-  private drawPierceEffect(x: number, y: number, angle: number, progress: number, alpha: number, color: string, distance: number = 600) {
+  private drawPierceEffect(x: number, y: number, angle: number, progress: number, alpha: number, color: string, distance: number = 1200) {
     const projectileDistance = distance * progress;
     const px = x + Math.cos(angle) * projectileDistance;
     const py = y + Math.sin(angle) * projectileDistance;
