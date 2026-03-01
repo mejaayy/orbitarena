@@ -96,13 +96,15 @@ const CHARGE_PICKUP_VALUE = 9;
 
 const ABILITY_CHARGE_COST = 20;
 const ABILITY_COOLDOWN = 500;
-const ABILITY_RANGE = 200;
+const ABILITY_RANGE = 400;
 const ABILITY_DAMAGE = 25;
+const PROJECTILE_RANGE = 600;
+const DASH_DISTANCE = 240;
+const LOCK_ON_ANGLE = 25 * (Math.PI / 180); // 25 degrees in radians
 const BOT_COUNT = 2;
-const DASH_DISTANCE = 360;
 const STUN_DURATION = 1500;
 const PROJECTILE_SPEED = 15;
-const PROJECTILE_RANGE = 500;
+const ENEMY_SCAN_RANGE = 800;
 
 // Stake mode constants
 const ENTRY_FEE = 1.00;
@@ -676,7 +678,33 @@ class GameRoom {
   }
 
   protected executeDash(player: Player) {
-    const angle = player.facingAngle;
+    let angle = player.facingAngle;
+    
+    // Lock-on logic
+    let closestTarget: Player | null = null;
+    let minAngleDiff = LOCK_ON_ANGLE;
+
+    this.gameState.players.forEach(other => {
+      if (other.id === player.id || other.isSpectator) return;
+      const dx = other.x - player.x;
+      const dy = other.y - player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > DASH_DISTANCE * 2) return;
+
+      const angleToTarget = Math.atan2(dy, dx);
+      let diff = Math.abs(angle - angleToTarget);
+      while (diff > Math.PI) diff = Math.abs(diff - 2 * Math.PI);
+
+      if (diff < minAngleDiff) {
+        minAngleDiff = diff;
+        closestTarget = other;
+      }
+    });
+
+    if (closestTarget) {
+      angle = Math.atan2(closestTarget.y - player.y, closestTarget.x - player.x);
+    }
+
     player.x += Math.cos(angle) * DASH_DISTANCE;
     player.y += Math.sin(angle) * DASH_DISTANCE;
     player.x = Math.max(player.radius, Math.min(WORLD_SIZE - player.radius, player.x));
@@ -696,7 +724,33 @@ class GameRoom {
   }
 
   protected executePierce(player: Player) {
-    const angle = player.facingAngle;
+    let angle = player.facingAngle;
+
+    // Lock-on logic
+    let closestTarget: Player | null = null;
+    let minAngleDiff = LOCK_ON_ANGLE;
+
+    this.gameState.players.forEach(other => {
+      if (other.id === player.id || other.isSpectator) return;
+      const dx = other.x - player.x;
+      const dy = other.y - player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > PROJECTILE_RANGE) return;
+
+      const angleToTarget = Math.atan2(dy, dx);
+      let diff = Math.abs(angle - angleToTarget);
+      while (diff > Math.PI) diff = Math.abs(diff - 2 * Math.PI);
+
+      if (diff < minAngleDiff) {
+        minAngleDiff = diff;
+        closestTarget = other;
+      }
+    });
+
+    if (closestTarget) {
+      angle = Math.atan2(closestTarget.y - player.y, closestTarget.x - player.x);
+    }
+
     const startX = player.x;
     const startY = player.y;
     
