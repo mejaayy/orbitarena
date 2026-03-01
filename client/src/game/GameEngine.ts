@@ -977,10 +977,12 @@ export class GameEngine {
     const trailEndX = currentX - Math.cos(angle) * trailLength;
     const trailEndY = currentY - Math.sin(angle) * trailLength;
     
-    // Create gradient for trail fade
+    const playerColor = player ? player.color : '#00FFFF';
+    const [r, g, b] = this.parseHexColor(playerColor);
+    
     const gradient = this.ctx.createLinearGradient(currentX, currentY, trailEndX, trailEndY);
-    gradient.addColorStop(0, `rgba(0, 255, 255, ${alpha * 0.9})`);
-    gradient.addColorStop(1, `rgba(0, 255, 255, 0)`);
+    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha * 0.9})`);
+    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
     
     this.ctx.beginPath();
     this.ctx.moveTo(currentX, currentY);
