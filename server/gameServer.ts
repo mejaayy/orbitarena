@@ -758,23 +758,13 @@ class GameRoom {
     const startY = player.y;
     
     const hitPlayers = new Set<string>();
+    let finalDistance = PROJECTILE_RANGE;
     
-    // We send the ABILITY_EFFECT first
-    this.broadcast({
-      type: 'ABILITY_EFFECT',
-      payload: {
-        playerId: player.id,
-        ability: 'PIERCE',
-        x: player.x,
-        y: player.y,
-        angle: angle
-      }
-    });
-
     for (let d = 0; d < PROJECTILE_RANGE; d += 20) {
       const px = startX + Math.cos(angle) * d;
       const py = startY + Math.sin(angle) * d;
       
+      let hitInThisStep = false;
       this.gameState.players.forEach(other => {
         if (other.id === player.id || other.isSpectator || hitPlayers.has(other.id)) return;
         
@@ -783,6 +773,7 @@ class GameRoom {
         const dist = Math.sqrt(dx * dx + dy * dy);
         
         if (dist < other.radius + 15) {
+          hitInThisStep = true;
           // Delay damage based on distance to simulate projectile travel time
           const travelTime = (d / PROJECTILE_RANGE) * 300; 
           setTimeout(() => {
@@ -794,7 +785,25 @@ class GameRoom {
           hitPlayers.add(other.id);
         }
       });
+
+      if (hitInThisStep) {
+        finalDistance = d;
+        break; // Bullet stops at the first target hit
+      }
     }
+
+    // We send the ABILITY_EFFECT with the actual distance reached
+    this.broadcast({
+      type: 'ABILITY_EFFECT',
+      payload: {
+        playerId: player.id,
+        ability: 'PIERCE',
+        x: player.x,
+        y: player.y,
+        angle: angle,
+        distance: finalDistance
+      }
+    });
   }
 
   protected executePush(player: Player) {

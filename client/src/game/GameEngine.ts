@@ -459,7 +459,8 @@ export class GameEngine {
       angle: payload.angle,
       startTime: performance.now(),
       duration: payload.ability === 'PIERCE' ? 300 : 400,
-      playerId: payload.playerId
+      playerId: payload.playerId,
+      distance: (payload as any).distance
     });
     
     // Trigger screen shake for the local player's abilities
@@ -872,8 +873,18 @@ export class GameEngine {
 
       if (pickup.type === 'HP') {
         const size = pickup.radius * 1.6;
-        this.ctx.fillStyle = '#D40046';
+        this.ctx.fillStyle = '#00CC7A'; // Green
         this.ctx.fillRect(pickup.x - size / 2, pickup.y - size / 2, size, size);
+        
+        // Add cross detail for HP
+        this.ctx.strokeStyle = 'white';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(pickup.x - size * 0.3, pickup.y);
+        this.ctx.lineTo(pickup.x + size * 0.3, pickup.y);
+        this.ctx.moveTo(pickup.x, pickup.y - size * 0.3);
+        this.ctx.lineTo(pickup.x, pickup.y + size * 0.3);
+        this.ctx.stroke();
       } else {
         const r = pickup.radius * 1.4;
         this.ctx.fillStyle = '#A300CC';
@@ -1042,7 +1053,7 @@ export class GameEngine {
         case 'PIERCE': {
           const piercePlayer = this.players.get(effect.playerId);
           const pierceColor = piercePlayer?.color || '#cccc00';
-          this.drawPierceEffect(effect.x, effect.y, effect.angle, progress, alpha, pierceColor);
+          this.drawPierceEffect(effect.x, effect.y, effect.angle, progress, alpha, pierceColor, effect.distance);
           break;
         }
         case 'PUSH':
@@ -1112,8 +1123,8 @@ export class GameEngine {
     return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
   }
 
-  private drawPierceEffect(x: number, y: number, angle: number, progress: number, alpha: number, color: string) {
-    const projectileDistance = 500 * progress;
+  private drawPierceEffect(x: number, y: number, angle: number, progress: number, alpha: number, color: string, distance: number = 600) {
+    const projectileDistance = distance * progress;
     const px = x + Math.cos(angle) * projectileDistance;
     const py = y + Math.sin(angle) * projectileDistance;
     
