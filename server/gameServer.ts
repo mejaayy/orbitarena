@@ -41,6 +41,8 @@ interface Player {
   isSpectator: boolean;
   isStunned: boolean;
   stunEndTime: number;
+  stunAttackerId: string | null;
+  lastStunDamageTime: number;
   facingAngle: number;
   lastAbilityTime: number;
 }
@@ -182,6 +184,8 @@ class GameRoom {
       isSpectator: false,
       isStunned: false,
       stunEndTime: 0,
+      stunAttackerId: null,
+      lastStunDamageTime: 0,
       facingAngle: Math.random() * Math.PI * 2,
       lastAbilityTime: 0
     };
@@ -526,6 +530,8 @@ class GameRoom {
       isSpectator: false,
       isStunned: false,
       stunEndTime: 0,
+      stunAttackerId: null,
+      lastStunDamageTime: 0,
       facingAngle: 0
     };
 
@@ -656,7 +662,9 @@ class GameRoom {
       const dist = Math.sqrt(dx * dx + dy * dy);
       
       if (dist < ABILITY_RANGE) {
-        this.damagePlayer(player, other, ABILITY_DAMAGE);
+        const distRatio = dist / ABILITY_RANGE;
+        const damage = Math.floor(100 - distRatio * 50);
+        this.damagePlayer(player, other, damage);
       }
     });
   }
@@ -676,7 +684,7 @@ class GameRoom {
       const dist = Math.sqrt(dx * dx + dy * dy);
       
       if (dist < player.radius + other.radius + 20) {
-        this.damagePlayer(player, other, Math.floor(ABILITY_DAMAGE * 0.6));
+        this.damagePlayer(player, other, 70);
       }
     });
   }
@@ -700,7 +708,7 @@ class GameRoom {
         const dist = Math.sqrt(dx * dx + dy * dy);
         
         if (dist < other.radius + 15) {
-          this.damagePlayer(player, other, ABILITY_DAMAGE);
+          this.damagePlayer(player, other, 30);
           hitPlayers.add(other.id);
         }
       });
@@ -723,7 +731,7 @@ class GameRoom {
         other.y += ny * pushStrength;
         other.x = Math.max(other.radius, Math.min(WORLD_SIZE - other.radius, other.x));
         other.y = Math.max(other.radius, Math.min(WORLD_SIZE - other.radius, other.y));
-        this.damagePlayer(player, other, Math.floor(ABILITY_DAMAGE * 0.4));
+        this.damagePlayer(player, other, 20);
       }
     });
   }
@@ -738,10 +746,14 @@ class GameRoom {
       const dist = Math.sqrt(dx * dx + dy * dy);
       
       if (dist < ABILITY_RANGE) {
+        const distRatio = dist / ABILITY_RANGE;
+        const stunDuration = Math.floor(STUN_DURATION * (1.5 - distRatio));
         other.isStunned = true;
-        other.stunEndTime = now + STUN_DURATION;
+        other.stunEndTime = now + stunDuration;
+        other.stunAttackerId = player.id;
+        other.lastStunDamageTime = now;
         other.velocity = { x: 0, y: 0 };
-        this.damagePlayer(player, other, Math.floor(ABILITY_DAMAGE * 0.5));
+        this.damagePlayer(player, other, 30);
       }
     });
   }
@@ -804,8 +816,16 @@ class GameRoom {
       
       if (player.isStunned && now >= player.stunEndTime) {
         player.isStunned = false;
+        player.stunAttackerId = null;
       }
-      if (player.isStunned) return;
+      if (player.isStunned) {
+        if (now - player.lastStunDamageTime >= 1000) {
+          player.lastStunDamageTime = now;
+          const attacker = player.stunAttackerId ? this.gameState.players.get(player.stunAttackerId) : null;
+          this.damagePlayer(attacker || null, player, 20);
+        }
+        return;
+      }
       
       const { inputVector } = player;
       const length = Math.sqrt(inputVector.x * inputVector.x + inputVector.y * inputVector.y);
@@ -1185,6 +1205,8 @@ class StakeGameRoom extends GameRoom {
         isSpectator: false,
         isStunned: false,
         stunEndTime: 0,
+        stunAttackerId: null,
+        lastStunDamageTime: 0,
         facingAngle: 0
       };
 
