@@ -1124,16 +1124,32 @@ export class GameEngine {
     this.ctx.fillStyle = `rgba(80, 180, 255, ${alpha * 0.12})`;
     this.ctx.fill();
     
-    const boltCount = 12;
-    for (let i = 0; i < boltCount; i++) {
-      const baseAngle = (i / boltCount) * Math.PI * 2 + now * 0.003;
-      this.drawLightningBolt(
-        x, y,
-        x + Math.cos(baseAngle) * radius,
-        y + Math.sin(baseAngle) * radius,
-        3, alpha * 0.9, 15
-      );
+    const ringSegments = 24;
+    this.ctx.beginPath();
+    for (let i = 0; i <= ringSegments; i++) {
+      const a = (i / ringSegments) * Math.PI * 2;
+      const jitter = (Math.random() - 0.5) * 8;
+      const rx = x + Math.cos(a) * (radius + jitter);
+      const ry = y + Math.sin(a) * (radius + jitter);
+      if (i === 0) this.ctx.moveTo(rx, ry);
+      else this.ctx.lineTo(rx, ry);
     }
+    this.ctx.strokeStyle = `rgba(100, 200, 255, ${alpha * 0.9})`;
+    this.ctx.lineWidth = 3;
+    this.ctx.stroke();
+    
+    this.ctx.beginPath();
+    for (let i = 0; i <= ringSegments; i++) {
+      const a = (i / ringSegments) * Math.PI * 2;
+      const jitter = (Math.random() - 0.5) * 5;
+      const rx = x + Math.cos(a) * (radius + jitter);
+      const ry = y + Math.sin(a) * (radius + jitter);
+      if (i === 0) this.ctx.moveTo(rx, ry);
+      else this.ctx.lineTo(rx, ry);
+    }
+    this.ctx.strokeStyle = `rgba(220, 240, 255, ${alpha * 0.5})`;
+    this.ctx.lineWidth = 1;
+    this.ctx.stroke();
     
     this.ctx.beginPath();
     this.ctx.arc(x, y, radius, 0, Math.PI * 2);
