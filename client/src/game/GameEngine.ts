@@ -124,6 +124,7 @@ export class GameEngine {
     this.handleResize();
     
     window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keyup', this.handleKeyUp);
     window.addEventListener('mousemove', this.handleMouseMove);
     this.canvas.addEventListener('mousedown', this.handleMouseDown);
     this.canvas.addEventListener('contextmenu', this.handleContextMenu);
@@ -138,10 +139,31 @@ export class GameEngine {
     this.mouseScreenY = e.clientY;
   };
 
+  private spaceHeld = false;
+  private pullInterval: ReturnType<typeof setInterval> | null = null;
+
   private handleKeyDown = (e: KeyboardEvent) => {
     if (e.code === 'Space') {
       e.preventDefault();
-      this.sendAbility('ABILITY_1');
+      if (!this.spaceHeld) {
+        this.spaceHeld = true;
+        this.sendAbility('ABILITY_1');
+        this.pullInterval = setInterval(() => {
+          if (this.spaceHeld) {
+            this.sendAbility('ABILITY_1');
+          }
+        }, 150);
+      }
+    }
+  };
+
+  private handleKeyUp = (e: KeyboardEvent) => {
+    if (e.code === 'Space') {
+      this.spaceHeld = false;
+      if (this.pullInterval) {
+        clearInterval(this.pullInterval);
+        this.pullInterval = null;
+      }
     }
   };
 
@@ -154,7 +176,9 @@ export class GameEngine {
   private sendAbility(abilityType: 'ABILITY_1' | 'ABILITY_2') {
     if (this.ws?.readyState === WebSocket.OPEN && this.localPlayerId && !this.isSpectating) {
       const localPlayer = this.players.get(this.localPlayerId);
-      if (localPlayer && (localPlayer.charge || 0) < 20) {
+      const isPull = localPlayer?.characterShape === 'circle' && abilityType === 'ABILITY_1';
+      const minCharge = isPull ? 5 : 20;
+      if (localPlayer && (localPlayer.charge || 0) < minCharge) {
         const now = performance.now();
         if (now - this.lastAbilityTime > this.ABILITY_COOLDOWN) {
           this.showLowChargeFlash();
@@ -649,7 +673,13 @@ export class GameEngine {
     this.pendingJoin = null;
     window.removeEventListener('resize', this.handleResize);
     window.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('keyup', this.handleKeyUp);
     window.removeEventListener('mousemove', this.handleMouseMove);
+    if (this.pullInterval) {
+      clearInterval(this.pullInterval);
+      this.pullInterval = null;
+    }
+    this.spaceHeld = false;
     this.canvas.removeEventListener('mousedown', this.handleMouseDown);
     this.canvas.removeEventListener('contextmenu', this.handleContextMenu);
     this.abilityEffects = [];
@@ -1105,12 +1135,43 @@ export class GameEngine {
   }
 
   private drawPushEffect(x: number, y: number, progress: number, alpha: number) {
-    const radius = 150 * progress;
+    const now = performance.now();
+    const radius = 200 * progress;
+    
     this.ctx.beginPath();
     this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-    this.ctx.strokeStyle = `rgba(0, 163, 204, ${alpha * 0.7})`;
-    this.ctx.lineWidth = 5;
+    this.ctx.fillStyle = `rgba(180, 230, 255, ${alpha * 0.08})`;
+    this.ctx.fill();
+    
+    const segments = 32;
+    this.ctx.beginPath();
+    for (let i = 0; i <= segments; i++) {
+      const a = (i / segments) * Math.PI * 2;
+      const jitter = Math.sin(a * 8 + now * 0.01) * 4 * alpha;
+      const rx = x + Math.cos(a) * (radius + jitter);
+      const ry = y + Math.sin(a) * (radius + jitter);
+      if (i === 0) this.ctx.moveTo(rx, ry);
+      else this.ctx.lineTo(rx, ry);
+    }
+    this.ctx.strokeStyle = `rgba(180, 230, 255, ${alpha * 0.8})`;
+    this.ctx.lineWidth = 3;
     this.ctx.stroke();
+    
+    const shardCount = 8;
+    for (let i = 0; i < shardCount; i++) {
+      const a = (i / shardCount) * Math.PI * 2 + progress * 0.5;
+      const dist = radius * (0.6 + Math.sin(now * 0.005 + i * 2) * 0.3);
+      const sx = x + Math.cos(a) * dist;
+      const sy = y + Math.sin(a) * dist;
+      
+      this.ctx.save();
+      this.ctx.translate(sx, sy);
+      this.ctx.rotate(a + Math.PI / 4);
+      const size = 4 * alpha;
+      this.ctx.fillStyle = `rgba(200, 240, 255, ${alpha * 0.7})`;
+      this.ctx.fillRect(-size / 2, -size / 2, size, size);
+      this.ctx.restore();
+    }
   }
 
   private drawStunWaveEffect(x: number, y: number, progress: number, alpha: number) {

@@ -34,6 +34,7 @@ interface Player {
   maxCharge: number;
   characterShape: CharacterShape;
   velocity: Point;
+  knockbackVelocity: Point;
   walletAddress?: string;
   balance: number;
   lastCombatTime: number;
@@ -178,6 +179,7 @@ class GameRoom {
       maxCharge: MAX_CHARGE,
       characterShape: shape,
       velocity: { x: 0, y: 0 },
+      knockbackVelocity: { x: 0, y: 0 },
       balance: 0,
       lastCombatTime: 0,
       inputVector: { x: 0, y: 0 },
@@ -523,6 +525,7 @@ class GameRoom {
       maxCharge: MAX_CHARGE,
       characterShape: payload.characterShape || 'circle',
       velocity: { x: 0, y: 0 },
+      knockbackVelocity: { x: 0, y: 0 },
       walletAddress: payload.walletAddress,
       balance: 0,
       lastCombatTime: 0,
@@ -584,7 +587,10 @@ class GameRoom {
   }
 
   protected executeAbility(player: Player, abilityType: AbilityType) {
-    if (!this.useCharge(player, ABILITY_CHARGE_COST)) {
+    const isPull = player.characterShape === 'circle' && abilityType === 'ABILITY_1';
+    const chargeCost = isPull ? 5 : ABILITY_CHARGE_COST;
+    
+    if (!this.useCharge(player, chargeCost)) {
       const ws = this.clients.get(player.id);
       if (ws) {
         this.send(ws, { type: 'ERROR', payload: { message: 'Not enough charge' } });
@@ -634,7 +640,7 @@ class GameRoom {
   }
 
   protected executePull(player: Player) {
-    const pullStrength = 80;
+    const pullStrength = 25;
     this.gameState.players.forEach(other => {
       if (other.id === player.id || other.isSpectator) return;
       
@@ -642,13 +648,13 @@ class GameRoom {
       const dy = player.y - other.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       
-      if (dist < ABILITY_RANGE && dist > 0) {
+      if (dist < ABILITY_RANGE * 1.5 && dist > 0) {
         const nx = dx / dist;
         const ny = dy / dist;
-        other.x += nx * pullStrength;
-        other.y += ny * pullStrength;
-        other.x = Math.max(other.radius, Math.min(WORLD_SIZE - other.radius, other.x));
-        other.y = Math.max(other.radius, Math.min(WORLD_SIZE - other.radius, other.y));
+        const distRatio = 1 - (dist / (ABILITY_RANGE * 1.5));
+        const force = pullStrength * (0.3 + distRatio * 0.7);
+        other.knockbackVelocity.x += nx * force;
+        other.knockbackVelocity.y += ny * force;
       }
     });
   }
@@ -716,7 +722,7 @@ class GameRoom {
   }
 
   protected executePush(player: Player) {
-    const pushStrength = 120;
+    const pushForce = 18;
     this.gameState.players.forEach(other => {
       if (other.id === player.id || other.isSpectator) return;
       
@@ -727,10 +733,10 @@ class GameRoom {
       if (dist < ABILITY_RANGE && dist > 0) {
         const nx = dx / dist;
         const ny = dy / dist;
-        other.x += nx * pushStrength;
-        other.y += ny * pushStrength;
-        other.x = Math.max(other.radius, Math.min(WORLD_SIZE - other.radius, other.x));
-        other.y = Math.max(other.radius, Math.min(WORLD_SIZE - other.radius, other.y));
+        const distRatio = 1 - (dist / ABILITY_RANGE);
+        const force = pushForce * (0.5 + distRatio * 0.5);
+        other.knockbackVelocity.x += nx * force;
+        other.knockbackVelocity.y += ny * force;
         this.damagePlayer(player, other, 20);
       }
     });
@@ -844,6 +850,17 @@ class GameRoom {
       const timeScale = dt * 60;
       player.x += player.velocity.x * timeScale;
       player.y += player.velocity.y * timeScale;
+      
+      if (player.knockbackVelocity.x !== 0 || player.knockbackVelocity.y !== 0) {
+        player.x += player.knockbackVelocity.x * timeScale;
+        player.y += player.knockbackVelocity.y * timeScale;
+        player.knockbackVelocity.x *= 0.88;
+        player.knockbackVelocity.y *= 0.88;
+        if (Math.abs(player.knockbackVelocity.x) < 0.1 && Math.abs(player.knockbackVelocity.y) < 0.1) {
+          player.knockbackVelocity.x = 0;
+          player.knockbackVelocity.y = 0;
+        }
+      }
 
       player.x = Math.max(player.radius, Math.min(WORLD_SIZE - player.radius, player.x));
       player.y = Math.max(player.radius, Math.min(WORLD_SIZE - player.radius, player.y));
@@ -1198,6 +1215,7 @@ class StakeGameRoom extends GameRoom {
         maxCharge: MAX_CHARGE,
         characterShape: data.characterShape || 'circle',
         velocity: { x: 0, y: 0 },
+        knockbackVelocity: { x: 0, y: 0 },
         walletAddress: data.walletAddress,
         balance: ENTRY_FEE,
         lastCombatTime: 0,
