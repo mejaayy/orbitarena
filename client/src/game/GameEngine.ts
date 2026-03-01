@@ -127,6 +127,7 @@ export class GameEngine {
     window.addEventListener('keyup', this.handleKeyUp);
     window.addEventListener('mousemove', this.handleMouseMove);
     this.canvas.addEventListener('mousedown', this.handleMouseDown);
+    window.addEventListener('mouseup', this.handleMouseUp);
     this.canvas.addEventListener('contextmenu', this.handleContextMenu);
   }
 
@@ -139,17 +140,27 @@ export class GameEngine {
     this.mouseScreenY = e.clientY;
   };
 
-  private spaceHeld = false;
+  private rightClickHeld = false;
   private pullInterval: ReturnType<typeof setInterval> | null = null;
 
   private handleKeyDown = (e: KeyboardEvent) => {
-    if (e.code === 'Space') {
+    // Space binding removed
+  };
+
+  private handleKeyUp = (e: KeyboardEvent) => {
+    // Space binding removed
+  };
+
+  private handleMouseDown = (e: MouseEvent) => {
+    if (e.button === 0) {
+      this.sendAbility('ABILITY_2');
+    } else if (e.button === 2) {
       e.preventDefault();
-      if (!this.spaceHeld) {
-        this.spaceHeld = true;
+      if (!this.rightClickHeld) {
+        this.rightClickHeld = true;
         this.sendAbility('ABILITY_1');
         this.pullInterval = setInterval(() => {
-          if (this.spaceHeld) {
+          if (this.rightClickHeld) {
             this.sendAbility('ABILITY_1');
           }
         }, 150);
@@ -157,19 +168,13 @@ export class GameEngine {
     }
   };
 
-  private handleKeyUp = (e: KeyboardEvent) => {
-    if (e.code === 'Space') {
-      this.spaceHeld = false;
+  private handleMouseUp = (e: MouseEvent) => {
+    if (e.button === 2) {
+      this.rightClickHeld = false;
       if (this.pullInterval) {
         clearInterval(this.pullInterval);
         this.pullInterval = null;
       }
-    }
-  };
-
-  private handleMouseDown = (e: MouseEvent) => {
-    if (e.button === 0) {
-      this.sendAbility('ABILITY_2');
     }
   };
 
@@ -675,11 +680,12 @@ export class GameEngine {
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
     window.removeEventListener('mousemove', this.handleMouseMove);
+    window.removeEventListener('mouseup', this.handleMouseUp);
     if (this.pullInterval) {
       clearInterval(this.pullInterval);
       this.pullInterval = null;
     }
-    this.spaceHeld = false;
+    this.rightClickHeld = false;
     this.canvas.removeEventListener('mousedown', this.handleMouseDown);
     this.canvas.removeEventListener('contextmenu', this.handleContextMenu);
     this.abilityEffects = [];
