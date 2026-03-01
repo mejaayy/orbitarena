@@ -618,6 +618,7 @@ class GameRoom {
       } else {
         abilityName = 'PIERCE';
         this.executePierce(player);
+        return; // Pierce handles its own broadcast and damage timing
       }
     } else if (shape === 'square') {
       if (abilityType === 'ABILITY_1') {
@@ -758,6 +759,18 @@ class GameRoom {
     
     const hitPlayers = new Set<string>();
     
+    // We send the ABILITY_EFFECT first
+    this.broadcast({
+      type: 'ABILITY_EFFECT',
+      payload: {
+        playerId: player.id,
+        ability: 'PIERCE',
+        x: player.x,
+        y: player.y,
+        angle: angle
+      }
+    });
+
     for (let d = 0; d < PROJECTILE_RANGE; d += 20) {
       const px = startX + Math.cos(angle) * d;
       const py = startY + Math.sin(angle) * d;
@@ -770,7 +783,14 @@ class GameRoom {
         const dist = Math.sqrt(dx * dx + dy * dy);
         
         if (dist < other.radius + 15) {
-          this.damagePlayer(player, other, 30);
+          // Delay damage based on distance to simulate projectile travel time
+          const travelTime = (d / PROJECTILE_RANGE) * 300; 
+          setTimeout(() => {
+            // Check if players are still in the room/game
+            if (this.gameState.players.has(player.id) && this.gameState.players.has(other.id)) {
+               this.damagePlayer(player, other, 30);
+            }
+          }, travelTime);
           hitPlayers.add(other.id);
         }
       });
