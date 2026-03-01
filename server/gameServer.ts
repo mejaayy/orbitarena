@@ -1012,7 +1012,8 @@ class GameRoom {
       balance: p.balance,
       isSpectator: p.isSpectator,
       isStunned: p.isStunned,
-      facingAngle: p.facingAngle
+      facingAngle: p.facingAngle,
+      isBot: this.botIds.has(p.id)
     }));
 
     const stateMessage: ServerMessage = {
@@ -1458,7 +1459,8 @@ class StakeGameRoom extends GameRoom {
       balance: p.balance,
       isSpectator: p.isSpectator,
       isStunned: p.isStunned,
-      facingAngle: p.facingAngle
+      facingAngle: p.facingAngle,
+      isBot: this.botIds.has(p.id)
     }));
 
     const timeRemaining = Math.max(0, ROUND_DURATION - (Date.now() - this.roundStartTime));
