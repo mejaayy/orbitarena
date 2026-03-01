@@ -1052,7 +1052,7 @@ export class GameEngine {
   }
 
   private drawPullEffect(x: number, y: number, progress: number, alpha: number) {
-    const radius = 150 * (1 - progress);
+    const radius = 195 * (1 - progress);
     this.ctx.beginPath();
     this.ctx.arc(x, y, radius, 0, Math.PI * 2);
     this.ctx.strokeStyle = `rgba(163, 0, 204, ${alpha * 0.6})`;
@@ -1061,7 +1061,7 @@ export class GameEngine {
   }
 
   private drawSlamEffect(x: number, y: number, progress: number, alpha: number) {
-    const radius = 150 * progress;
+    const radius = 195 * progress;
     this.ctx.beginPath();
     this.ctx.arc(x, y, radius, 0, Math.PI * 2);
     this.ctx.fillStyle = `rgba(212, 0, 70, ${alpha * 0.3})`;
@@ -1136,7 +1136,7 @@ export class GameEngine {
 
   private drawPushEffect(x: number, y: number, progress: number, alpha: number) {
     const now = performance.now();
-    const radius = 200 * progress;
+    const radius = 260 * progress;
     
     this.ctx.beginPath();
     this.ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -1175,7 +1175,7 @@ export class GameEngine {
   }
 
   private drawStunWaveEffect(x: number, y: number, progress: number, alpha: number) {
-    const radius = 150 * progress;
+    const radius = 195 * progress;
     const now = performance.now();
     
     this.ctx.save();

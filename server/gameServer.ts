@@ -722,7 +722,7 @@ class GameRoom {
   }
 
   protected executePush(player: Player) {
-    const pushForce = 18;
+    const pushForce = 35;
     this.gameState.players.forEach(other => {
       if (other.id === player.id || other.isSpectator) return;
       
