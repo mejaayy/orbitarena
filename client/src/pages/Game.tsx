@@ -264,7 +264,7 @@ export default function Game() {
             <div className="flex items-center gap-2">
               <kbd className="px-2 py-1 bg-white/10 rounded text-xs font-mono text-white">LEFT CLICK</kbd>
               <span className="text-sm text-white">
-                {characterShape === 'circle' ? 'Slam' : characterShape === 'triangle' ? 'Shoot' : 'Stun Wave'}
+                {characterShape === 'circle' ? 'Slam' : characterShape === 'triangle' ? 'Pierce' : 'Stun Wave'}
               </span>
             </div>
           </div>
