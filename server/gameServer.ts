@@ -432,13 +432,14 @@ class GameRoom {
   }
 
   protected spawnPickupAt(x: number, y: number, type: PickupType, trackDelta: boolean = true): Pickup {
+    const hpValue = type === 'HP' ? (Math.random() < 0.5 ? 7 : 8) : 0;
     const pickup: Pickup = {
       id: `pickup-${Math.random().toString(36).substr(2, 9)}`,
       x,
       y,
-      radius: type === 'HP' ? 8 : 7,
+      radius: type === 'HP' ? (hpValue === 8 ? 10 : 8) : 7,
       type,
-      value: type === 'HP' ? (Math.random() < 0.5 ? 7 : 8) : CHARGE_PICKUP_VALUE
+      value: type === 'HP' ? hpValue : CHARGE_PICKUP_VALUE
     };
     this.gameState.pickups.push(pickup);
     if (trackDelta) {
