@@ -941,7 +941,7 @@ export class GameEngine {
     const now = performance.now();
     const timeSinceHeal = now - this.healCounter.lastHealTime;
     
-    if (timeSinceHeal > 1500) {
+    if (timeSinceHeal > 1300) {
       this.healCounter = null;
       return;
     }
@@ -952,17 +952,17 @@ export class GameEngine {
       this.healCounter.y = localPlayer.y;
     }
     
-    if (timeSinceHeal > 1000) {
+    if (timeSinceHeal > 800) {
       this.healCounter.floatOffset += 0.8;
     }
     
     let alpha = 1;
-    if (timeSinceHeal > 1000) {
-      alpha = 1 - (timeSinceHeal - 1000) / 500;
+    if (timeSinceHeal > 800) {
+      alpha = 1 - (timeSinceHeal - 800) / 500;
     }
     
     const yOffset = -40 - this.healCounter.floatOffset;
-    const fontSize = Math.min(56, 36 + this.healCounter.totalHeal * 0.3);
+    const fontSize = Math.min(39, 25 + this.healCounter.totalHeal * 0.21);
     
     this.ctx.save();
     this.ctx.font = `bold ${fontSize}px Outfit`;
