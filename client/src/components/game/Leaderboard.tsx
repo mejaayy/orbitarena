@@ -9,6 +9,23 @@ interface LeaderboardProps {
 }
 
 export const Leaderboard: React.FC<LeaderboardProps> = ({ players, localPlayerId, timeRemaining, isStakeMode }) => {
+  // Get rank color: gold for 1st, silver for 2nd, bronze for 3rd
+  const getRankColor = (rank: number) => {
+    if (rank === 1) return 'text-yellow-400'; // Gold
+    if (rank === 2) return 'text-gray-300'; // Silver
+    if (rank === 3) return 'text-amber-600'; // Bronze
+    return 'text-white';
+  };
+  
+  // Format time remaining
+  const formatTime = (ms?: number) => {
+    if (ms === undefined || ms <= 0) return '--:--';
+    const totalSeconds = Math.ceil(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
   // Calculate your rank (1-indexed) and get your mass
   const localPlayer = players.find(p => p.id === localPlayerId);
   const yourRank = players.findIndex(p => p.id === localPlayerId) + 1;
