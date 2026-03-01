@@ -967,7 +967,7 @@ export class GameEngine {
       this.ctx.lineWidth = 3;
       this.ctx.strokeText(`${counter.totalDamage}`, counter.x, counter.y + yOffset);
       
-      this.ctx.fillStyle = '#FF2244';
+      this.ctx.fillStyle = '#D40046';
       this.ctx.fillText(`${counter.totalDamage}`, counter.x, counter.y + yOffset);
       
       this.ctx.restore();
@@ -1013,7 +1013,7 @@ export class GameEngine {
     this.ctx.lineWidth = 3;
     this.ctx.strokeText(`+${this.healCounter.totalHeal}`, this.healCounter.x, this.healCounter.y + yOffset);
     
-    this.ctx.fillStyle = '#00DD44';
+    this.ctx.fillStyle = '#00CC7A';
     this.ctx.fillText(`+${this.healCounter.totalHeal}`, this.healCounter.x, this.healCounter.y + yOffset);
     
     this.ctx.restore();
@@ -1061,7 +1061,7 @@ export class GameEngine {
     const radius = 195 * (1 - progress);
     this.ctx.beginPath();
     this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-    this.ctx.strokeStyle = `rgba(163, 0, 204, ${alpha * 0.6})`;
+    this.ctx.strokeStyle = `rgba(212, 0, 70, ${alpha * 0.6})`;
     this.ctx.lineWidth = 3;
     this.ctx.stroke();
   }
