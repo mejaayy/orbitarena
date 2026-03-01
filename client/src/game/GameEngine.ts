@@ -875,19 +875,9 @@ export class GameEngine {
         const size = pickup.radius * 1.6;
         this.ctx.fillStyle = '#00CC7A'; // Green
         this.ctx.fillRect(pickup.x - size / 2, pickup.y - size / 2, size, size);
-        
-        // Add cross detail for HP
-        this.ctx.strokeStyle = 'white';
-        this.ctx.lineWidth = 2;
-        this.ctx.beginPath();
-        this.ctx.moveTo(pickup.x - size * 0.3, pickup.y);
-        this.ctx.lineTo(pickup.x + size * 0.3, pickup.y);
-        this.ctx.moveTo(pickup.x, pickup.y - size * 0.3);
-        this.ctx.lineTo(pickup.x, pickup.y + size * 0.3);
-        this.ctx.stroke();
       } else {
         const r = pickup.radius * 1.4;
-        this.ctx.fillStyle = '#A300CC';
+        this.ctx.fillStyle = '#D40046'; // Red
         this.ctx.beginPath();
         this.ctx.moveTo(pickup.x, pickup.y - r);
         this.ctx.lineTo(pickup.x + r * Math.cos(Math.PI / 6), pickup.y + r * Math.sin(Math.PI / 6));
@@ -1128,7 +1118,7 @@ export class GameEngine {
     const px = x + Math.cos(angle) * projectileDistance;
     const py = y + Math.sin(angle) * projectileDistance;
     
-    const [r, g, b] = color.startsWith('#') ? this.parseHexColor(color) : [204, 204, 0];
+    const [r, g, b] = color.startsWith('#') ? this.parseHexColor(color) : [212, 0, 70];
     const size = 15;
 
     this.ctx.save();
@@ -1331,8 +1321,8 @@ export class GameEngine {
     const innerRadius = outerRadius * 0.55;
 
     const gradient = this.ctx.createRadialGradient(cx, cy, innerRadius, cx, cy, outerRadius);
-    gradient.addColorStop(0, 'rgba(30, 0, 40, 0)');
-    gradient.addColorStop(1, 'rgba(30, 0, 40, 0.4)');
+    gradient.addColorStop(0, 'rgba(212, 0, 70, 0)');
+    gradient.addColorStop(1, 'rgba(212, 0, 70, 0.4)');
 
     this.ctx.fillStyle = gradient;
     this.ctx.fillRect(0, 0, width, height);
@@ -1357,8 +1347,8 @@ export class GameEngine {
       const innerRadius = outerRadius * 0.7;
       
       const gradient = this.ctx.createRadialGradient(cx, cy, innerRadius, cx, cy, outerRadius);
-      gradient.addColorStop(0, 'rgba(163, 0, 204, 0)');
-      gradient.addColorStop(1, `rgba(163, 0, 204, ${this.lowChargeFlashAlpha * 0.5})`);
+      gradient.addColorStop(0, 'rgba(212, 0, 70, 0)');
+      gradient.addColorStop(1, `rgba(212, 0, 70, ${this.lowChargeFlashAlpha * 0.5})`);
       
       this.ctx.fillStyle = gradient;
       this.ctx.fillRect(0, 0, width, height);
@@ -1392,7 +1382,7 @@ export class GameEngine {
         this.ctx.fillStyle = '#00CC7A';
         this.ctx.arc(px, py, 3, 0, Math.PI * 2);
       } else {
-        this.ctx.fillStyle = 'rgba(212, 0, 70, 0.8)';
+        this.ctx.fillStyle = '#D40046';
         this.ctx.arc(px, py, 2, 0, Math.PI * 2);
       }
       this.ctx.fill();
@@ -1546,24 +1536,24 @@ export class GameEngine {
     this.ctx.globalAlpha = 1;
     this.ctx.restore();
     
-    // Draw Charge bar above player (yellow)
+    // Draw Energy bar above player
     const barWidth = player.radius * 2.5;
     const barHeight = 6;
     const barY = player.y - player.radius - 14;
     const barX = player.x - barWidth / 2;
     const chargePercent = (player.charge || 0) / (player.maxCharge || 100);
     
-    // Charge bar background
+    // Energy bar background
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     this.ctx.fillRect(barX, barY, barWidth, barHeight);
     
-    // Charge bar fill (purple)
-    this.ctx.fillStyle = '#A300CC';
+    // Energy bar fill (red)
+    this.ctx.fillStyle = '#D40046';
     this.ctx.fillRect(barX, barY, barWidth * chargePercent, barHeight);
-    
-    // Draw section dividers at each 20-charge increment
+
+    // Draw section dividers at each 20-energy increment
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    const maxCharge = player.maxCharge || 200;
+    const maxCharge = player.maxCharge || 100;
     const sections = maxCharge / 20;
     for (let i = 1; i < sections; i++) {
       const dividerX = barX + (barWidth * i / sections);

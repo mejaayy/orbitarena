@@ -245,6 +245,16 @@ export default function Game() {
         <div className="absolute bottom-4 left-4 bg-black/70 backdrop-blur-sm rounded-lg border border-white/10 p-3 pointer-events-none select-none" data-testid="ability-hud">
           <div className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Abilities</div>
           <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-4 mb-1">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 bg-[#00CC7A] rounded-sm" />
+                <span className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Health</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[10px] border-b-[#D40046]" />
+                <span className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Energy</span>
+              </div>
+            </div>
             <div className="flex items-center gap-2">
               <kbd className="px-2 py-1 bg-white/10 rounded text-xs font-mono text-white">RIGHT CLICK</kbd>
               <span className="text-sm text-white">
@@ -258,7 +268,7 @@ export default function Game() {
               </span>
             </div>
           </div>
-          <div className="text-xs text-gray-500 mt-2">20 charge each</div>
+          <div className="text-xs text-gray-500 mt-2">20 energy each</div>
         </div>
       )}
 
