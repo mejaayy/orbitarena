@@ -135,6 +135,7 @@ class GameRoom {
   protected collectedPickupIds: string[] = [];
   protected botStates: Map<string, BotState> = new Map();
   protected botIds: Set<string> = new Set();
+  protected comboTrackers: Map<string, { hits: number; lastHitTime: number }> = new Map();
 
   constructor(id: string, isStakeMode: boolean = false) {
     this.id = id;
@@ -880,12 +881,27 @@ class GameRoom {
     this.clients.delete(victim.id);
   }
 
-  protected damagePlayer(attacker: Player | null, victim: Player, damage: number) {
+  protected damagePlayer(attacker: Player | null, victim: Player, baseDamage: number) {
+    let damage = baseDamage;
+    
+    if (attacker) {
+      const comboKey = `${attacker.id}->${victim.id}`;
+      const now = Date.now();
+      const combo = this.comboTrackers.get(comboKey);
+      
+      if (combo && now - combo.lastHitTime < 1000) {
+        combo.hits++;
+        combo.lastHitTime = now;
+        damage = Math.floor(baseDamage * (1 + 0.1 * (combo.hits - 1)));
+      } else {
+        this.comboTrackers.set(comboKey, { hits: 1, lastHitTime: now });
+      }
+    }
+    
     victim.hp -= damage;
     victim.lastCombatTime = Date.now();
     if (attacker) {
       attacker.lastCombatTime = Date.now();
-      // Points = damage dealt
       attacker.score += damage;
     }
     
@@ -895,6 +911,16 @@ class GameRoom {
         type: 'DAMAGE',
         payload: { targetId: victim.id, damage, currentHp: victim.hp, attackerId: attacker?.id }
       });
+    }
+    
+    if (attacker) {
+      const attackerWs = this.clients.get(attacker.id);
+      if (attackerWs) {
+        this.send(attackerWs, {
+          type: 'DAMAGE',
+          payload: { targetId: victim.id, damage, currentHp: victim.hp, attackerId: attacker.id, victimX: victim.x, victimY: victim.y }
+        });
+      }
     }
     
     this.updatePlayerRadius(victim);

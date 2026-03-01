@@ -335,9 +335,38 @@ export class GameEngine {
           this.showDamageFlash();
           soundManager.playDamage();
         }
+        if (message.payload.attackerId === this.localPlayerId && message.payload.victimX !== undefined) {
+          const now = performance.now();
+          const key = message.payload.targetId;
+          const existing = this.damageCounters.get(key);
+          if (existing && now - existing.lastHitTime < 1000) {
+            existing.totalDamage += message.payload.damage;
+            existing.lastHitTime = now;
+            existing.x = message.payload.victimX;
+            existing.y = message.payload.victimY;
+          } else {
+            this.damageCounters.set(key, {
+              targetId: key,
+              totalDamage: message.payload.damage,
+              x: message.payload.victimX,
+              y: message.payload.victimY,
+              lastHitTime: now,
+              floatOffset: 0,
+            });
+          }
+        }
         break;
     }
   }
+
+  private damageCounters: Map<string, {
+    targetId: string;
+    totalDamage: number;
+    x: number;
+    y: number;
+    lastHitTime: number;
+    floatOffset: number;
+  }> = new Map();
 
   private abilityEffects: Array<{
     type: string;
@@ -597,6 +626,7 @@ export class GameEngine {
     this.canvas.removeEventListener('mousedown', this.handleMouseDown);
     this.canvas.removeEventListener('contextmenu', this.handleContextMenu);
     this.abilityEffects = [];
+    this.damageCounters.clear();
     this.damageFlashAlpha = 0;
     // Stop background music
     proceduralMusic.stop();
@@ -805,6 +835,7 @@ export class GameEngine {
     });
 
     this.drawAbilityEffects();
+    this.drawDamageCounters();
 
     this.ctx.restore();
 
@@ -825,6 +856,53 @@ export class GameEngine {
       const alpha = 1 - progress;
       
       this.drawDashEffect(effect.x, effect.y, effect.angle, progress, alpha, effect.playerId);
+    });
+  }
+
+  private drawDamageCounters() {
+    const now = performance.now();
+    
+    this.damageCounters.forEach((counter, key) => {
+      const timeSinceHit = now - counter.lastHitTime;
+      
+      if (timeSinceHit > 1500) {
+        this.damageCounters.delete(key);
+        return;
+      }
+      
+      const victim = this.players.get(counter.targetId);
+      if (victim) {
+        counter.x = victim.x;
+        counter.y = victim.y;
+      }
+      
+      if (timeSinceHit > 1000) {
+        counter.floatOffset += 0.8;
+      }
+      
+      const fadeStart = 1000;
+      let alpha = 1;
+      if (timeSinceHit > fadeStart) {
+        alpha = 1 - (timeSinceHit - fadeStart) / 500;
+      }
+      
+      const yOffset = -40 - counter.floatOffset;
+      const fontSize = Math.min(28, 18 + counter.totalDamage * 0.15);
+      
+      this.ctx.save();
+      this.ctx.font = `bold ${fontSize}px Outfit`;
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'bottom';
+      this.ctx.globalAlpha = alpha;
+      
+      this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+      this.ctx.lineWidth = 3;
+      this.ctx.strokeText(`${counter.totalDamage}`, counter.x, counter.y + yOffset);
+      
+      this.ctx.fillStyle = '#FF2244';
+      this.ctx.fillText(`${counter.totalDamage}`, counter.x, counter.y + yOffset);
+      
+      this.ctx.restore();
     });
   }
 
