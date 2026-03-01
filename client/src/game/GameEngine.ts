@@ -860,6 +860,9 @@ export class GameEngine {
           player.y + player.radius < viewTop || player.y - player.radius > viewBottom) return;
 
       this.drawPlayer(player);
+      if (player.isStunned) {
+        this.drawStunnedEffect(player);
+      }
     });
 
     this.drawAbilityEffects();
@@ -1112,11 +1115,115 @@ export class GameEngine {
 
   private drawStunWaveEffect(x: number, y: number, progress: number, alpha: number) {
     const radius = 150 * progress;
+    const now = performance.now();
+    
+    this.ctx.save();
+    
     this.ctx.beginPath();
     this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-    this.ctx.fillStyle = `rgba(204, 204, 0, ${alpha * 0.25})`;
+    this.ctx.fillStyle = `rgba(80, 180, 255, ${alpha * 0.12})`;
     this.ctx.fill();
-    this.ctx.strokeStyle = `rgba(204, 204, 0, ${alpha * 0.8})`;
+    
+    const boltCount = 12;
+    for (let i = 0; i < boltCount; i++) {
+      const baseAngle = (i / boltCount) * Math.PI * 2 + now * 0.003;
+      this.drawLightningBolt(
+        x, y,
+        x + Math.cos(baseAngle) * radius,
+        y + Math.sin(baseAngle) * radius,
+        3, alpha * 0.9, 15
+      );
+    }
+    
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+    this.ctx.strokeStyle = `rgba(100, 200, 255, ${alpha * 0.6})`;
+    this.ctx.lineWidth = 2;
+    this.ctx.setLineDash([8, 12]);
+    this.ctx.lineDashOffset = -now * 0.5;
+    this.ctx.stroke();
+    this.ctx.setLineDash([]);
+    
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, radius * 0.6, 0, Math.PI * 2);
+    this.ctx.strokeStyle = `rgba(150, 220, 255, ${alpha * 0.3})`;
+    this.ctx.lineWidth = 1;
+    this.ctx.setLineDash([4, 8]);
+    this.ctx.lineDashOffset = now * 0.3;
+    this.ctx.stroke();
+    this.ctx.setLineDash([]);
+    
+    this.ctx.restore();
+  }
+
+  private drawLightningBolt(x1: number, y1: number, x2: number, y2: number, segments: number, alpha: number, jitter: number) {
+    const points: { x: number; y: number }[] = [{ x: x1, y: y1 }];
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    
+    for (let i = 1; i < segments; i++) {
+      const t = i / segments;
+      const mx = x1 + dx * t + (Math.random() - 0.5) * jitter;
+      const my = y1 + dy * t + (Math.random() - 0.5) * jitter;
+      points.push({ x: mx, y: my });
+    }
+    points.push({ x: x2, y: y2 });
+    
+    this.ctx.beginPath();
+    this.ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      this.ctx.lineTo(points[i].x, points[i].y);
+    }
+    this.ctx.strokeStyle = `rgba(100, 200, 255, ${alpha})`;
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+    
+    this.ctx.beginPath();
+    this.ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      this.ctx.lineTo(points[i].x, points[i].y);
+    }
+    this.ctx.strokeStyle = `rgba(220, 240, 255, ${alpha * 0.6})`;
+    this.ctx.lineWidth = 1;
+    this.ctx.stroke();
+  }
+
+  private drawStunnedEffect(player: InterpolatedPlayer) {
+    const now = performance.now();
+    const r = player.radius;
+    
+    const arcCount = 3;
+    for (let i = 0; i < arcCount; i++) {
+      const angle1 = ((now * 0.005 + i * Math.PI * 2 / arcCount) % (Math.PI * 2));
+      const angle2 = angle1 + Math.PI * (0.4 + Math.random() * 0.3);
+      
+      const x1 = player.x + Math.cos(angle1) * r * 0.9;
+      const y1 = player.y + Math.sin(angle1) * r * 0.9;
+      const x2 = player.x + Math.cos(angle2) * r * 0.9;
+      const y2 = player.y + Math.sin(angle2) * r * 0.9;
+      
+      this.drawLightningBolt(x1, y1, x2, y2, 4, 0.8, r * 0.4);
+    }
+    
+    const sparkCount = 4;
+    for (let i = 0; i < sparkCount; i++) {
+      const seed = (now * 0.01 + i * 137.5) % 360;
+      const sparkAngle = seed * Math.PI / 180;
+      const sparkDist = r * (0.5 + Math.sin(now * 0.008 + i) * 0.5);
+      const sx = player.x + Math.cos(sparkAngle) * sparkDist;
+      const sy = player.y + Math.sin(sparkAngle) * sparkDist;
+      const sparkSize = 2 + Math.sin(now * 0.015 + i * 2) * 1.5;
+      
+      this.ctx.beginPath();
+      this.ctx.arc(sx, sy, sparkSize, 0, Math.PI * 2);
+      this.ctx.fillStyle = `rgba(180, 230, 255, ${0.6 + Math.sin(now * 0.02 + i) * 0.3})`;
+      this.ctx.fill();
+    }
+    
+    const glowPulse = 0.15 + Math.sin(now * 0.01) * 0.08;
+    this.ctx.beginPath();
+    this.ctx.arc(player.x, player.y, r + 4, 0, Math.PI * 2);
+    this.ctx.strokeStyle = `rgba(100, 200, 255, ${glowPulse})`;
     this.ctx.lineWidth = 3;
     this.ctx.stroke();
   }
