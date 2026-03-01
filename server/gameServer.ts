@@ -703,6 +703,7 @@ class GameRoom {
 
     if (closestTarget) {
       angle = Math.atan2(closestTarget.y - player.y, closestTarget.x - player.x);
+      player.facingAngle = angle; // Update player's facing angle to visually point at target
     }
 
     player.x += Math.cos(angle) * DASH_DISTANCE;
@@ -749,6 +750,7 @@ class GameRoom {
 
     if (closestTarget) {
       angle = Math.atan2(closestTarget.y - player.y, closestTarget.x - player.x);
+      player.facingAngle = angle; // Update player's facing angle to visually point at target
     }
 
     const startX = player.x;
