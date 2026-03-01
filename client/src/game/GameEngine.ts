@@ -204,7 +204,6 @@ export class GameEngine {
   private lowChargeFlashAlpha = 0;
 
   private showLowChargeFlash() {
-    this.lowChargeFlashAlpha = 0.6;
     soundManager.playLowCharge();
   }
 
