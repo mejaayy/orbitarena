@@ -790,6 +790,35 @@ class GameRoom {
         continue;
       }
 
+      let closestEnemy: Player | null = null;
+      let closestDist = Infinity;
+
+      this.gameState.players.forEach(other => {
+        if (other.id === proj.ownerId || other.isSpectator) return;
+        const dx = other.x - proj.x;
+        const dy = other.y - proj.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestEnemy = other;
+        }
+      });
+
+      if (closestEnemy) {
+        const targetAngle = Math.atan2(closestEnemy.y - proj.y, closestEnemy.x - proj.x);
+        let angleDiff = targetAngle - proj.angle;
+        while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+        while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+        if (angleDiff > MISSILE_TURN_RATE) {
+          proj.angle += MISSILE_TURN_RATE;
+        } else if (angleDiff < -MISSILE_TURN_RATE) {
+          proj.angle -= MISSILE_TURN_RATE;
+        } else {
+          proj.angle = targetAngle;
+        }
+      }
+
       proj.x += Math.cos(proj.angle) * proj.speed;
       proj.y += Math.sin(proj.angle) * proj.speed;
 
