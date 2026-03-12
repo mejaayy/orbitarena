@@ -729,6 +729,15 @@ export class GameEngine {
     const dt = (timestamp - this.lastTime) / 1000;
     this.lastTime = timestamp;
 
+    if (!this.localPlayerId) {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      this.ctx.fillStyle = '#050508';
+      this.ctx.fillRect(0, 0, width, height);
+      requestAnimationFrame(this.loop);
+      return;
+    }
+
     this.frameCount++;
     if (timestamp - this.fpsLastTime >= 1000) {
       this.currentFps = this.frameCount;
