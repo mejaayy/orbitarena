@@ -1015,13 +1015,13 @@ export class GameEngine {
 
     const progress = elapsed / this.SHOOT_COOLDOWN;
     const remaining = 1 - progress;
-    const radius = 18;
+    const radius = 22.5;
 
     this.ctx.save();
     this.ctx.beginPath();
     this.ctx.arc(this.mouseScreenX, this.mouseScreenY, radius, -Math.PI / 2, -Math.PI / 2 + remaining * Math.PI * 2);
     this.ctx.strokeStyle = `rgba(255, 255, 255, ${0.6 * remaining})`;
-    this.ctx.lineWidth = 2.5;
+    this.ctx.lineWidth = 5;
     this.ctx.stroke();
     this.ctx.restore();
   }
