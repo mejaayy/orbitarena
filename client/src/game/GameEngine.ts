@@ -1132,23 +1132,26 @@ export class GameEngine {
       const progress = elapsed / effect.duration;
       const alpha = 1 - progress;
       
-      // Skip DASH here - it's drawn separately underneath players
       if (effect.type === 'DASH') return true;
+      
+      const player = this.players.get(effect.playerId || '');
+      const ex = player ? player.x : effect.x;
+      const ey = player ? player.y : effect.y;
       
       switch (effect.type) {
         case 'PULL':
-          this.drawPullEffect(effect.x, effect.y, progress, alpha);
+          this.drawPullEffect(ex, ey, progress, alpha);
           break;
         case 'SLAM':
-          this.drawSlamEffect(effect.x, effect.y, progress, alpha);
+          this.drawSlamEffect(ex, ey, progress, alpha);
           break;
         case 'PIERCE':
           break;
         case 'PUSH':
-          this.drawPushEffect(effect.x, effect.y, progress, alpha);
+          this.drawPushEffect(ex, ey, progress, alpha);
           break;
         case 'STUN_WAVE':
-          this.drawStunWaveEffect(effect.x, effect.y, progress, alpha);
+          this.drawStunWaveEffect(ex, ey, progress, alpha);
           break;
       }
       
