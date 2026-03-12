@@ -641,6 +641,9 @@ export class GameEngine {
         existing.characterShape = p.characterShape;
         existing.color = p.color;
         existing.balance = p.balance;
+        if (existing.isStunned && !p.isStunned && existing.id === this.localPlayerId) {
+          this.lastInputSendTime = 0;
+        }
         existing.isStunned = p.isStunned;
         existing.facingAngle = p.facingAngle;
       } else {

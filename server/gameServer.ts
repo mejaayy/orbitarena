@@ -1205,6 +1205,8 @@ class GameRoom {
       if (player.isStunned && now >= player.stunEndTime) {
         player.isStunned = false;
         player.stunAttackerId = null;
+        player.velocity = { x: 0, y: 0 };
+        player.inputVector = { x: 0, y: 0 };
       }
       if (player.isStunned) {
         if (now - player.lastStunDamageTime >= 1000) {
