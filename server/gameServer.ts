@@ -375,11 +375,13 @@ class GameRoom {
       const needsHp = player.hp < 100;
       const lowHp = player.hp < 50;
       const hasCharge = player.charge >= ABILITY_CHARGE_COST;
+      const lowCharge = player.charge < ABILITY_CHARGE_COST;
       const aggro = botState.aggressionLevel;
 
       let preferredPickup: Pickup | null = null;
       let preferredPickupDist = Infinity;
-      if (needsHp || player.charge < player.maxCharge * 0.5) {
+      const wantsPickup = needsHp || lowCharge || player.charge < player.maxCharge * 0.4;
+      if (wantsPickup) {
         const preferType: PickupType = needsHp ? 'HP' : 'CHARGE';
         for (const pickup of this.gameState.pickups) {
           if (pickup.type !== preferType) continue;
@@ -397,19 +399,23 @@ class GameRoom {
         botState.behaviorMode = 'dodge';
       } else if (lowHp && nearestEnemy && nearestEnemyDist < 400) {
         botState.behaviorMode = 'flee';
+      } else if (lowCharge && preferredPickup && preferredPickupDist < 1000) {
+        botState.behaviorMode = 'collect';
       } else if (nearestEnemy && nearestEnemyDist < ABILITY_RANGE * 1.5 && hasCharge) {
         botState.behaviorMode = 'strafe';
         botState.chaseTargetId = nearestEnemy.id;
-      } else if (nearestEnemy && nearestEnemyDist < ENEMY_SCAN_RANGE * aggro) {
+      } else if (nearestEnemy && nearestEnemyDist < ENEMY_SCAN_RANGE * aggro && hasCharge) {
         botState.behaviorMode = 'chase';
         botState.chaseTargetId = nearestEnemy.id;
       } else if (needsHp && preferredPickup && preferredPickupDist < 600) {
         botState.behaviorMode = 'collect';
       } else if (preferredPickup && preferredPickupDist < 400) {
         botState.behaviorMode = 'collect';
-      } else if (nearestEnemy && nearestEnemyDist < ENEMY_SCAN_RANGE) {
+      } else if (nearestEnemy && nearestEnemyDist < ENEMY_SCAN_RANGE && hasCharge) {
         botState.behaviorMode = 'chase';
         botState.chaseTargetId = nearestEnemy.id;
+      } else if (preferredPickup) {
+        botState.behaviorMode = 'collect';
       } else {
         botState.behaviorMode = 'wander';
       }
