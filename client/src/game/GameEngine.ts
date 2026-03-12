@@ -511,13 +511,13 @@ export class GameEngine {
         startTime: performance.now(),
         duration: 500
       });
-      this.triggerScreenShake(7.2, 240);
+      this.triggerScreenShake(9, 300);
       return;
     }
 
     if (payload.ability === 'MISSILE_LAUNCH') {
       if (payload.playerId === this.localPlayerId) {
-        this.triggerScreenShake(3.6, 120);
+        this.triggerScreenShake(4.5, 150);
       }
       return;
     }
@@ -548,19 +548,19 @@ export class GameEngine {
   private getShakeIntensity(ability: string): { intensity: number; duration: number } {
     switch (ability) {
       case 'SLAM':
-        return { intensity: 14.4, duration: 360 };
+        return { intensity: 18, duration: 450 };
       case 'PUSH':
-        return { intensity: 12, duration: 300 };
+        return { intensity: 15, duration: 375 };
       case 'STUN_WAVE':
-        return { intensity: 9.6, duration: 360 };
+        return { intensity: 12, duration: 450 };
       case 'DASH':
-        return { intensity: 7.2, duration: 180 };
+        return { intensity: 9, duration: 225 };
       case 'PIERCE':
-        return { intensity: 4.8, duration: 120 };
+        return { intensity: 6, duration: 150 };
       case 'PULL':
-        return { intensity: 6, duration: 240 };
+        return { intensity: 7.5, duration: 300 };
       default:
-        return { intensity: 6, duration: 180 };
+        return { intensity: 7.5, duration: 225 };
     }
   }
   
@@ -596,7 +596,7 @@ export class GameEngine {
   private showDamageFlash() {
     this.damageFlashAlpha = 0.4;
     // Add screen shake when taking damage
-    this.triggerScreenShake(8, 200);
+    this.triggerScreenShake(10, 250);
   }
 
   private applyPickupDelta(delta: { spawned: Pickup[]; collected: string[] }) {
