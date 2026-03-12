@@ -672,7 +672,7 @@ class GameRoom {
       
       if (dist < ABILITY_RANGE) {
         const distRatio = dist / ABILITY_RANGE;
-        const damage = Math.floor(100 - distRatio * 50);
+        const damage = Math.floor(50 - distRatio * 30);
         this.damagePlayer(player, other, damage);
       }
     });
@@ -720,7 +720,7 @@ class GameRoom {
       const dist = Math.sqrt(dx * dx + dy * dy);
       
       if (dist < player.radius + other.radius + 20) {
-        this.damagePlayer(player, other, 70);
+        this.damagePlayer(player, other, 30);
       }
     });
   }
@@ -779,7 +779,7 @@ class GameRoom {
           setTimeout(() => {
             // Check if players are still in the room/game
             if (this.gameState.players.has(player.id) && this.gameState.players.has(other.id)) {
-               this.damagePlayer(player, other, 30);
+               this.damagePlayer(player, other, 15);
             }
           }, travelTime);
           hitPlayers.add(other.id);
@@ -844,7 +844,7 @@ class GameRoom {
         other.stunAttackerId = player.id;
         other.lastStunDamageTime = now;
         other.velocity = { x: 0, y: 0 };
-        this.damagePlayer(player, other, 30);
+        this.damagePlayer(player, other, 20);
       }
     });
   }
