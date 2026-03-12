@@ -1081,25 +1081,28 @@ class GameRoom {
   }
 
   protected broadcastState() {
-    const playersArray = Array.from(this.gameState.players.values()).map(p => ({
-      id: p.id,
-      name: p.name,
-      x: p.x,
-      y: p.y,
-      radius: p.radius,
-      color: p.color,
-      score: p.score,
-      hp: p.hp,
-      maxHp: p.maxHp,
-      charge: p.charge,
-      maxCharge: p.maxCharge,
-      characterShape: p.characterShape,
-      balance: p.balance,
-      isSpectator: p.isSpectator,
-      isStunned: p.isStunned,
-      facingAngle: p.facingAngle,
-      isBot: this.botIds.has(p.id)
-    }));
+    const playersArray: any[] = [];
+    this.gameState.players.forEach(p => {
+      playersArray.push({
+        id: p.id,
+        name: p.name,
+        x: Math.round(p.x * 10) / 10,
+        y: Math.round(p.y * 10) / 10,
+        radius: Math.round(p.radius * 10) / 10,
+        color: p.color,
+        score: p.score,
+        hp: Math.round(p.hp),
+        maxHp: p.maxHp,
+        charge: Math.round(p.charge),
+        maxCharge: p.maxCharge,
+        characterShape: p.characterShape,
+        balance: p.balance,
+        isSpectator: p.isSpectator,
+        isStunned: p.isStunned,
+        facingAngle: Math.round(p.facingAngle * 100) / 100,
+        isBot: this.botIds.has(p.id)
+      });
+    });
 
     const stateMessage: ServerMessage = {
       type: 'STATE',

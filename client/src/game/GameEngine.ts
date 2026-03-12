@@ -79,8 +79,25 @@ export class GameEngine {
   static INTERP_DURATION = 100;
   static MAX_SPEED = 4.69;
   
-  private gridCanvas: HTMLCanvasElement | null = null;
-  private gridCacheKey: string = '';
+  private static readonly TRI_COS = Math.cos(Math.PI / 6);
+  private static readonly TRI_SIN = Math.sin(Math.PI / 6);
+  private static readonly HEX_SIZE = 200;
+  private static readonly HEX_WIDTH = Math.sqrt(3) * 200;
+  private static readonly HEX_VERT_SPACING = 200 * 2 * 0.75;
+  private static readonly HEX_COS = [
+    Math.cos(-Math.PI / 2),
+    Math.cos(-Math.PI / 6),
+    Math.cos(Math.PI / 6),
+    Math.cos(Math.PI / 2)
+  ];
+  private static readonly HEX_SIN = [
+    Math.sin(-Math.PI / 2),
+    Math.sin(-Math.PI / 6),
+    Math.sin(Math.PI / 6),
+    Math.sin(Math.PI / 2)
+  ];
+  
+  private _serverIdSet: Set<string> = new Set();
   
   isRunning: boolean = false;
   isStakeMode: boolean = false;
@@ -199,7 +216,6 @@ export class GameEngine {
         type: 'ABILITY',
         payload: { abilityType }
       });
-      console.log('Sending ability:', msg);
       this.ws.send(msg);
     }
   }
@@ -355,7 +371,6 @@ export class GameEngine {
         break;
 
       case 'ABILITY_EFFECT':
-        console.log('Received ABILITY_EFFECT:', message.payload);
         this.handleAbilityEffect(message.payload);
         // Play ability sound (server sends 'ability' field)
         soundManager.playAbility(message.payload.ability);
@@ -552,15 +567,20 @@ export class GameEngine {
       this.onRoundStatusChange?.(this.roundStatus);
     }
     const now = performance.now();
-    const existingIds = new Set(state.players.map(p => p.id));
+    const serverIds = this._serverIdSet;
+    serverIds.clear();
+    for (let i = 0, len = state.players.length; i < len; i++) {
+      serverIds.add(state.players[i].id);
+    }
     
     this.players.forEach((_, id) => {
-      if (!existingIds.has(id)) {
+      if (!serverIds.has(id)) {
         this.players.delete(id);
       }
     });
 
-    state.players.forEach(p => {
+    for (let i = 0, len = state.players.length; i < len; i++) {
+      const p = state.players[i];
       const existing = this.players.get(p.id);
       if (existing) {
         existing.prevX = existing.x;
@@ -591,7 +611,7 @@ export class GameEngine {
           trail: []
         });
       }
-    });
+    }
   }
 
   private sendJoin(name: string, isStakeMode: boolean, walletAddress?: string, playerColor?: string, characterShape?: CharacterShape) {
@@ -645,17 +665,15 @@ export class GameEngine {
   }
 
   handleResize = () => {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     const width = window.innerWidth;
     const height = window.innerHeight;
     
-    // Set canvas size accounting for device pixel ratio for crisp rendering
     this.canvas.width = width * dpr;
     this.canvas.height = height * dpr;
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
     
-    // Scale context to match DPR
     this.ctx.scale(dpr, dpr);
     this.ctx.imageSmoothingEnabled = false;
   };
@@ -668,7 +686,6 @@ export class GameEngine {
     this.localPlayerId = null;
     
     this.pendingJoin = { name: playerName, isStakeMode, walletAddress, playerColor, characterShape };
-    this.ensureGridCache();
     this.connectWebSocket();
     
     this.lastTime = performance.now();
@@ -696,8 +713,6 @@ export class GameEngine {
     this.damageCounters.clear();
     this.healCounter = null;
     this.damageFlashAlpha = 0;
-    this.gridCanvas = null;
-    this.gridCacheKey = '';
     // Stop background music
     proceduralMusic.stop();
   }
@@ -882,24 +897,31 @@ export class GameEngine {
     const viewTop = this.camera.y - (cy / this.baseZoom) - viewPadding;
     const viewBottom = this.camera.y + (cy / this.baseZoom) + viewPadding;
 
-    this.pickups.forEach(pickup => {
-      if (pickup.x < viewLeft || pickup.x > viewRight || pickup.y < viewTop || pickup.y > viewBottom) return;
+    const triCos = GameEngine.TRI_COS;
+    const triSin = GameEngine.TRI_SIN;
 
-      if (pickup.type === 'HP') {
-        const size = pickup.radius * 1.6;
-        this.ctx.fillStyle = '#00CC7A'; // Green
-        this.ctx.fillRect(pickup.x - size / 2, pickup.y - size / 2, size, size);
-      } else {
-        const r = pickup.radius * 1.4;
-        this.ctx.fillStyle = '#D40046'; // Red
-        this.ctx.beginPath();
-        this.ctx.moveTo(pickup.x, pickup.y - r);
-        this.ctx.lineTo(pickup.x + r * Math.cos(Math.PI / 6), pickup.y + r * Math.sin(Math.PI / 6));
-        this.ctx.lineTo(pickup.x - r * Math.cos(Math.PI / 6), pickup.y + r * Math.sin(Math.PI / 6));
-        this.ctx.closePath();
-        this.ctx.fill();
-      }
-    });
+    this.ctx.fillStyle = '#00CC7A';
+    for (let i = 0, len = this.pickups.length; i < len; i++) {
+      const pickup = this.pickups[i];
+      if (pickup.x < viewLeft || pickup.x > viewRight || pickup.y < viewTop || pickup.y > viewBottom) continue;
+      if (pickup.type !== 'HP') continue;
+      const size = pickup.radius * 1.6;
+      this.ctx.fillRect(pickup.x - size / 2, pickup.y - size / 2, size, size);
+    }
+
+    this.ctx.fillStyle = '#D40046';
+    this.ctx.beginPath();
+    for (let i = 0, len = this.pickups.length; i < len; i++) {
+      const pickup = this.pickups[i];
+      if (pickup.x < viewLeft || pickup.x > viewRight || pickup.y < viewTop || pickup.y > viewBottom) continue;
+      if (pickup.type !== 'CHARGE') continue;
+      const r = pickup.radius * 1.4;
+      this.ctx.moveTo(pickup.x, pickup.y - r);
+      this.ctx.lineTo(pickup.x + r * triCos, pickup.y + r * triSin);
+      this.ctx.lineTo(pickup.x - r * triCos, pickup.y + r * triSin);
+      this.ctx.closePath();
+    }
+    this.ctx.fill();
 
     // Draw dash trails first (underneath players)
     this.drawDashTrails();
@@ -1403,85 +1425,52 @@ export class GameEngine {
     });
   }
 
-  private ensureGridCache() {
-    const ws = GameEngine.WORLD_SIZE;
-    const key = `${ws}`;
-    if (this.gridCanvas && this.gridCacheKey === key) return;
-    this.gridCacheKey = key;
-
-    const hexSize = 200;
-    const hexHeight = hexSize * 2;
-    const hexWidth = Math.sqrt(3) * hexSize;
-    const vertSpacing = hexHeight * 0.75;
-    const horizSpacing = hexWidth;
-
-    const offscreen = document.createElement('canvas');
-    offscreen.width = ws;
-    offscreen.height = ws;
-    const gCtx = offscreen.getContext('2d')!;
-
-    gCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-    gCtx.lineWidth = 1;
-    gCtx.beginPath();
-
-    const totalRows = Math.ceil(ws / vertSpacing) + 2;
-    const totalCols = Math.ceil(ws / horizSpacing) + 2;
-
-    const cosArr = [
-      Math.cos(-Math.PI / 2),
-      Math.cos(-Math.PI / 6),
-      Math.cos(Math.PI / 6),
-      Math.cos(Math.PI / 2)
-    ];
-    const sinArr = [
-      Math.sin(-Math.PI / 2),
-      Math.sin(-Math.PI / 6),
-      Math.sin(Math.PI / 6),
-      Math.sin(Math.PI / 2)
-    ];
-
-    for (let row = -1; row <= totalRows; row++) {
-      for (let col = -1; col <= totalCols; col++) {
-        const offsetX = (row % 2 === 0) ? 0 : hexWidth / 2;
-        const centerX = col * horizSpacing + offsetX;
-        const centerY = row * vertSpacing;
-
-        if (centerX < -hexSize || centerX > ws + hexSize ||
-            centerY < -hexSize || centerY > ws + hexSize) continue;
-
-        for (let i = 0; i < 3; i++) {
-          gCtx.moveTo(centerX + hexSize * cosArr[i], centerY + hexSize * sinArr[i]);
-          gCtx.lineTo(centerX + hexSize * cosArr[i + 1], centerY + hexSize * sinArr[i + 1]);
-        }
-      }
-    }
-    gCtx.stroke();
-
-    gCtx.strokeStyle = '#D40046';
-    gCtx.lineWidth = 5;
-    gCtx.strokeRect(0, 0, ws, ws);
-
-    this.gridCanvas = offscreen;
-  }
-
   drawGrid() {
-    this.ensureGridCache();
-    if (!this.gridCanvas) return;
-
     const width = window.innerWidth;
     const height = window.innerHeight;
     const cx = width / 2;
     const cy = height / 2;
+    const ws = GameEngine.WORLD_SIZE;
+    const hexSize = GameEngine.HEX_SIZE;
+    const hexWidth = GameEngine.HEX_WIDTH;
+    const vertSpacing = GameEngine.HEX_VERT_SPACING;
+    const cosArr = GameEngine.HEX_COS;
+    const sinArr = GameEngine.HEX_SIN;
 
     const viewPadding = 100 / this.baseZoom;
-    const sx = Math.max(0, Math.floor(this.camera.x - cx / this.baseZoom - viewPadding));
-    const sy = Math.max(0, Math.floor(this.camera.y - cy / this.baseZoom - viewPadding));
-    const sw = Math.min(this.gridCanvas.width - sx, Math.ceil((cx * 2) / this.baseZoom + viewPadding * 2));
-    const sh = Math.min(this.gridCanvas.height - sy, Math.ceil((cy * 2) / this.baseZoom + viewPadding * 2));
+    const viewLeft = this.camera.x - (cx / this.baseZoom) - viewPadding;
+    const viewRight = this.camera.x + (cx / this.baseZoom) + viewPadding;
+    const viewTop = this.camera.y - (cy / this.baseZoom) - viewPadding;
+    const viewBottom = this.camera.y + (cy / this.baseZoom) + viewPadding;
 
-    if (sw > 0 && sh > 0) {
-      this.ctx.drawImage(this.gridCanvas, sx, sy, sw, sh, sx, sy, sw, sh);
+    const startRow = Math.floor(viewTop / vertSpacing) - 1;
+    const endRow = Math.ceil(viewBottom / vertSpacing) + 1;
+    const startCol = Math.floor(viewLeft / hexWidth) - 1;
+    const endCol = Math.ceil(viewRight / hexWidth) + 1;
+
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    this.ctx.lineWidth = 1;
+    this.ctx.beginPath();
+
+    for (let row = startRow; row <= endRow; row++) {
+      const offsetX = (row & 1) === 0 ? 0 : hexWidth * 0.5;
+      const centerY = row * vertSpacing;
+      for (let col = startCol; col <= endCol; col++) {
+        const centerX = col * hexWidth + offsetX;
+        if (centerX < -hexSize || centerX > ws + hexSize ||
+            centerY < -hexSize || centerY > ws + hexSize) continue;
+
+        for (let i = 0; i < 3; i++) {
+          this.ctx.moveTo(centerX + hexSize * cosArr[i], centerY + hexSize * sinArr[i]);
+          this.ctx.lineTo(centerX + hexSize * cosArr[i + 1], centerY + hexSize * sinArr[i + 1]);
+        }
+      }
     }
+    this.ctx.stroke();
+
+    this.ctx.strokeStyle = '#D40046';
+    this.ctx.lineWidth = 5;
+    this.ctx.strokeRect(0, 0, ws, ws);
   }
 
   private getContrastColor(hexColor: string): string {
