@@ -1501,25 +1501,6 @@ export class GameEngine {
     this.ctx.arc(player.x, player.y, r + 6, 0, Math.PI * 2);
     this.ctx.fillStyle = grad;
     this.ctx.fill();
-
-    const sparkCount = 6;
-    for (let i = 0; i < sparkCount; i++) {
-      const flickerPhase = now * 0.012 + i * 73.7;
-      const visible = Math.sin(flickerPhase) > -0.2;
-      if (!visible) continue;
-
-      const sparkAngle = ((now * 0.004 + i * (Math.PI * 2 / sparkCount)) % (Math.PI * 2));
-      const sparkDist = r * (0.6 + Math.sin(now * 0.007 + i * 2.3) * 0.35);
-      const sx = player.x + Math.cos(sparkAngle) * sparkDist;
-      const sy = player.y + Math.sin(sparkAngle) * sparkDist;
-      const brightness = 0.5 + Math.sin(flickerPhase) * 0.5;
-      const size = 1.5 + brightness * 2;
-
-      this.ctx.beginPath();
-      this.ctx.arc(sx, sy, size, 0, Math.PI * 2);
-      this.ctx.fillStyle = `rgba(200, 235, 255, ${brightness * 0.9})`;
-      this.ctx.fill();
-    }
   }
 
   private drawVignette() {
