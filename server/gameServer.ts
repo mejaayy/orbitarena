@@ -264,18 +264,24 @@ class GameRoom {
     const botState = this.botStates.get(botId);
     if (!botState) return;
 
-    const idx = Array.from(this.botIds).indexOf(botId);
-    const player = this.createBotPlayer(botId, idx);
-    this.gameState.players.set(botId, player);
+    this.gameState.players.delete(botId);
 
-    botState.targetX = Math.random() * WORLD_SIZE;
-    botState.targetY = Math.random() * WORLD_SIZE;
-    botState.wanderTimer = 0;
-    botState.chaseTargetId = null;
-    botState.behaviorMode = 'wander';
-    botState.nearestPickupId = null;
-    botState.strafeDir = Math.random() < 0.5 ? 1 : -1;
-    botState.strafeTimer = 0;
+    const idx = Array.from(this.botIds).indexOf(botId);
+
+    setTimeout(() => {
+      if (!this.botsActive || !this.botIds.has(botId)) return;
+      const player = this.createBotPlayer(botId, idx);
+      this.gameState.players.set(botId, player);
+
+      botState.targetX = Math.random() * WORLD_SIZE;
+      botState.targetY = Math.random() * WORLD_SIZE;
+      botState.wanderTimer = 0;
+      botState.chaseTargetId = null;
+      botState.behaviorMode = 'wander';
+      botState.nearestPickupId = null;
+      botState.strafeDir = Math.random() < 0.5 ? 1 : -1;
+      botState.strafeTimer = 0;
+    }, 1000);
   }
 
   protected updateBots() {
@@ -293,11 +299,9 @@ class GameRoom {
       const botState = this.botStates.get(botId);
       if (!botState) continue;
 
-      if (!player || player.hp <= 0) {
-        if (now - (botState.lastAbilityTime || 0) > 3000) {
-          this.respawnBot(botId);
-          botState.lastAbilityTime = now;
-        }
+      if (!player) continue;
+      if (player.hp <= 0) {
+        this.respawnBot(botId);
         continue;
       }
 
@@ -308,11 +312,19 @@ class GameRoom {
       let secondEnemy: Player | null = null;
       let secondEnemyDist = Infinity;
 
+      let nearestHuman: Player | null = null;
+      let nearestHumanDist = Infinity;
+
       this.gameState.players.forEach(other => {
         if (other.id === botId || other.isSpectator) return;
         const dx = other.x - player.x;
         const dy = other.y - player.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
+        const isBot = this.botIds.has(other.id);
+        if (!isBot && dist < nearestHumanDist) {
+          nearestHumanDist = dist;
+          nearestHuman = other;
+        }
         if (dist < nearestEnemyDist) {
           secondEnemy = nearestEnemy;
           secondEnemyDist = nearestEnemyDist;
@@ -323,6 +335,15 @@ class GameRoom {
           secondEnemy = other;
         }
       });
+
+      const targetIsBot = nearestEnemy ? this.botIds.has(nearestEnemy.id) : false;
+      if (nearestHuman && nearestHumanDist < ENEMY_SCAN_RANGE * 1.5) {
+        nearestEnemy = nearestHuman;
+        nearestEnemyDist = nearestHumanDist;
+      } else if (targetIsBot && nearestEnemyDist > ABILITY_RANGE * 0.8) {
+        nearestEnemy = null;
+        nearestEnemyDist = Infinity;
+      }
 
       let nearestMissileDist = Infinity;
       let nearestMissileAngle = 0;
@@ -422,7 +443,6 @@ class GameRoom {
               moveX = dx / dist;
               moveY = dy / dist;
             }
-            player.facingAngle = Math.atan2(dy, dx);
 
             if (player.characterShape === 'triangle' && hasCharge && dist < 1000 && now - botState.lastAbilityTime > 800) {
               player.facingAngle = Math.atan2(dy, dx);
@@ -437,7 +457,6 @@ class GameRoom {
             const dx = nearestEnemy.x - player.x;
             const dy = nearestEnemy.y - player.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
-            player.facingAngle = Math.atan2(dy, dx);
 
             botState.strafeTimer--;
             if (botState.strafeTimer <= 0) {
@@ -466,15 +485,18 @@ class GameRoom {
                 } else {
                   abilityType = Math.random() < 0.6 ? 'ABILITY_2' : 'ABILITY_1';
                 }
+                player.facingAngle = Math.atan2(dy, dx);
                 this.executeAbility(player, abilityType);
                 botState.lastAbilityTime = now;
               } else if (player.characterShape === 'triangle' && dist < 1000) {
+                player.facingAngle = Math.atan2(dy, dx);
                 this.executeAbility(player, 'ABILITY_2');
                 botState.lastAbilityTime = now;
               }
             }
 
             if (player.characterShape === 'triangle' && hasCharge && dist > ABILITY_RANGE && dist < DASH_DISTANCE * 2 && now - botState.lastAbilityTime > 600) {
+              player.facingAngle = Math.atan2(dy, dx);
               this.executeAbility(player, 'ABILITY_1');
               botState.lastAbilityTime = now;
             }
@@ -486,11 +508,8 @@ class GameRoom {
           moveX = Math.cos(dodgeAngle);
           moveY = Math.sin(dodgeAngle);
 
-          if (nearestEnemy) {
-            player.facingAngle = Math.atan2(nearestEnemy.y - player.y, nearestEnemy.x - player.x);
-          }
-
           if (player.characterShape === 'square' && hasCharge && nearestMissileDist < 150 && now - botState.lastAbilityTime > 600) {
+            player.facingAngle = nearestMissileAngle;
             this.executeAbility(player, 'ABILITY_1');
             botState.lastAbilityTime = now;
           }
@@ -509,7 +528,6 @@ class GameRoom {
               moveX = dx / dist;
               moveY = dy / dist;
             }
-            player.facingAngle = Math.atan2(-dy, -dx);
 
             if (player.characterShape === 'square' && hasCharge && dist < ABILITY_RANGE && now - botState.lastAbilityTime > 800) {
               player.facingAngle = Math.atan2(nearestEnemy.y - player.y, nearestEnemy.x - player.x);
@@ -553,10 +571,8 @@ class GameRoom {
       }
 
       player.inputVector = { x: moveX, y: moveY };
-      if (botState.behaviorMode === 'wander' || botState.behaviorMode === 'collect') {
-        if (moveX !== 0 || moveY !== 0) {
-          player.facingAngle = Math.atan2(moveY, moveX);
-        }
+      if (moveX !== 0 || moveY !== 0) {
+        player.facingAngle = Math.atan2(moveY, moveX);
       }
     }
   }
