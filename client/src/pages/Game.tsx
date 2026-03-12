@@ -247,7 +247,7 @@ export default function Game() {
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-4 mb-1">
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 bg-[#00CC7A] rounded-sm" />
+                <div className="w-3 h-3 bg-[#00CC7A]" />
                 <span className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Health</span>
               </div>
               <div className="flex items-center gap-1.5">
