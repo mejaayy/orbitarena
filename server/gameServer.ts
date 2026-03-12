@@ -777,53 +777,25 @@ class GameRoom {
 
   protected updateProjectiles() {
     const now = Date.now();
-    const toRemove: number[] = [];
+    const destroyed = new Set<number>();
 
     for (let i = 0; i < this.projectiles.length; i++) {
       const proj = this.projectiles[i];
+      if (destroyed.has(i)) continue;
       const age = now - proj.spawnTime;
 
       if (age >= proj.lifespan) {
-        this.explodeProjectile(proj, i);
-        toRemove.push(i);
+        this.explodeProjectile(proj);
+        destroyed.add(i);
         continue;
-      }
-
-      let closestEnemy: Player | null = null;
-      let closestDist = Infinity;
-
-      this.gameState.players.forEach(other => {
-        if (other.id === proj.ownerId || other.isSpectator) return;
-        const dx = other.x - proj.x;
-        const dy = other.y - proj.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < closestDist) {
-          closestDist = dist;
-          closestEnemy = other;
-        }
-      });
-
-      if (closestEnemy) {
-        const targetAngle = Math.atan2(closestEnemy.y - proj.y, closestEnemy.x - proj.x);
-        let angleDiff = targetAngle - proj.angle;
-        while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-        while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-
-        if (angleDiff > MISSILE_TURN_RATE) {
-          proj.angle += MISSILE_TURN_RATE;
-        } else if (angleDiff < -MISSILE_TURN_RATE) {
-          proj.angle -= MISSILE_TURN_RATE;
-        } else {
-          proj.angle = targetAngle;
-        }
       }
 
       proj.x += Math.cos(proj.angle) * proj.speed;
       proj.y += Math.sin(proj.angle) * proj.speed;
 
       if (proj.x < 0 || proj.x > WORLD_SIZE || proj.y < 0 || proj.y > WORLD_SIZE) {
-        this.explodeProjectile(proj, i);
-        toRemove.push(i);
+        this.explodeProjectile(proj);
+        destroyed.add(i);
         continue;
       }
 
@@ -840,18 +812,39 @@ class GameRoom {
           if (owner) {
             this.damagePlayer(owner, other, proj.damage);
           }
-          this.explodeProjectile(proj, i);
-          toRemove.push(i);
+          this.explodeProjectile(proj);
+          destroyed.add(i);
         }
       });
+
+      if (destroyed.has(i)) continue;
+
+      for (let j = i + 1; j < this.projectiles.length; j++) {
+        if (destroyed.has(j)) continue;
+        const other = this.projectiles[j];
+        const dx = other.x - proj.x;
+        const dy = other.y - proj.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < proj.radius + other.radius) {
+          this.explodeProjectile(proj);
+          this.explodeProjectile(other);
+          destroyed.add(i);
+          destroyed.add(j);
+          break;
+        }
+      }
     }
 
-    for (let i = toRemove.length - 1; i >= 0; i--) {
-      this.projectiles.splice(toRemove[i], 1);
+    if (destroyed.size > 0) {
+      const indices = Array.from(destroyed).sort((a, b) => b - a);
+      for (const idx of indices) {
+        this.projectiles.splice(idx, 1);
+      }
     }
   }
 
-  protected explodeProjectile(proj: Projectile, _index: number) {
+  protected explodeProjectile(proj: Projectile) {
     this.broadcast({
       type: 'ABILITY_EFFECT',
       payload: {
