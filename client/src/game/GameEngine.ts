@@ -1390,37 +1390,6 @@ export class GameEngine {
     this.ctx.stroke();
   }
 
-  private drawLightningBolt(x1: number, y1: number, x2: number, y2: number, segments: number, alpha: number, jitter: number) {
-    const points: { x: number; y: number }[] = [{ x: x1, y: y1 }];
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    
-    for (let i = 1; i < segments; i++) {
-      const t = i / segments;
-      const mx = x1 + dx * t + (Math.random() - 0.5) * jitter;
-      const my = y1 + dy * t + (Math.random() - 0.5) * jitter;
-      points.push({ x: mx, y: my });
-    }
-    points.push({ x: x2, y: y2 });
-    
-    this.ctx.beginPath();
-    this.ctx.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length; i++) {
-      this.ctx.lineTo(points[i].x, points[i].y);
-    }
-    this.ctx.strokeStyle = `rgba(100, 200, 255, ${alpha})`;
-    this.ctx.lineWidth = 2;
-    this.ctx.stroke();
-    
-    this.ctx.beginPath();
-    this.ctx.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length; i++) {
-      this.ctx.lineTo(points[i].x, points[i].y);
-    }
-    this.ctx.strokeStyle = `rgba(220, 240, 255, ${alpha * 0.6})`;
-    this.ctx.lineWidth = 1;
-    this.ctx.stroke();
-  }
 
   private drawStunnedEffect(player: InterpolatedPlayer) {
     const now = performance.now();

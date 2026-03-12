@@ -1259,7 +1259,7 @@ class GameRoom {
         const dy = player.y - pickup.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist < player.radius + pickup.radius) {
+        if (dist < player.radius + pickup.radius + 8) {
           const collectedType = pickup.type;
           this.collectedPickupIds.push(pickup.id);
           this.gameState.pickups.splice(i, 1);

@@ -383,7 +383,7 @@ export default function Lobby() {
             Orbit Arena
           </h1>
           <CardDescription className="text-gray-400 font-medium">
-            Dominate the grid. Eat or be eaten.
+            Dominate the grid. Fight or be eliminated.
           </CardDescription>
           {serverStatus && (
             <div className="flex items-center justify-center gap-2 text-xs text-gray-500 mt-2" data-testid="server-status">
