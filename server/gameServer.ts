@@ -117,9 +117,9 @@ const DASH_DISTANCE = 240;
 const LOCK_ON_ANGLE = 25 * (Math.PI / 180); // 25 degrees in radians
 const BOT_COUNT = 2;
 const STUN_DURATION = 1500;
-const PROJECTILE_SPEED = 5.25;
+const PROJECTILE_SPEED = 7;
 const MISSILE_LIFESPAN = 7000;
-const MISSILE_TURN_RATE = 0.06;
+const MISSILE_TURN_RATE = 0.09;
 const MISSILE_RADIUS = 25;
 const ENEMY_SCAN_RANGE = 800;
 
