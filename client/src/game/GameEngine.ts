@@ -1491,41 +1491,35 @@ export class GameEngine {
   private drawStunnedEffect(player: InterpolatedPlayer) {
     const now = performance.now();
     const r = player.radius;
-    
-    const arcCount = 3;
-    for (let i = 0; i < arcCount; i++) {
-      const angle1 = ((now * 0.005 + i * Math.PI * 2 / arcCount) % (Math.PI * 2));
-      const angle2 = angle1 + Math.PI * (0.4 + Math.random() * 0.3);
-      
-      const x1 = player.x + Math.cos(angle1) * r * 0.9;
-      const y1 = player.y + Math.sin(angle1) * r * 0.9;
-      const x2 = player.x + Math.cos(angle2) * r * 0.9;
-      const y2 = player.y + Math.sin(angle2) * r * 0.9;
-      
-      this.drawLightningBolt(x1, y1, x2, y2, 4, 0.8, r * 0.4);
-    }
-    
-    const sparkCount = 4;
+
+    const pulse = 0.5 + Math.sin(now * 0.015) * 0.3;
+    const grad = this.ctx.createRadialGradient(player.x, player.y, r * 0.3, player.x, player.y, r + 6);
+    grad.addColorStop(0, `rgba(100, 180, 255, ${pulse * 0.2})`);
+    grad.addColorStop(0.7, `rgba(80, 150, 255, ${pulse * 0.12})`);
+    grad.addColorStop(1, `rgba(60, 120, 255, 0)`);
+    this.ctx.beginPath();
+    this.ctx.arc(player.x, player.y, r + 6, 0, Math.PI * 2);
+    this.ctx.fillStyle = grad;
+    this.ctx.fill();
+
+    const sparkCount = 6;
     for (let i = 0; i < sparkCount; i++) {
-      const seed = (now * 0.01 + i * 137.5) % 360;
-      const sparkAngle = seed * Math.PI / 180;
-      const sparkDist = r * (0.5 + Math.sin(now * 0.008 + i) * 0.5);
+      const flickerPhase = now * 0.012 + i * 73.7;
+      const visible = Math.sin(flickerPhase) > -0.2;
+      if (!visible) continue;
+
+      const sparkAngle = ((now * 0.004 + i * (Math.PI * 2 / sparkCount)) % (Math.PI * 2));
+      const sparkDist = r * (0.6 + Math.sin(now * 0.007 + i * 2.3) * 0.35);
       const sx = player.x + Math.cos(sparkAngle) * sparkDist;
       const sy = player.y + Math.sin(sparkAngle) * sparkDist;
-      const sparkSize = 2 + Math.sin(now * 0.015 + i * 2) * 1.5;
-      
+      const brightness = 0.5 + Math.sin(flickerPhase) * 0.5;
+      const size = 1.5 + brightness * 2;
+
       this.ctx.beginPath();
-      this.ctx.arc(sx, sy, sparkSize, 0, Math.PI * 2);
-      this.ctx.fillStyle = `rgba(180, 230, 255, ${0.6 + Math.sin(now * 0.02 + i) * 0.3})`;
+      this.ctx.arc(sx, sy, size, 0, Math.PI * 2);
+      this.ctx.fillStyle = `rgba(200, 235, 255, ${brightness * 0.9})`;
       this.ctx.fill();
     }
-    
-    const glowPulse = 0.15 + Math.sin(now * 0.01) * 0.08;
-    this.ctx.beginPath();
-    this.ctx.arc(player.x, player.y, r + 4, 0, Math.PI * 2);
-    this.ctx.strokeStyle = `rgba(100, 200, 255, ${glowPulse})`;
-    this.ctx.lineWidth = 3;
-    this.ctx.stroke();
   }
 
   private drawVignette() {
