@@ -1554,6 +1554,11 @@ export class GameEngine {
     const startCol = Math.floor(viewLeft / hexWidth) - 1;
     const endCol = Math.ceil(viewRight / hexWidth) + 1;
 
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.rect(0, 0, ws, ws);
+    this.ctx.clip();
+
     this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
@@ -1573,6 +1578,7 @@ export class GameEngine {
       }
     }
     this.ctx.stroke();
+    this.ctx.restore();
 
     this.ctx.strokeStyle = '#D40046';
     this.ctx.lineWidth = 5;
