@@ -79,6 +79,9 @@ export class GameEngine {
   static INTERP_DURATION = 100;
   static MAX_SPEED = 4.69;
   
+  private gridCanvas: HTMLCanvasElement | null = null;
+  private gridCacheKey: string = '';
+  
   isRunning: boolean = false;
   isStakeMode: boolean = false;
   isSpectating: boolean = false;
@@ -665,6 +668,7 @@ export class GameEngine {
     this.localPlayerId = null;
     
     this.pendingJoin = { name: playerName, isStakeMode, walletAddress, playerColor, characterShape };
+    this.ensureGridCache();
     this.connectWebSocket();
     
     this.lastTime = performance.now();
@@ -692,6 +696,8 @@ export class GameEngine {
     this.damageCounters.clear();
     this.healCounter = null;
     this.damageFlashAlpha = 0;
+    this.gridCanvas = null;
+    this.gridCacheKey = '';
     // Stop background music
     proceduralMusic.stop();
   }
@@ -1388,74 +1394,85 @@ export class GameEngine {
     });
   }
 
-  drawGrid() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const cx = width / 2;
-    const cy = height / 2;
-    
-    const viewPadding = 100 / this.baseZoom;
-    const viewLeft = this.camera.x - (cx / this.baseZoom) - viewPadding;
-    const viewRight = this.camera.x + (cx / this.baseZoom) + viewPadding;
-    const viewTop = this.camera.y - (cy / this.baseZoom) - viewPadding;
-    const viewBottom = this.camera.y + (cy / this.baseZoom) + viewPadding;
+  private ensureGridCache() {
+    const ws = GameEngine.WORLD_SIZE;
+    const key = `${ws}`;
+    if (this.gridCanvas && this.gridCacheKey === key) return;
+    this.gridCacheKey = key;
 
-    // Hexagon grid parameters (pointy-top hexagons for beehive pattern)
     const hexSize = 200;
     const hexHeight = hexSize * 2;
     const hexWidth = Math.sqrt(3) * hexSize;
     const vertSpacing = hexHeight * 0.75;
     const horizSpacing = hexWidth;
 
-    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-    this.ctx.lineWidth = 1;
-    this.ctx.beginPath();
+    const offscreen = document.createElement('canvas');
+    offscreen.width = ws;
+    offscreen.height = ws;
+    const gCtx = offscreen.getContext('2d')!;
 
-    // Calculate grid bounds
-    const startRow = Math.floor(viewTop / vertSpacing) - 1;
-    const endRow = Math.ceil(viewBottom / vertSpacing) + 1;
-    const startCol = Math.floor(viewLeft / horizSpacing) - 1;
-    const endCol = Math.ceil(viewRight / horizSpacing) + 1;
+    gCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    gCtx.lineWidth = 1;
+    gCtx.beginPath();
 
-    // Use canvas clipping to cut hexagons at world border
-    this.ctx.save();
-    this.ctx.rect(0, 0, GameEngine.WORLD_SIZE, GameEngine.WORLD_SIZE);
-    this.ctx.clip();
+    const totalRows = Math.ceil(ws / vertSpacing) + 2;
+    const totalCols = Math.ceil(ws / horizSpacing) + 2;
 
-    for (let row = startRow; row <= endRow; row++) {
-      for (let col = startCol; col <= endCol; col++) {
+    const cosArr = [
+      Math.cos(-Math.PI / 2),
+      Math.cos(-Math.PI / 6),
+      Math.cos(Math.PI / 6),
+      Math.cos(Math.PI / 2)
+    ];
+    const sinArr = [
+      Math.sin(-Math.PI / 2),
+      Math.sin(-Math.PI / 6),
+      Math.sin(Math.PI / 6),
+      Math.sin(Math.PI / 2)
+    ];
+
+    for (let row = -1; row <= totalRows; row++) {
+      for (let col = -1; col <= totalCols; col++) {
         const offsetX = (row % 2 === 0) ? 0 : hexWidth / 2;
         const centerX = col * horizSpacing + offsetX;
         const centerY = row * vertSpacing;
 
-        if (centerX < -hexSize || centerX > GameEngine.WORLD_SIZE + hexSize ||
-            centerY < -hexSize || centerY > GameEngine.WORLD_SIZE + hexSize) continue;
-
-        const angles = [
-          -Math.PI / 2,
-          -Math.PI / 6,
-          Math.PI / 6,
-          Math.PI / 2
-        ];
+        if (centerX < -hexSize || centerX > ws + hexSize ||
+            centerY < -hexSize || centerY > ws + hexSize) continue;
 
         for (let i = 0; i < 3; i++) {
-          const x1 = centerX + hexSize * Math.cos(angles[i]);
-          const y1 = centerY + hexSize * Math.sin(angles[i]);
-          const x2 = centerX + hexSize * Math.cos(angles[i + 1]);
-          const y2 = centerY + hexSize * Math.sin(angles[i + 1]);
-
-          this.ctx.moveTo(x1, y1);
-          this.ctx.lineTo(x2, y2);
+          gCtx.moveTo(centerX + hexSize * cosArr[i], centerY + hexSize * sinArr[i]);
+          gCtx.lineTo(centerX + hexSize * cosArr[i + 1], centerY + hexSize * sinArr[i + 1]);
         }
       }
     }
+    gCtx.stroke();
 
-    this.ctx.stroke();
-    this.ctx.restore();
-    
-    this.ctx.strokeStyle = '#D40046';
-    this.ctx.lineWidth = 5;
-    this.ctx.strokeRect(0, 0, GameEngine.WORLD_SIZE, GameEngine.WORLD_SIZE);
+    gCtx.strokeStyle = '#D40046';
+    gCtx.lineWidth = 5;
+    gCtx.strokeRect(0, 0, ws, ws);
+
+    this.gridCanvas = offscreen;
+  }
+
+  drawGrid() {
+    this.ensureGridCache();
+    if (!this.gridCanvas) return;
+
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const cx = width / 2;
+    const cy = height / 2;
+
+    const viewPadding = 100 / this.baseZoom;
+    const sx = Math.max(0, Math.floor(this.camera.x - cx / this.baseZoom - viewPadding));
+    const sy = Math.max(0, Math.floor(this.camera.y - cy / this.baseZoom - viewPadding));
+    const sw = Math.min(this.gridCanvas.width - sx, Math.ceil((cx * 2) / this.baseZoom + viewPadding * 2));
+    const sh = Math.min(this.gridCanvas.height - sy, Math.ceil((cy * 2) / this.baseZoom + viewPadding * 2));
+
+    if (sw > 0 && sh > 0) {
+      this.ctx.drawImage(this.gridCanvas, sx, sy, sw, sh, sx, sy, sw, sh);
+    }
   }
 
   private getContrastColor(hexColor: string): string {
