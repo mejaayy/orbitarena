@@ -1015,7 +1015,7 @@ export class GameEngine {
 
     const progress = elapsed / this.SHOOT_COOLDOWN;
     const remaining = 1 - progress;
-    const radius = 22.5;
+    const radius = 6.75;
 
     this.ctx.save();
     this.ctx.beginPath();
