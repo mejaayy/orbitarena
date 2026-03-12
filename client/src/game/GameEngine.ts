@@ -1370,60 +1370,88 @@ export class GameEngine {
   }
 
   private drawStunWaveEffect(x: number, y: number, progress: number, alpha: number) {
-    const radius = 195 * progress;
+    const maxRadius = 220;
+    const radius = maxRadius * progress;
     const now = performance.now();
     
     this.ctx.save();
     
+    const grad = this.ctx.createRadialGradient(x, y, 0, x, y, radius);
+    grad.addColorStop(0, `rgba(140, 200, 255, ${alpha * 0.15})`);
+    grad.addColorStop(0.5, `rgba(80, 160, 255, ${alpha * 0.08})`);
+    grad.addColorStop(1, `rgba(40, 100, 255, 0)`);
     this.ctx.beginPath();
     this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-    this.ctx.fillStyle = `rgba(80, 180, 255, ${alpha * 0.12})`;
+    this.ctx.fillStyle = grad;
     this.ctx.fill();
     
-    const ringSegments = 24;
-    this.ctx.beginPath();
-    for (let i = 0; i <= ringSegments; i++) {
-      const a = (i / ringSegments) * Math.PI * 2;
-      const jitter = (Math.random() - 0.5) * 8;
-      const rx = x + Math.cos(a) * (radius + jitter);
-      const ry = y + Math.sin(a) * (radius + jitter);
-      if (i === 0) this.ctx.moveTo(rx, ry);
-      else this.ctx.lineTo(rx, ry);
-    }
-    this.ctx.strokeStyle = `rgba(100, 200, 255, ${alpha * 0.9})`;
-    this.ctx.lineWidth = 3;
-    this.ctx.stroke();
-    
-    this.ctx.beginPath();
-    for (let i = 0; i <= ringSegments; i++) {
-      const a = (i / ringSegments) * Math.PI * 2;
-      const jitter = (Math.random() - 0.5) * 5;
-      const rx = x + Math.cos(a) * (radius + jitter);
-      const ry = y + Math.sin(a) * (radius + jitter);
-      if (i === 0) this.ctx.moveTo(rx, ry);
-      else this.ctx.lineTo(rx, ry);
-    }
-    this.ctx.strokeStyle = `rgba(220, 240, 255, ${alpha * 0.5})`;
-    this.ctx.lineWidth = 1;
-    this.ctx.stroke();
-    
+    const ringWidth = 12 * (1 - progress * 0.5);
+    const innerR = Math.max(0, radius - ringWidth);
+    const ringGrad = this.ctx.createRadialGradient(x, y, innerR, x, y, radius + 4);
+    ringGrad.addColorStop(0, `rgba(100, 180, 255, 0)`);
+    ringGrad.addColorStop(0.3, `rgba(150, 220, 255, ${alpha * 0.8})`);
+    ringGrad.addColorStop(0.6, `rgba(200, 240, 255, ${alpha * 0.9})`);
+    ringGrad.addColorStop(1, `rgba(100, 180, 255, 0)`);
     this.ctx.beginPath();
     this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-    this.ctx.strokeStyle = `rgba(100, 200, 255, ${alpha * 0.6})`;
-    this.ctx.lineWidth = 2;
-    this.ctx.setLineDash([8, 12]);
-    this.ctx.lineDashOffset = -now * 0.5;
+    this.ctx.strokeStyle = ringGrad;
+    this.ctx.lineWidth = ringWidth;
     this.ctx.stroke();
-    this.ctx.setLineDash([]);
     
-    this.ctx.beginPath();
-    this.ctx.arc(x, y, radius * 0.6, 0, Math.PI * 2);
-    this.ctx.strokeStyle = `rgba(150, 220, 255, ${alpha * 0.3})`;
-    this.ctx.lineWidth = 1;
-    this.ctx.setLineDash([4, 8]);
-    this.ctx.lineDashOffset = now * 0.3;
-    this.ctx.stroke();
-    this.ctx.setLineDash([]);
+    const boltCount = 8;
+    for (let i = 0; i < boltCount; i++) {
+      const angle = (i / boltCount) * Math.PI * 2 + now * 0.002;
+      const boltLen = radius * (0.6 + Math.random() * 0.4);
+      const startR = radius * 0.15;
+      const sx = x + Math.cos(angle) * startR;
+      const sy = y + Math.sin(angle) * startR;
+      const ex = x + Math.cos(angle) * boltLen;
+      const ey = y + Math.sin(angle) * boltLen;
+      
+      const segments = 5 + Math.floor(Math.random() * 3);
+      const points: { x: number; y: number }[] = [{ x: sx, y: sy }];
+      for (let s = 1; s < segments; s++) {
+        const t = s / segments;
+        const perpAngle = angle + Math.PI / 2;
+        const jitter = (Math.random() - 0.5) * 30 * (1 - progress);
+        points.push({
+          x: sx + (ex - sx) * t + Math.cos(perpAngle) * jitter,
+          y: sy + (ey - sy) * t + Math.sin(perpAngle) * jitter,
+        });
+      }
+      points.push({ x: ex, y: ey });
+      
+      this.ctx.beginPath();
+      this.ctx.moveTo(points[0].x, points[0].y);
+      for (let p = 1; p < points.length; p++) {
+        this.ctx.lineTo(points[p].x, points[p].y);
+      }
+      this.ctx.strokeStyle = `rgba(180, 220, 255, ${alpha * 0.7})`;
+      this.ctx.lineWidth = 2.5;
+      this.ctx.stroke();
+      
+      this.ctx.beginPath();
+      this.ctx.moveTo(points[0].x, points[0].y);
+      for (let p = 1; p < points.length; p++) {
+        this.ctx.lineTo(points[p].x, points[p].y);
+      }
+      this.ctx.strokeStyle = `rgba(230, 245, 255, ${alpha * 0.5})`;
+      this.ctx.lineWidth = 1;
+      this.ctx.stroke();
+    }
+    
+    const sparkCount = 12;
+    for (let i = 0; i < sparkCount; i++) {
+      const angle = (i / sparkCount) * Math.PI * 2 + now * 0.003;
+      const sparkR = radius * (0.7 + Math.random() * 0.35);
+      const sx = x + Math.cos(angle) * sparkR;
+      const sy = y + Math.sin(angle) * sparkR;
+      const sparkSize = 2 + Math.random() * 3;
+      this.ctx.beginPath();
+      this.ctx.arc(sx, sy, sparkSize * alpha, 0, Math.PI * 2);
+      this.ctx.fillStyle = `rgba(200, 230, 255, ${alpha * 0.8})`;
+      this.ctx.fill();
+    }
     
     this.ctx.restore();
   }

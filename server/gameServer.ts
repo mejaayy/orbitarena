@@ -1119,6 +1119,21 @@ class GameRoom {
         this.damagePlayer(player, other, 20);
       }
     });
+
+    const toDetonate: number[] = [];
+    for (let i = 0; i < this.projectiles.length; i++) {
+      const proj = this.projectiles[i];
+      const dx = proj.x - player.x;
+      const dy = proj.y - player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < ABILITY_RANGE) {
+        this.explodeProjectile(proj);
+        toDetonate.push(i);
+      }
+    }
+    for (let i = toDetonate.length - 1; i >= 0; i--) {
+      this.projectiles.splice(toDetonate[i], 1);
+    }
   }
 
   handleLeave(playerId: string): boolean {
