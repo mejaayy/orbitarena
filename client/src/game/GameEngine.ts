@@ -48,6 +48,15 @@ export interface Pickup {
 
 interface ServerState {
   players: Player[];
+  projectiles?: Array<{
+    id: string;
+    ownerId: string;
+    x: number;
+    y: number;
+    angle: number;
+    radius: number;
+    color: string;
+  }>;
 }
 
 export type RoundState = 'LOBBY' | 'COUNTDOWN' | 'PLAYING' | 'ENDED';
@@ -451,6 +460,23 @@ export class GameEngine {
     playerId: string;
   }> = [];
 
+  private serverProjectiles: Array<{
+    id: string;
+    ownerId: string;
+    x: number;
+    y: number;
+    angle: number;
+    radius: number;
+    color: string;
+  }> = [];
+
+  private missileExplosions: Array<{
+    x: number;
+    y: number;
+    startTime: number;
+    duration: number;
+  }> = [];
+
   private damageFlashAlpha = 0;
   
   private screenShake = {
@@ -468,24 +494,40 @@ export class GameEngine {
     angle: 0
   };
 
-  private handleAbilityEffect(payload: { playerId: string; ability: string; x: number; y: number; angle: number }) {
+  private handleAbilityEffect(payload: { playerId: string; ability: string; x: number; y: number; angle: number; projectileId?: string }) {
+    if (payload.ability === 'MISSILE_EXPLODE') {
+      this.missileExplosions.push({
+        x: payload.x,
+        y: payload.y,
+        startTime: performance.now(),
+        duration: 500
+      });
+      this.triggerScreenShake(6, 200);
+      return;
+    }
+
+    if (payload.ability === 'MISSILE_LAUNCH') {
+      if (payload.playerId === this.localPlayerId) {
+        this.triggerScreenShake(3, 100);
+      }
+      return;
+    }
+
     this.abilityEffects.push({
       type: payload.ability,
       x: payload.x,
       y: payload.y,
       angle: payload.angle,
       startTime: performance.now(),
-      duration: payload.ability === 'PIERCE' ? 300 : 400,
+      duration: 400,
       playerId: payload.playerId,
       distance: (payload as any).distance
     });
     
-    // Trigger screen shake for the local player's abilities
     if (payload.playerId === this.localPlayerId) {
       const shakeIntensity = this.getShakeIntensity(payload.ability);
       this.triggerScreenShake(shakeIntensity.intensity, shakeIntensity.duration);
       
-      // Trigger dash zoom effect
       if (payload.ability === 'DASH') {
         this.dashZoom.active = true;
         this.dashZoom.startTime = performance.now();
@@ -611,6 +653,10 @@ export class GameEngine {
           trail: []
         });
       }
+    }
+
+    if (state.projectiles) {
+      this.serverProjectiles = state.projectiles;
     }
   }
 
@@ -939,6 +985,8 @@ export class GameEngine {
     });
 
     this.drawAbilityEffects();
+    this.drawMissiles();
+    this.drawMissileExplosions();
     this.drawDamageCounters();
     this.drawHealCounter();
 
@@ -1076,12 +1124,8 @@ export class GameEngine {
         case 'SLAM':
           this.drawSlamEffect(effect.x, effect.y, progress, alpha);
           break;
-        case 'PIERCE': {
-          const piercePlayer = this.players.get(effect.playerId);
-          const pierceColor = piercePlayer?.color || '#cccc00';
-          this.drawPierceEffect(effect.x, effect.y, effect.angle, progress, alpha, pierceColor, effect.distance);
+        case 'PIERCE':
           break;
-        }
         case 'PUSH':
           this.drawPushEffect(effect.x, effect.y, progress, alpha);
           break;
@@ -1175,6 +1219,79 @@ export class GameEngine {
     this.ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.4})`;
     this.ctx.lineWidth = 4;
     this.ctx.stroke();
+  }
+
+  private drawMissiles() {
+    for (let i = 0; i < this.serverProjectiles.length; i++) {
+      const proj = this.serverProjectiles[i];
+      const [r, g, b] = proj.color.startsWith('#') ? this.parseHexColor(proj.color) : [212, 0, 70];
+      const size = proj.radius;
+
+      this.ctx.save();
+      this.ctx.translate(proj.x, proj.y);
+      this.ctx.rotate(proj.angle);
+
+      this.ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.8)`;
+      this.ctx.shadowBlur = 20;
+
+      this.ctx.beginPath();
+      this.ctx.moveTo(size * 1.2, 0);
+      this.ctx.lineTo(-size * 0.8, -size * 0.7);
+      this.ctx.lineTo(-size * 0.4, 0);
+      this.ctx.lineTo(-size * 0.8, size * 0.7);
+      this.ctx.closePath();
+      this.ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      this.ctx.fill();
+      this.ctx.strokeStyle = `rgba(255, 255, 255, 0.6)`;
+      this.ctx.lineWidth = 1.5;
+      this.ctx.stroke();
+
+      this.ctx.shadowBlur = 0;
+
+      const trailLen = size * 2.5;
+      const gradient = this.ctx.createLinearGradient(-size * 0.4, 0, -size * 0.4 - trailLen, 0);
+      gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.7)`);
+      gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+      this.ctx.beginPath();
+      this.ctx.moveTo(-size * 0.4, -size * 0.3);
+      this.ctx.lineTo(-size * 0.4 - trailLen, 0);
+      this.ctx.lineTo(-size * 0.4, size * 0.3);
+      this.ctx.closePath();
+      this.ctx.fillStyle = gradient;
+      this.ctx.fill();
+
+      this.ctx.restore();
+    }
+  }
+
+  private drawMissileExplosions() {
+    const now = performance.now();
+    this.missileExplosions = this.missileExplosions.filter(exp => {
+      const elapsed = now - exp.startTime;
+      if (elapsed > exp.duration) return false;
+
+      const progress = elapsed / exp.duration;
+      const alpha = 1 - progress;
+      const radius = 60 * progress;
+
+      this.ctx.beginPath();
+      this.ctx.arc(exp.x, exp.y, radius, 0, Math.PI * 2);
+      this.ctx.fillStyle = `rgba(255, 150, 50, ${alpha * 0.4})`;
+      this.ctx.fill();
+
+      this.ctx.beginPath();
+      this.ctx.arc(exp.x, exp.y, radius * 0.6, 0, Math.PI * 2);
+      this.ctx.fillStyle = `rgba(255, 255, 200, ${alpha * 0.6})`;
+      this.ctx.fill();
+
+      this.ctx.beginPath();
+      this.ctx.arc(exp.x, exp.y, radius, 0, Math.PI * 2);
+      this.ctx.strokeStyle = `rgba(255, 100, 30, ${alpha * 0.8})`;
+      this.ctx.lineWidth = 3;
+      this.ctx.stroke();
+
+      return true;
+    });
   }
 
   private drawPushEffect(x: number, y: number, progress: number, alpha: number) {

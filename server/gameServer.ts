@@ -59,6 +59,20 @@ interface Pickup {
   value: number;
 }
 
+interface Projectile {
+  id: string;
+  ownerId: string;
+  x: number;
+  y: number;
+  angle: number;
+  speed: number;
+  damage: number;
+  spawnTime: number;
+  lifespan: number;
+  radius: number;
+  color: string;
+}
+
 interface GameState {
   players: Map<string, Player>;
   pickups: Pickup[];
@@ -103,7 +117,10 @@ const DASH_DISTANCE = 240;
 const LOCK_ON_ANGLE = 25 * (Math.PI / 180); // 25 degrees in radians
 const BOT_COUNT = 2;
 const STUN_DURATION = 1500;
-const PROJECTILE_SPEED = 15;
+const PROJECTILE_SPEED = 3.5;
+const MISSILE_LIFESPAN = 5000;
+const MISSILE_TURN_RATE = 0.06;
+const MISSILE_RADIUS = 15;
 const ENEMY_SCAN_RANGE = 800;
 
 // Stake mode constants
@@ -142,6 +159,7 @@ class GameRoom {
   protected botStates: Map<string, BotState> = new Map();
   protected botIds: Set<string> = new Set();
   protected comboTrackers: Map<string, { hits: number; lastHitTime: number }> = new Map();
+  protected projectiles: Projectile[] = [];
 
   constructor(id: string, isStakeMode: boolean = false) {
     this.id = id;
@@ -472,6 +490,7 @@ class GameRoom {
   protected startGameLoop() {
     this.tickInterval = setInterval(() => {
       this.update();
+      this.updateProjectiles();
       this.broadcastState();
     }, 1000 / TICK_RATE);
   }
@@ -726,82 +745,120 @@ class GameRoom {
   }
 
   protected executePierce(player: Player) {
-    let angle = player.facingAngle;
+    const angle = player.facingAngle;
+    const projectileId = `proj_${player.id}_${Date.now()}`;
 
-    // Lock-on logic
-    let closestTarget: Player | null = null;
-    let minAngleDiff = LOCK_ON_ANGLE;
-
-    this.gameState.players.forEach(other => {
-      if (other.id === player.id || other.isSpectator) return;
-      const dx = other.x - player.x;
-      const dy = other.y - player.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > PROJECTILE_RANGE) return;
-
-      const angleToTarget = Math.atan2(dy, dx);
-      let diff = Math.abs(angle - angleToTarget);
-      while (diff > Math.PI) diff = Math.abs(diff - 2 * Math.PI);
-
-      if (diff < minAngleDiff) {
-        minAngleDiff = diff;
-        closestTarget = other;
-      }
+    this.projectiles.push({
+      id: projectileId,
+      ownerId: player.id,
+      x: player.x + Math.cos(angle) * (player.radius + MISSILE_RADIUS + 5),
+      y: player.y + Math.sin(angle) * (player.radius + MISSILE_RADIUS + 5),
+      angle: angle,
+      speed: PROJECTILE_SPEED,
+      damage: 15,
+      spawnTime: Date.now(),
+      lifespan: MISSILE_LIFESPAN,
+      radius: MISSILE_RADIUS,
+      color: player.color
     });
 
-    if (closestTarget) {
-      angle = Math.atan2(closestTarget.y - player.y, closestTarget.x - player.x);
-      player.facingAngle = angle; // Update player's facing angle to visually point at target
-    }
-
-    const startX = player.x;
-    const startY = player.y;
-    
-    const hitPlayers = new Set<string>();
-    let finalDistance = PROJECTILE_RANGE;
-    
-    for (let d = 0; d < PROJECTILE_RANGE; d += 20) {
-      const px = startX + Math.cos(angle) * d;
-      const py = startY + Math.sin(angle) * d;
-      
-      let hitInThisStep = false;
-      this.gameState.players.forEach(other => {
-        if (other.id === player.id || other.isSpectator || hitPlayers.has(other.id)) return;
-        
-        const dx = other.x - px;
-        const dy = other.y - py;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        if (dist < other.radius + 15) {
-          hitInThisStep = true;
-          // Delay damage based on distance to simulate projectile travel time
-          const travelTime = (d / PROJECTILE_RANGE) * 300; 
-          setTimeout(() => {
-            // Check if players are still in the room/game
-            if (this.gameState.players.has(player.id) && this.gameState.players.has(other.id)) {
-               this.damagePlayer(player, other, 15);
-            }
-          }, travelTime);
-          hitPlayers.add(other.id);
-        }
-      });
-
-      if (hitInThisStep) {
-        finalDistance = d;
-        break; // Bullet stops at the first target hit
-      }
-    }
-
-    // We send the ABILITY_EFFECT with the actual distance reached
     this.broadcast({
       type: 'ABILITY_EFFECT',
       payload: {
         playerId: player.id,
-        ability: 'PIERCE',
+        ability: 'MISSILE_LAUNCH',
+        projectileId,
         x: player.x,
         y: player.y,
-        angle: angle,
-        distance: finalDistance
+        angle: angle
+      }
+    });
+  }
+
+  protected updateProjectiles() {
+    const now = Date.now();
+    const toRemove: number[] = [];
+
+    for (let i = 0; i < this.projectiles.length; i++) {
+      const proj = this.projectiles[i];
+      const age = now - proj.spawnTime;
+
+      if (age >= proj.lifespan) {
+        this.explodeProjectile(proj, i);
+        toRemove.push(i);
+        continue;
+      }
+
+      let closestEnemy: Player | null = null;
+      let closestDist = Infinity;
+
+      this.gameState.players.forEach(other => {
+        if (other.id === proj.ownerId || other.isSpectator) return;
+        const dx = other.x - proj.x;
+        const dy = other.y - proj.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestEnemy = other;
+        }
+      });
+
+      if (closestEnemy) {
+        const targetAngle = Math.atan2(closestEnemy.y - proj.y, closestEnemy.x - proj.x);
+        let angleDiff = targetAngle - proj.angle;
+        while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+        while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+        if (angleDiff > MISSILE_TURN_RATE) {
+          proj.angle += MISSILE_TURN_RATE;
+        } else if (angleDiff < -MISSILE_TURN_RATE) {
+          proj.angle -= MISSILE_TURN_RATE;
+        } else {
+          proj.angle = targetAngle;
+        }
+      }
+
+      proj.x += Math.cos(proj.angle) * proj.speed;
+      proj.y += Math.sin(proj.angle) * proj.speed;
+
+      if (proj.x < 0 || proj.x > WORLD_SIZE || proj.y < 0 || proj.y > WORLD_SIZE) {
+        this.explodeProjectile(proj, i);
+        toRemove.push(i);
+        continue;
+      }
+
+      let hit = false;
+      this.gameState.players.forEach(other => {
+        if (hit || other.id === proj.ownerId || other.isSpectator) return;
+        const dx = other.x - proj.x;
+        const dy = other.y - proj.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < other.radius + proj.radius) {
+          hit = true;
+          const owner = this.gameState.players.get(proj.ownerId);
+          if (owner) {
+            this.damagePlayer(owner, other, proj.damage);
+          }
+          this.explodeProjectile(proj, i);
+          toRemove.push(i);
+        }
+      });
+    }
+
+    for (let i = toRemove.length - 1; i >= 0; i--) {
+      this.projectiles.splice(toRemove[i], 1);
+    }
+  }
+
+  protected explodeProjectile(proj: Projectile, _index: number) {
+    this.broadcast({
+      type: 'ABILITY_EFFECT',
+      payload: {
+        ability: 'MISSILE_EXPLODE',
+        projectileId: proj.id,
+        x: proj.x,
+        y: proj.y
       }
     });
   }
@@ -1104,10 +1161,21 @@ class GameRoom {
       });
     });
 
+    const projectilesArray = this.projectiles.map(p => ({
+      id: p.id,
+      ownerId: p.ownerId,
+      x: Math.round(p.x * 10) / 10,
+      y: Math.round(p.y * 10) / 10,
+      angle: Math.round(p.angle * 100) / 100,
+      radius: p.radius,
+      color: p.color
+    }));
+
     const stateMessage: ServerMessage = {
       type: 'STATE',
       payload: {
-        players: playersArray
+        players: playersArray,
+        projectiles: projectilesArray
       }
     };
 
@@ -1553,10 +1621,21 @@ class StakeGameRoom extends GameRoom {
 
     const timeRemaining = Math.max(0, ROUND_DURATION - (Date.now() - this.roundStartTime));
 
+    const projectilesArray = this.projectiles.map(p => ({
+      id: p.id,
+      ownerId: p.ownerId,
+      x: Math.round(p.x * 10) / 10,
+      y: Math.round(p.y * 10) / 10,
+      angle: Math.round(p.angle * 100) / 100,
+      radius: p.radius,
+      color: p.color
+    }));
+
     const stateMessage: ServerMessage = {
       type: 'STATE',
       payload: {
         players: playersArray,
+        projectiles: projectilesArray,
         roundState: this.roundState,
         timeRemaining,
         prizePool: this.prizePool
