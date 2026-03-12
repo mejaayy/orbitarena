@@ -755,7 +755,7 @@ class GameRoom {
       y: player.y + Math.sin(angle) * (player.radius + MISSILE_RADIUS + 5),
       angle: angle,
       speed: PROJECTILE_SPEED,
-      damage: 15,
+      damage: 30,
       spawnTime: Date.now(),
       lifespan: MISSILE_LIFESPAN,
       radius: MISSILE_RADIUS,

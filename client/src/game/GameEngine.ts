@@ -220,6 +220,13 @@ export class GameEngine {
         }
         return;
       }
+
+      const isShoot = localPlayer?.characterShape === 'triangle' && abilityType === 'ABILITY_2';
+      if (isShoot) {
+        const now = performance.now();
+        if (now - this.lastShootTime < this.SHOOT_COOLDOWN) return;
+        this.lastShootTime = now;
+      }
       
       const msg = JSON.stringify({
         type: 'ABILITY',
@@ -237,6 +244,8 @@ export class GameEngine {
 
   private lastAbilityTime = 0;
   private readonly ABILITY_COOLDOWN = 500;
+  private lastShootTime = 0;
+  private readonly SHOOT_COOLDOWN = 700;
 
   private connectWebSocket() {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -992,8 +1001,29 @@ export class GameEngine {
 
     this.ctx.restore();
 
+    this.drawShootCooldownRing();
     this.drawDamageFlash();
     this.drawMinimap();
+  }
+
+  private drawShootCooldownRing() {
+    const localPlayer = this.players.get(this.localPlayerId);
+    if (!localPlayer || localPlayer.characterShape !== 'triangle') return;
+
+    const elapsed = performance.now() - this.lastShootTime;
+    if (elapsed >= this.SHOOT_COOLDOWN || this.lastShootTime === 0) return;
+
+    const progress = elapsed / this.SHOOT_COOLDOWN;
+    const remaining = 1 - progress;
+    const radius = 18;
+
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.arc(this.mouseScreenX, this.mouseScreenY, radius, -Math.PI / 2, -Math.PI / 2 + remaining * Math.PI * 2);
+    this.ctx.strokeStyle = `rgba(255, 255, 255, ${0.6 * remaining})`;
+    this.ctx.lineWidth = 2.5;
+    this.ctx.stroke();
+    this.ctx.restore();
   }
 
   private drawDashTrails() {
