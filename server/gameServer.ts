@@ -1387,19 +1387,18 @@ class GameRoom {
         name: p.name,
         x: Math.round(p.x * 10) / 10,
         y: Math.round(p.y * 10) / 10,
-        radius: Math.round(p.radius * 10) / 10,
+        r: Math.round(p.radius * 10) / 10,
         color: p.color,
-        score: p.score,
+        s: p.score,
         hp: Math.round(p.hp),
-        maxHp: p.maxHp,
-        charge: Math.round(p.charge),
-        maxCharge: p.maxCharge,
-        characterShape: p.characterShape,
-        balance: p.balance,
-        isSpectator: p.isSpectator,
-        isStunned: p.isStunned,
-        facingAngle: Math.round(p.facingAngle * 100) / 100,
-        isBot: this.botIds.has(p.id)
+        mh: p.maxHp,
+        ch: Math.round(p.charge),
+        mc: p.maxCharge,
+        cs: p.characterShape,
+        fa: Math.round(p.facingAngle * 100) / 100,
+        st: p.isStunned ? 1 : 0,
+        sp: p.isSpectator ? 1 : 0,
+        b: this.botIds.has(p.id) ? 1 : 0
       });
     });
 
@@ -1847,21 +1846,20 @@ class StakeGameRoom extends GameRoom {
     const playersArray = Array.from(this.gameState.players.values()).map(p => ({
       id: p.id,
       name: p.name,
-      x: p.x,
-      y: p.y,
-      radius: p.radius,
+      x: Math.round(p.x * 10) / 10,
+      y: Math.round(p.y * 10) / 10,
+      r: Math.round(p.radius * 10) / 10,
       color: p.color,
-      score: p.score,
-      hp: p.hp,
-      maxHp: p.maxHp,
-      charge: p.charge,
-      maxCharge: p.maxCharge,
-      characterShape: p.characterShape,
-      balance: p.balance,
-      isSpectator: p.isSpectator,
-      isStunned: p.isStunned,
-      facingAngle: p.facingAngle,
-      isBot: this.botIds.has(p.id)
+      s: p.score,
+      hp: Math.round(p.hp),
+      mh: p.maxHp,
+      ch: Math.round(p.charge),
+      mc: p.maxCharge,
+      cs: p.characterShape,
+      fa: Math.round(p.facingAngle * 100) / 100,
+      st: p.isStunned ? 1 : 0,
+      sp: p.isSpectator ? 1 : 0,
+      b: this.botIds.has(p.id) ? 1 : 0
     }));
 
     const timeRemaining = Math.max(0, ROUND_DURATION - (Date.now() - this.roundStartTime));
