@@ -315,7 +315,7 @@ export default function Game() {
             </div>
             <DialogTitle className="text-3xl font-black uppercase">Eliminated</DialogTitle>
             <DialogDescription className="text-lg text-gray-300">
-              You were eaten by <span className="font-bold text-white">{gameOverStats?.killer || 'Unknown'}</span>
+              You were eliminated by <span className="font-bold text-white">{gameOverStats?.killer || 'Unknown'}</span>
             </DialogDescription>
           </DialogHeader>
           
