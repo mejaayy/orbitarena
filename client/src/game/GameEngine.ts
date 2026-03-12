@@ -1197,7 +1197,7 @@ export class GameEngine {
     this.ctx.moveTo(currentX, currentY);
     this.ctx.lineTo(trailEndX, trailEndY);
     this.ctx.strokeStyle = gradient;
-    this.ctx.lineWidth = 14;
+    this.ctx.lineWidth = 42;
     this.ctx.lineCap = 'round';
     this.ctx.stroke();
   }
