@@ -792,12 +792,18 @@ class GameRoom {
 
       let closestEnemy: Player | null = null;
       let closestDist = Infinity;
+      const lockOnCone = 45 * (Math.PI / 180);
 
       this.gameState.players.forEach(other => {
         if (other.id === proj.ownerId || other.isSpectator) return;
         const dx = other.x - proj.x;
         const dy = other.y - proj.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
+        const angleToTarget = Math.atan2(dy, dx);
+        let angleDiff = angleToTarget - proj.angle;
+        while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+        while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+        if (Math.abs(angleDiff) > lockOnCone) return;
         if (dist < closestDist) {
           closestDist = dist;
           closestEnemy = other;
