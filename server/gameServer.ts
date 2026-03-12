@@ -71,6 +71,7 @@ interface Projectile {
   lifespan: number;
   radius: number;
   color: string;
+  trackingDisabledUntil: number;
 }
 
 interface GameState {
@@ -759,7 +760,8 @@ class GameRoom {
       spawnTime: Date.now(),
       lifespan: MISSILE_LIFESPAN,
       radius: MISSILE_RADIUS,
-      color: player.color
+      color: player.color,
+      trackingDisabledUntil: 0
     });
 
     this.broadcast({
@@ -790,11 +792,12 @@ class GameRoom {
         continue;
       }
 
+      const trackingEnabled = now >= proj.trackingDisabledUntil;
       let closestEnemy: Player | null = null;
       let closestDist = Infinity;
       const lockOnCone = 45 * (Math.PI / 180);
 
-      this.gameState.players.forEach(other => {
+      if (trackingEnabled) this.gameState.players.forEach(other => {
         if (other.id === proj.ownerId || other.isSpectator) return;
         const dx = other.x - proj.x;
         const dy = other.y - proj.y;
@@ -910,6 +913,23 @@ class GameRoom {
         this.damagePlayer(player, other, 20);
       }
     });
+
+    const now = Date.now();
+    for (let i = 0; i < this.projectiles.length; i++) {
+      const proj = this.projectiles[i];
+      const dx = proj.x - player.x;
+      const dy = proj.y - player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < ABILITY_RANGE && dist > 0) {
+        const pushAngle = Math.atan2(dy, dx);
+        proj.angle = pushAngle;
+        proj.ownerId = player.id;
+        proj.color = player.color;
+        proj.trackingDisabledUntil = now + 400;
+        proj.spawnTime = now;
+      }
+    }
   }
 
   protected executeStunWave(player: Player) {
