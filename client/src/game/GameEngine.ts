@@ -501,14 +501,12 @@ export class GameEngine {
         startTime: performance.now(),
         duration: 500
       });
-      this.triggerScreenShake(9, 300);
+      this.triggerScreenShake(9, 300, payload.x, payload.y);
       return;
     }
 
     if (payload.ability === 'MISSILE_LAUNCH') {
-      if (payload.playerId === this.localPlayerId) {
-        this.triggerScreenShake(4.5, 150);
-      }
+      this.triggerScreenShake(4.5, 150, payload.x, payload.y);
       return;
     }
 
@@ -523,15 +521,13 @@ export class GameEngine {
       distance: (payload as any).distance
     });
     
-    if (payload.playerId === this.localPlayerId) {
-      const shakeIntensity = this.getShakeIntensity(payload.ability);
-      this.triggerScreenShake(shakeIntensity.intensity, shakeIntensity.duration);
-      
-      if (payload.ability === 'DASH') {
-        this.dashZoom.active = true;
-        this.dashZoom.startTime = performance.now();
-        this.dashZoom.angle = payload.angle;
-      }
+    const shakeIntensity = this.getShakeIntensity(payload.ability);
+    this.triggerScreenShake(shakeIntensity.intensity, shakeIntensity.duration, payload.x, payload.y);
+    
+    if (payload.playerId === this.localPlayerId && payload.ability === 'DASH') {
+      this.dashZoom.active = true;
+      this.dashZoom.startTime = performance.now();
+      this.dashZoom.angle = payload.angle;
     }
   }
   
@@ -554,10 +550,26 @@ export class GameEngine {
     }
   }
   
-  private triggerScreenShake(intensity: number, duration: number) {
-    this.screenShake.intensity = intensity;
-    this.screenShake.duration = duration;
-    this.screenShake.startTime = performance.now();
+  private triggerScreenShake(intensity: number, duration: number, worldX?: number, worldY?: number) {
+    let finalIntensity = intensity;
+    if (worldX !== undefined && worldY !== undefined && this.localPlayerId) {
+      const localPlayer = this.players.get(this.localPlayerId);
+      if (localPlayer) {
+        const dx = worldX - localPlayer.x;
+        const dy = worldY - localPlayer.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const maxRange = 2000;
+        if (dist > maxRange) return;
+        const falloff = 1 - (dist / maxRange);
+        finalIntensity = intensity * falloff * falloff;
+        if (finalIntensity < 0.5) return;
+      }
+    }
+    if (finalIntensity > this.screenShake.intensity) {
+      this.screenShake.intensity = finalIntensity;
+      this.screenShake.duration = duration;
+      this.screenShake.startTime = performance.now();
+    }
   }
   
   private updateScreenShake() {
