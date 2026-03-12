@@ -1224,22 +1224,25 @@ class GameRoom {
       });
     });
 
-    const projectilesArray = this.projectiles.map(p => ({
-      id: p.id,
-      ownerId: p.ownerId,
-      x: Math.round(p.x * 10) / 10,
-      y: Math.round(p.y * 10) / 10,
-      angle: Math.round(p.angle * 100) / 100,
-      radius: p.radius,
-      color: p.color
-    }));
+    const statePayload: any = { players: playersArray };
+    if (this.projectiles.length > 0) {
+      const pArr = new Array(this.projectiles.length);
+      for (let i = 0; i < this.projectiles.length; i++) {
+        const p = this.projectiles[i];
+        pArr[i] = [
+          Math.round(p.x),
+          Math.round(p.y),
+          Math.round(p.angle * 100) / 100,
+          p.radius,
+          p.color
+        ];
+      }
+      statePayload.p = pArr;
+    }
 
     const stateMessage: ServerMessage = {
       type: 'STATE',
-      payload: {
-        players: playersArray,
-        projectiles: projectilesArray
-      }
+      payload: statePayload
     };
 
     this.broadcast(stateMessage);
@@ -1684,25 +1687,30 @@ class StakeGameRoom extends GameRoom {
 
     const timeRemaining = Math.max(0, ROUND_DURATION - (Date.now() - this.roundStartTime));
 
-    const projectilesArray = this.projectiles.map(p => ({
-      id: p.id,
-      ownerId: p.ownerId,
-      x: Math.round(p.x * 10) / 10,
-      y: Math.round(p.y * 10) / 10,
-      angle: Math.round(p.angle * 100) / 100,
-      radius: p.radius,
-      color: p.color
-    }));
+    const stakePayload: any = {
+      players: playersArray,
+      roundState: this.roundState,
+      timeRemaining,
+      prizePool: this.prizePool
+    };
+    if (this.projectiles.length > 0) {
+      const pArr = new Array(this.projectiles.length);
+      for (let i = 0; i < this.projectiles.length; i++) {
+        const p = this.projectiles[i];
+        pArr[i] = [
+          Math.round(p.x),
+          Math.round(p.y),
+          Math.round(p.angle * 100) / 100,
+          p.radius,
+          p.color
+        ];
+      }
+      stakePayload.p = pArr;
+    }
 
     const stateMessage: ServerMessage = {
       type: 'STATE',
-      payload: {
-        players: playersArray,
-        projectiles: projectilesArray,
-        roundState: this.roundState,
-        timeRemaining,
-        prizePool: this.prizePool
-      }
+      payload: stakePayload
     };
 
     this.broadcast(stateMessage);

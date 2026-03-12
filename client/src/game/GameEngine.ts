@@ -48,15 +48,7 @@ export interface Pickup {
 
 interface ServerState {
   players: Player[];
-  projectiles?: Array<{
-    id: string;
-    ownerId: string;
-    x: number;
-    y: number;
-    angle: number;
-    radius: number;
-    color: string;
-  }>;
+  p?: Array<[number, number, number, number, string]>;
 }
 
 export type RoundState = 'LOBBY' | 'COUNTDOWN' | 'PLAYING' | 'ENDED';
@@ -470,8 +462,6 @@ export class GameEngine {
   }> = [];
 
   private serverProjectiles: Array<{
-    id: string;
-    ownerId: string;
     x: number;
     y: number;
     angle: number;
@@ -664,8 +654,21 @@ export class GameEngine {
       }
     }
 
-    if (state.projectiles) {
-      this.serverProjectiles = state.projectiles;
+    if (state.p) {
+      const arr = state.p;
+      this.serverProjectiles.length = arr.length;
+      for (let i = 0; i < arr.length; i++) {
+        const d = arr[i];
+        this.serverProjectiles[i] = {
+          x: d[0],
+          y: d[1],
+          angle: d[2],
+          radius: d[3],
+          color: d[4]
+        };
+      }
+    } else {
+      this.serverProjectiles.length = 0;
     }
   }
 
