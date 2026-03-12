@@ -145,8 +145,11 @@ interface BotState {
   wanderTimer: number;
   chaseTargetId: string | null;
   lastAbilityTime: number;
-  behaviorMode: 'wander' | 'chase' | 'flee' | 'collect';
+  behaviorMode: 'wander' | 'chase' | 'flee' | 'collect' | 'strafe' | 'dodge';
   nearestPickupId: string | null;
+  strafeDir: number;
+  strafeTimer: number;
+  aggressionLevel: number;
 }
 
 class GameRoom {
@@ -236,6 +239,9 @@ class GameRoom {
         lastAbilityTime: 0,
         behaviorMode: 'wander',
         nearestPickupId: null,
+        strafeDir: Math.random() < 0.5 ? 1 : -1,
+        strafeTimer: 0,
+        aggressionLevel: 0.4 + Math.random() * 0.5,
       });
     }
     this.botsActive = true;
@@ -268,6 +274,8 @@ class GameRoom {
     botState.chaseTargetId = null;
     botState.behaviorMode = 'wander';
     botState.nearestPickupId = null;
+    botState.strafeDir = Math.random() < 0.5 ? 1 : -1;
+    botState.strafeTimer = 0;
   }
 
   protected updateBots() {
@@ -286,7 +294,7 @@ class GameRoom {
       if (!botState) continue;
 
       if (!player || player.hp <= 0) {
-        if (now - (botState.lastAbilityTime || 0) > 5000) {
+        if (now - (botState.lastAbilityTime || 0) > 3000) {
           this.respawnBot(botId);
           botState.lastAbilityTime = now;
         }
@@ -297,37 +305,60 @@ class GameRoom {
 
       let nearestEnemy: Player | null = null;
       let nearestEnemyDist = Infinity;
-      let nearestPickup: Pickup | null = null;
-      let nearestPickupDist = Infinity;
+      let secondEnemy: Player | null = null;
+      let secondEnemyDist = Infinity;
 
       this.gameState.players.forEach(other => {
-        if (other.id === botId || other.isSpectator || this.botIds.has(other.id)) return;
+        if (other.id === botId || other.isSpectator) return;
         const dx = other.x - player.x;
         const dy = other.y - player.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < nearestEnemyDist) {
+          secondEnemy = nearestEnemy;
+          secondEnemyDist = nearestEnemyDist;
           nearestEnemyDist = dist;
           nearestEnemy = other;
+        } else if (dist < secondEnemyDist) {
+          secondEnemyDist = dist;
+          secondEnemy = other;
         }
       });
 
-      for (const pickup of this.gameState.pickups) {
-        const dx = pickup.x - player.x;
-        const dy = pickup.y - player.y;
+      let nearestMissileDist = Infinity;
+      let nearestMissileAngle = 0;
+      for (const proj of this.projectiles) {
+        if (proj.ownerId === botId) continue;
+        const dx = proj.x - player.x;
+        const dy = proj.y - player.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < nearestPickupDist) {
-          nearestPickupDist = dist;
-          nearestPickup = pickup;
+        if (dist < nearestMissileDist) {
+          nearestMissileDist = dist;
+          nearestMissileAngle = Math.atan2(dy, dx);
         }
       }
 
-      const needsHp = player.hp < 120;
-      const needsCharge = player.charge < player.maxCharge;
-      const wantsPickup = needsHp || needsCharge;
+      let separationX = 0;
+      let separationY = 0;
+      this.gameState.players.forEach(other => {
+        if (other.id === botId || other.isSpectator) return;
+        const dx = player.x - other.x;
+        const dy = player.y - other.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const minSep = player.radius + other.radius + 30;
+        if (dist < minSep && dist > 0) {
+          separationX += (dx / dist) * 0.5;
+          separationY += (dy / dist) * 0.5;
+        }
+      });
+
+      const needsHp = player.hp < 100;
+      const lowHp = player.hp < 50;
+      const hasCharge = player.charge >= ABILITY_CHARGE_COST;
+      const aggro = botState.aggressionLevel;
 
       let preferredPickup: Pickup | null = null;
       let preferredPickupDist = Infinity;
-      if (wantsPickup) {
+      if (needsHp || player.charge < player.maxCharge * 0.5) {
         const preferType: PickupType = needsHp ? 'HP' : 'CHARGE';
         for (const pickup of this.gameState.pickups) {
           if (pickup.type !== preferType) continue;
@@ -341,19 +372,23 @@ class GameRoom {
         }
       }
 
-      if (player.hp < 50 && nearestEnemy && nearestEnemyDist < 300) {
+      if (nearestMissileDist < 200) {
+        botState.behaviorMode = 'dodge';
+      } else if (lowHp && nearestEnemy && nearestEnemyDist < 400) {
         botState.behaviorMode = 'flee';
-      } else if (wantsPickup && preferredPickup && preferredPickupDist < 800) {
-        botState.behaviorMode = 'collect';
-        nearestPickup = preferredPickup;
-        nearestPickupDist = preferredPickupDist;
-      } else if (nearestPickup && nearestPickupDist < 400) {
-        botState.behaviorMode = 'collect';
-      } else if (nearestEnemy && nearestEnemyDist < 500 && player.charge >= ABILITY_CHARGE_COST) {
+      } else if (nearestEnemy && nearestEnemyDist < ABILITY_RANGE * 1.5 && hasCharge) {
+        botState.behaviorMode = 'strafe';
+        botState.chaseTargetId = nearestEnemy.id;
+      } else if (nearestEnemy && nearestEnemyDist < ENEMY_SCAN_RANGE * aggro) {
         botState.behaviorMode = 'chase';
         botState.chaseTargetId = nearestEnemy.id;
-      } else if (nearestPickup && nearestPickupDist < 800) {
+      } else if (needsHp && preferredPickup && preferredPickupDist < 600) {
         botState.behaviorMode = 'collect';
+      } else if (preferredPickup && preferredPickupDist < 400) {
+        botState.behaviorMode = 'collect';
+      } else if (nearestEnemy && nearestEnemyDist < ENEMY_SCAN_RANGE) {
+        botState.behaviorMode = 'chase';
+        botState.chaseTargetId = nearestEnemy.id;
       } else {
         botState.behaviorMode = 'wander';
       }
@@ -365,9 +400,9 @@ class GameRoom {
         case 'wander': {
           botState.wanderTimer--;
           if (botState.wanderTimer <= 0) {
-            botState.targetX = 200 + Math.random() * (WORLD_SIZE - 400);
-            botState.targetY = 200 + Math.random() * (WORLD_SIZE - 400);
-            botState.wanderTimer = 90 + Math.floor(Math.random() * 120);
+            botState.targetX = 300 + Math.random() * (WORLD_SIZE - 600);
+            botState.targetY = 300 + Math.random() * (WORLD_SIZE - 600);
+            botState.wanderTimer = 60 + Math.floor(Math.random() * 90);
           }
           const dx = botState.targetX - player.x;
           const dy = botState.targetY - player.y;
@@ -379,21 +414,89 @@ class GameRoom {
           break;
         }
         case 'chase': {
-          const target = nearestEnemy;
-          if (target) {
-            const dx = target.x - player.x;
-            const dy = target.y - player.y;
+          if (nearestEnemy) {
+            const dx = nearestEnemy.x - player.x;
+            const dy = nearestEnemy.y - player.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist > 10) {
               moveX = dx / dist;
               moveY = dy / dist;
             }
+            player.facingAngle = Math.atan2(dy, dx);
 
-            if (dist < ABILITY_RANGE + 50 && player.charge >= ABILITY_CHARGE_COST && now - botState.lastAbilityTime > 2000) {
-              const abilityType: AbilityType = Math.random() < 0.5 ? 'ABILITY_1' : 'ABILITY_2';
-              this.executeAbility(player, abilityType);
+            if (player.characterShape === 'triangle' && hasCharge && dist < 1000 && now - botState.lastAbilityTime > 800) {
+              player.facingAngle = Math.atan2(dy, dx);
+              this.executeAbility(player, 'ABILITY_2');
               botState.lastAbilityTime = now;
             }
+          }
+          break;
+        }
+        case 'strafe': {
+          if (nearestEnemy) {
+            const dx = nearestEnemy.x - player.x;
+            const dy = nearestEnemy.y - player.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            player.facingAngle = Math.atan2(dy, dx);
+
+            botState.strafeTimer--;
+            if (botState.strafeTimer <= 0) {
+              botState.strafeDir *= -1;
+              botState.strafeTimer = 20 + Math.floor(Math.random() * 40);
+            }
+
+            const perpX = -dy / dist * botState.strafeDir;
+            const perpY = dx / dist * botState.strafeDir;
+
+            const idealDist = ABILITY_RANGE * 0.7;
+            const approachFactor = (dist - idealDist) / idealDist;
+            const clampedApproach = Math.max(-0.5, Math.min(1, approachFactor));
+
+            moveX = perpX * 0.7 + (dx / dist) * clampedApproach * 0.5;
+            moveY = perpY * 0.7 + (dy / dist) * clampedApproach * 0.5;
+
+            const abilityCooldown = player.characterShape === 'triangle' ? 800 : 1200;
+            if (hasCharge && now - botState.lastAbilityTime > abilityCooldown) {
+              if (dist < ABILITY_RANGE + 50) {
+                let abilityType: AbilityType;
+                if (player.characterShape === 'circle') {
+                  abilityType = dist < ABILITY_RANGE * 0.5 ? 'ABILITY_2' : 'ABILITY_1';
+                } else if (player.characterShape === 'triangle') {
+                  abilityType = 'ABILITY_2';
+                } else {
+                  abilityType = Math.random() < 0.6 ? 'ABILITY_2' : 'ABILITY_1';
+                }
+                this.executeAbility(player, abilityType);
+                botState.lastAbilityTime = now;
+              } else if (player.characterShape === 'triangle' && dist < 1000) {
+                this.executeAbility(player, 'ABILITY_2');
+                botState.lastAbilityTime = now;
+              }
+            }
+
+            if (player.characterShape === 'triangle' && hasCharge && dist > ABILITY_RANGE && dist < DASH_DISTANCE * 2 && now - botState.lastAbilityTime > 600) {
+              this.executeAbility(player, 'ABILITY_1');
+              botState.lastAbilityTime = now;
+            }
+          }
+          break;
+        }
+        case 'dodge': {
+          const dodgeAngle = nearestMissileAngle + Math.PI / 2 * botState.strafeDir;
+          moveX = Math.cos(dodgeAngle);
+          moveY = Math.sin(dodgeAngle);
+
+          if (nearestEnemy) {
+            player.facingAngle = Math.atan2(nearestEnemy.y - player.y, nearestEnemy.x - player.x);
+          }
+
+          if (player.characterShape === 'square' && hasCharge && nearestMissileDist < 150 && now - botState.lastAbilityTime > 600) {
+            this.executeAbility(player, 'ABILITY_1');
+            botState.lastAbilityTime = now;
+          }
+          if (player.characterShape === 'circle' && hasCharge && nearestMissileDist < 120 && now - botState.lastAbilityTime > 600) {
+            this.executeAbility(player, 'ABILITY_2');
+            botState.lastAbilityTime = now;
           }
           break;
         }
@@ -406,27 +509,54 @@ class GameRoom {
               moveX = dx / dist;
               moveY = dy / dist;
             }
+            player.facingAngle = Math.atan2(-dy, -dx);
+
+            if (player.characterShape === 'square' && hasCharge && dist < ABILITY_RANGE && now - botState.lastAbilityTime > 800) {
+              player.facingAngle = Math.atan2(nearestEnemy.y - player.y, nearestEnemy.x - player.x);
+              this.executeAbility(player, 'ABILITY_1');
+              botState.lastAbilityTime = now;
+            }
+            if (player.characterShape === 'triangle' && hasCharge && now - botState.lastAbilityTime > 600) {
+              this.executeAbility(player, 'ABILITY_1');
+              botState.lastAbilityTime = now;
+            }
           }
           break;
         }
         case 'collect': {
-          const pickup = nearestPickup;
-          if (pickup) {
-            const dx = pickup.x - player.x;
-            const dy = pickup.y - player.y;
+          if (preferredPickup) {
+            const dx = preferredPickup.x - player.x;
+            const dy = preferredPickup.y - player.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist > 5) {
               moveX = dx / dist;
               moveY = dy / dist;
+            }
+            if (nearestEnemy && nearestEnemyDist < ABILITY_RANGE && hasCharge && now - botState.lastAbilityTime > 1000) {
+              player.facingAngle = Math.atan2(nearestEnemy.y - player.y, nearestEnemy.x - player.x);
+              const abilityType: AbilityType = player.characterShape === 'square' ? 'ABILITY_1' : 'ABILITY_2';
+              this.executeAbility(player, abilityType);
+              botState.lastAbilityTime = now;
             }
           }
           break;
         }
       }
 
+      moveX += separationX;
+      moveY += separationY;
+
+      const len = Math.sqrt(moveX * moveX + moveY * moveY);
+      if (len > 1) {
+        moveX /= len;
+        moveY /= len;
+      }
+
       player.inputVector = { x: moveX, y: moveY };
-      if (moveX !== 0 || moveY !== 0) {
-        player.facingAngle = Math.atan2(moveY, moveX);
+      if (botState.behaviorMode === 'wander' || botState.behaviorMode === 'collect') {
+        if (moveX !== 0 || moveY !== 0) {
+          player.facingAngle = Math.atan2(moveY, moveX);
+        }
       }
     }
   }
