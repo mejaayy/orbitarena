@@ -1020,7 +1020,8 @@ export class GameEngine {
     this.ctx.save();
     this.ctx.beginPath();
     this.ctx.arc(this.mouseScreenX, this.mouseScreenY, radius, -Math.PI / 2, -Math.PI / 2 + remaining * Math.PI * 2);
-    this.ctx.strokeStyle = `rgba(255, 255, 255, ${0.6 * remaining})`;
+    const alpha = remaining < 0.2 ? remaining / 0.2 : 1;
+    this.ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
     this.ctx.lineWidth = 5;
     this.ctx.stroke();
     this.ctx.restore();
