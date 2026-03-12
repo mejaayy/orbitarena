@@ -110,7 +110,9 @@ const HP_PICKUP_VALUE = 7;
 const CHARGE_PICKUP_VALUE = 11;
 
 const ABILITY_CHARGE_COST = 20;
-const ABILITY_COOLDOWN = 500;
+const ABILITY_COOLDOWN = 450;
+const MISSILE_COOLDOWN = 700;
+const PULL_COOLDOWN = 0;
 const ABILITY_RANGE = 400;
 const ABILITY_DAMAGE = 25;
 const PROJECTILE_RANGE = 1200;
@@ -762,6 +764,12 @@ class GameRoom {
 
   protected executeAbility(player: Player, abilityType: AbilityType) {
     const isPull = player.characterShape === 'circle' && abilityType === 'ABILITY_1';
+    const isMissile = player.characterShape === 'triangle' && abilityType === 'ABILITY_2';
+    const cooldown = isPull ? PULL_COOLDOWN : isMissile ? MISSILE_COOLDOWN : ABILITY_COOLDOWN;
+    const now = Date.now();
+
+    if (cooldown > 0 && now - player.lastAbilityTime < cooldown) return;
+
     const chargeCost = isPull ? 5 : ABILITY_CHARGE_COST;
     
     if (!this.useCharge(player, chargeCost)) {
@@ -771,6 +779,8 @@ class GameRoom {
       }
       return;
     }
+
+    player.lastAbilityTime = now;
 
     const shape = player.characterShape;
     let abilityName = '';
