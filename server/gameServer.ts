@@ -913,7 +913,7 @@ class GameRoom {
         if (now - player.lastStunDamageTime >= 1000) {
           player.lastStunDamageTime = now;
           const attacker = player.stunAttackerId ? this.gameState.players.get(player.stunAttackerId) : null;
-          this.damagePlayer(attacker || null, player, 20);
+          this.damagePlayer(attacker || null, player, 7);
         }
         return;
       }
