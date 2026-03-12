@@ -502,13 +502,13 @@ export class GameEngine {
         startTime: performance.now(),
         duration: 500
       });
-      this.triggerScreenShake(6, 200);
+      this.triggerScreenShake(7.2, 240);
       return;
     }
 
     if (payload.ability === 'MISSILE_LAUNCH') {
       if (payload.playerId === this.localPlayerId) {
-        this.triggerScreenShake(3, 100);
+        this.triggerScreenShake(3.6, 120);
       }
       return;
     }
@@ -539,19 +539,19 @@ export class GameEngine {
   private getShakeIntensity(ability: string): { intensity: number; duration: number } {
     switch (ability) {
       case 'SLAM':
-        return { intensity: 12, duration: 300 };
+        return { intensity: 14.4, duration: 360 };
       case 'PUSH':
-        return { intensity: 10, duration: 250 };
+        return { intensity: 12, duration: 300 };
       case 'STUN_WAVE':
-        return { intensity: 8, duration: 300 };
+        return { intensity: 9.6, duration: 360 };
       case 'DASH':
-        return { intensity: 6, duration: 150 };
+        return { intensity: 7.2, duration: 180 };
       case 'PIERCE':
-        return { intensity: 4, duration: 100 };
+        return { intensity: 4.8, duration: 120 };
       case 'PULL':
-        return { intensity: 5, duration: 200 };
+        return { intensity: 6, duration: 240 };
       default:
-        return { intensity: 5, duration: 150 };
+        return { intensity: 6, duration: 180 };
     }
   }
   
@@ -1231,9 +1231,6 @@ export class GameEngine {
       this.ctx.translate(proj.x, proj.y);
       this.ctx.rotate(proj.angle);
 
-      this.ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.8)`;
-      this.ctx.shadowBlur = 20;
-
       this.ctx.beginPath();
       this.ctx.moveTo(size * 1.2, 0);
       this.ctx.lineTo(-size * 0.8, -size * 0.7);
@@ -1242,22 +1239,14 @@ export class GameEngine {
       this.ctx.closePath();
       this.ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
       this.ctx.fill();
-      this.ctx.strokeStyle = `rgba(255, 255, 255, 0.6)`;
-      this.ctx.lineWidth = 1.5;
-      this.ctx.stroke();
 
-      this.ctx.shadowBlur = 0;
-
-      const trailLen = size * 2.5;
-      const gradient = this.ctx.createLinearGradient(-size * 0.4, 0, -size * 0.4 - trailLen, 0);
-      gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.7)`);
-      gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+      const trailLen = size * 2;
       this.ctx.beginPath();
-      this.ctx.moveTo(-size * 0.4, -size * 0.3);
+      this.ctx.moveTo(-size * 0.4, -size * 0.25);
       this.ctx.lineTo(-size * 0.4 - trailLen, 0);
-      this.ctx.lineTo(-size * 0.4, size * 0.3);
+      this.ctx.lineTo(-size * 0.4, size * 0.25);
       this.ctx.closePath();
-      this.ctx.fillStyle = gradient;
+      this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.5)`;
       this.ctx.fill();
 
       this.ctx.restore();
