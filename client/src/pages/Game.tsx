@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Trophy, Home, RotateCcw, LogOut, Coins, AlertCircle, Users, Timer, Award } from 'lucide-react';
 import { EXIT_FEE_PERCENT } from '@/lib/phantom';
+import { AdminPanel } from '@/components/AdminPanel';
 
 export default function Game() {
   const [location, setLocation] = useLocation();
@@ -393,6 +394,11 @@ export default function Game() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AdminPanel
+        onMockLeaderboard={() => {}}
+        mockLeaderboardEnabled={false}
+      />
     </div>
   );
 }

@@ -775,7 +775,7 @@ class GameRoom {
 
     if (cooldown > 0 && now - player.lastAbilityTime < cooldown) return;
 
-    const chargeCost = isPull ? (held ? 7 : 15) : ABILITY_CHARGE_COST;
+    const chargeCost = isPull ? (held ? 7 : 20) : ABILITY_CHARGE_COST;
     
     if (!this.useCharge(player, chargeCost)) {
       const ws = this.clients.get(player.id);
