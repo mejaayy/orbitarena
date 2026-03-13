@@ -508,9 +508,7 @@ export class GameEngine {
         startTime: performance.now(),
         duration: 500
       });
-      if (payload.playerId !== this.localPlayerId) {
-        this.triggerScreenShake(9, 300, payload.x, payload.y);
-      }
+      this.triggerScreenShake(9, 300, payload.x, payload.y);
       return;
     }
 

@@ -1082,8 +1082,7 @@ class GameRoom {
         ability: 'MISSILE_EXPLODE',
         projectileId: proj.id,
         x: proj.x,
-        y: proj.y,
-        playerId: proj.ownerId
+        y: proj.y
       }
     });
   }
@@ -1333,6 +1332,8 @@ class GameRoom {
   }
 
   protected damagePlayer(attacker: Player | null, victim: Player, baseDamage: number) {
+    if (attacker && attacker.id === victim.id) return;
+
     let damage = baseDamage;
     
     if (attacker) {
@@ -1364,9 +1365,9 @@ class GameRoom {
       });
     }
     
-    if (attacker) {
+    if (attacker && attacker.id !== victim.id) {
       const attackerWs = this.clients.get(attacker.id);
-      if (attackerWs) {
+      if (attackerWs && attackerWs !== victimWs) {
         this.send(attackerWs, {
           type: 'DAMAGE',
           payload: { targetId: victim.id, damage, currentHp: victim.hp, attackerId: attacker.id, victimX: victim.x, victimY: victim.y }
