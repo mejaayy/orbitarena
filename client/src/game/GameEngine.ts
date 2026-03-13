@@ -180,10 +180,10 @@ export class GameEngine {
       e.preventDefault();
       if (!this.rightClickHeld) {
         this.rightClickHeld = true;
-        this.sendAbility('ABILITY_1');
+        this.sendAbility('ABILITY_1', false);
         this.pullInterval = setInterval(() => {
           if (this.rightClickHeld) {
-            this.sendAbility('ABILITY_1');
+            this.sendAbility('ABILITY_1', true);
           }
         }, 150);
       }
@@ -200,11 +200,11 @@ export class GameEngine {
     }
   };
 
-  private sendAbility(abilityType: 'ABILITY_1' | 'ABILITY_2') {
+  private sendAbility(abilityType: 'ABILITY_1' | 'ABILITY_2', held?: boolean) {
     if (this.ws?.readyState === WebSocket.OPEN && this.localPlayerId && !this.isSpectating) {
       const localPlayer = this.players.get(this.localPlayerId);
       const isPull = localPlayer?.characterShape === 'circle' && abilityType === 'ABILITY_1';
-      const minCharge = isPull ? 5 : 20;
+      const minCharge = isPull ? (held ? 5 : 15) : 20;
       if (localPlayer && (localPlayer.charge || 0) < minCharge) {
         const now = performance.now();
         if (now - this.lastAbilityTime > this.ABILITY_COOLDOWN) {
@@ -214,9 +214,11 @@ export class GameEngine {
         return;
       }
 
+      const payload: any = { abilityType };
+      if (held !== undefined) payload.held = held;
       const msg = JSON.stringify({
         type: 'ABILITY',
-        payload: { abilityType }
+        payload
       });
       this.ws.send(msg);
     }

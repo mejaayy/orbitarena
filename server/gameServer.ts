@@ -759,14 +759,14 @@ class GameRoom {
     }
   }
 
-  handleAbility(playerId: string, abilityType: AbilityType) {
+  handleAbility(playerId: string, abilityType: AbilityType, held?: boolean) {
     const player = this.gameState.players.get(playerId);
     if (!player || player.isSpectator || player.isStunned) return;
     
-    this.executeAbility(player, abilityType);
+    this.executeAbility(player, abilityType, held);
   }
 
-  protected executeAbility(player: Player, abilityType: AbilityType) {
+  protected executeAbility(player: Player, abilityType: AbilityType, held?: boolean) {
     const isPull = player.characterShape === 'circle' && abilityType === 'ABILITY_1';
     const isMissile = player.characterShape === 'triangle' && abilityType === 'ABILITY_2';
     const cooldown = isPull ? PULL_COOLDOWN : isMissile ? MISSILE_COOLDOWN : ABILITY_COOLDOWN;
@@ -774,7 +774,7 @@ class GameRoom {
 
     if (cooldown > 0 && now - player.lastAbilityTime < cooldown) return;
 
-    const chargeCost = isPull ? 5 : ABILITY_CHARGE_COST;
+    const chargeCost = isPull ? (held ? 5 : 15) : ABILITY_CHARGE_COST;
     
     if (!this.useCharge(player, chargeCost)) {
       const ws = this.clients.get(player.id);
@@ -792,7 +792,7 @@ class GameRoom {
     if (shape === 'circle') {
       if (abilityType === 'ABILITY_1') {
         abilityName = 'PULL';
-        this.executePull(player);
+        this.executePull(player, held);
       } else {
         abilityName = 'SLAM';
         this.executeSlam(player);
@@ -828,8 +828,8 @@ class GameRoom {
     });
   }
 
-  protected executePull(player: Player) {
-    const pullStrength = 25;
+  protected executePull(player: Player, held?: boolean) {
+    const pullStrength = held ? 25 : 45;
     this.gameState.players.forEach(other => {
       if (other.id === player.id || other.isSpectator) return;
       
@@ -2128,10 +2128,10 @@ export class GameServer {
     }
   }
 
-  private handleAbilityMessage(playerId: string, payload: { abilityType: AbilityType }) {
+  private handleAbilityMessage(playerId: string, payload: { abilityType: AbilityType; held?: boolean }) {
     const room = this.getRoom(playerId);
     if (room) {
-      room.handleAbility(playerId, payload.abilityType);
+      room.handleAbility(playerId, payload.abilityType, payload.held);
     }
   }
 
