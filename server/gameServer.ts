@@ -1065,6 +1065,18 @@ class GameRoom {
         this.damagePlayer(player, other, 30);
       }
     });
+
+    // Stop nearby projectiles from tracking, they continue in straight line
+    const now = Date.now();
+    for (let i = 0; i < this.projectiles.length; i++) {
+      const proj = this.projectiles[i];
+      const dx = proj.x - player.x;
+      const dy = proj.y - player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < ABILITY_RANGE) {
+        proj.trackingDisabledUntil = now + 3000;
+      }
+    }
   }
 
   protected executePierce(player: Player) {
