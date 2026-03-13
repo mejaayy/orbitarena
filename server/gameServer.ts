@@ -1195,8 +1195,12 @@ class GameRoom {
         if (destroyed.has(j)) continue;
         const other = this.projectiles[j];
         
-        // Skip collision if both projectiles are from the same owner
-        if (proj.ownerId === other.ownerId) continue;
+        // Skip collision only if both are from same owner AND both have tracking enabled
+        // Allow collision if one is coming back (tracking disabled)
+        const now = Date.now();
+        const projHasTracking = proj.trackingDisabledUntil <= now;
+        const otherHasTracking = other.trackingDisabledUntil <= now;
+        if (proj.ownerId === other.ownerId && projHasTracking && otherHasTracking) continue;
         
         const dx = other.x - proj.x;
         const dy = other.y - proj.y;
