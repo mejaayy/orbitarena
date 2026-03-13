@@ -1463,7 +1463,7 @@ export class GameEngine {
       botY = pos.botY;
     } else {
       const ox = size * 0.15;
-      const oy = size * 0.55;
+      const oy = size * 0.7;
       const perpX = -sin;
       const perpY = cos;
       topX = player.x + cos * ox + perpX * oy;
@@ -1512,24 +1512,30 @@ export class GameEngine {
 
     const offsets = [-0.5, -0.25, 0, 0.25, 0.5];
 
+    const smoothedDirs: { nx: number; ny: number }[] = [];
+    for (let i = 0; i < points.length; i++) {
+      let dx = 0, dy = 0;
+      if (i > 0) {
+        dx += points[i].x - points[i - 1].x;
+        dy += points[i].y - points[i - 1].y;
+      }
+      if (i < points.length - 1) {
+        dx += points[i + 1].x - points[i].x;
+        dy += points[i + 1].y - points[i].y;
+      }
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      smoothedDirs.push({ nx: -dy / len, ny: dx / len });
+    }
+
     for (let o = 0; o < offsets.length; o++) {
       const spread = offsets[o] * r * 0.8;
       const distFromCenter = Math.abs(offsets[o]) / 0.5;
 
       const offsetPoints: { x: number; y: number }[] = [];
       for (let i = 0; i < points.length; i++) {
-        let dx: number, dy: number;
-        if (i < points.length - 1) {
-          dx = points[i + 1].x - points[i].x;
-          dy = points[i + 1].y - points[i].y;
-        } else {
-          dx = points[i].x - points[i - 1].x;
-          dy = points[i].y - points[i - 1].y;
-        }
-        const len = Math.sqrt(dx * dx + dy * dy) || 1;
         offsetPoints.push({
-          x: points[i].x + (-dy / len) * spread,
-          y: points[i].y + (dx / len) * spread
+          x: points[i].x + smoothedDirs[i].nx * spread,
+          y: points[i].y + smoothedDirs[i].ny * spread
         });
       }
 
@@ -1744,7 +1750,7 @@ export class GameEngine {
     const angle = player.facingAngle || 0;
     const ms = size * 0.3;
     const ox = size * 0.15;
-    const oy = size * 0.55;
+    const oy = size * 0.7;
 
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
