@@ -1194,6 +1194,10 @@ class GameRoom {
       for (let j = i + 1; j < this.projectiles.length; j++) {
         if (destroyed.has(j)) continue;
         const other = this.projectiles[j];
+        
+        // Skip collision if both projectiles are from the same owner
+        if (proj.ownerId === other.ownerId) continue;
+        
         const dx = other.x - proj.x;
         const dy = other.y - proj.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
