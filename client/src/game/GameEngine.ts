@@ -963,7 +963,8 @@ export class GameEngine {
       const movedY = player.y - prevY;
       if (movedX * movedX + movedY * movedY > 2) {
         player.trail.push({ x: player.x, y: player.y });
-        if (player.trail.length > 8) {
+        const maxTrail = player.supercharged ? 20 : 8;
+        if (player.trail.length > maxTrail) {
           player.trail.shift();
         }
       } else if (movedX === 0 && movedY === 0 && player.trail.length > 0) {
@@ -1500,52 +1501,54 @@ export class GameEngine {
     const r = player.radius;
     const [cr, cg, cb] = player.color.startsWith('#') ? this.parseHexColor(player.color) : [212, 0, 70];
     const trail = player.trail;
-    const angle = player.facingAngle || 0;
 
-    let prevAngle = angle;
-    if (trail.length >= 2) {
-      const last = trail[trail.length - 1];
-      const prev = trail[trail.length - 2];
-      prevAngle = Math.atan2(last.y - prev.y, last.x - prev.x);
-    } else if (trail.length === 1) {
-      const last = trail[trail.length - 1];
-      prevAngle = Math.atan2(player.y - last.y, player.x - last.x);
+    if (trail.length < 3) return;
+
+    const points: { x: number; y: number }[] = [];
+    for (let i = 0; i < trail.length; i++) {
+      points.push(trail[i]);
     }
+    points.push({ x: player.x, y: player.y });
 
-    let angleDelta = prevAngle - angle;
-    while (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
-    while (angleDelta < -Math.PI) angleDelta += Math.PI * 2;
+    const offsets = [-0.5, -0.25, 0, 0.25, 0.5];
 
-    const spreads = [-1.2, -0.6, 0, 0.6, 1.2];
-    const lineLength = r * 3;
-    const segments = 8;
+    for (let o = 0; o < offsets.length; o++) {
+      const spread = offsets[o] * r * 0.8;
+      const distFromCenter = Math.abs(offsets[o]) / 0.5;
 
-    for (let s = 0; s < spreads.length; s++) {
-      const perpOffset = spreads[s] * r * 0.5;
-      const distFromCenter = Math.abs(spreads[s]) / 1.2;
-      const alpha = 0.5 * (1 - distFromCenter * 0.5);
-      const lw = 2.5 * (1 - distFromCenter * 0.4);
-
-      this.ctx.beginPath();
-
-      for (let i = 0; i <= segments; i++) {
-        const t = i / segments;
-        const curveAngle = angle + angleDelta * t * 0.6;
-        const backAngle = curveAngle + Math.PI;
-
-        const dist = t * lineLength;
-        const px = player.x + Math.cos(backAngle) * dist + Math.cos(backAngle + Math.PI / 2) * perpOffset;
-        const py = player.y + Math.sin(backAngle) * dist + Math.sin(backAngle + Math.PI / 2) * perpOffset;
-
-        if (i === 0) {
-          this.ctx.moveTo(px, py);
+      const offsetPoints: { x: number; y: number }[] = [];
+      for (let i = 0; i < points.length; i++) {
+        let dx: number, dy: number;
+        if (i < points.length - 1) {
+          dx = points[i + 1].x - points[i].x;
+          dy = points[i + 1].y - points[i].y;
         } else {
-          this.ctx.lineTo(px, py);
+          dx = points[i].x - points[i - 1].x;
+          dy = points[i].y - points[i - 1].y;
         }
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        offsetPoints.push({
+          x: points[i].x + (-dy / len) * spread,
+          y: points[i].y + (dx / len) * spread
+        });
       }
 
+      this.ctx.beginPath();
+      this.ctx.moveTo(offsetPoints[0].x, offsetPoints[0].y);
+
+      for (let i = 0; i < offsetPoints.length - 1; i++) {
+        const curr = offsetPoints[i];
+        const next = offsetPoints[i + 1];
+        const cpx = (curr.x + next.x) / 2;
+        const cpy = (curr.y + next.y) / 2;
+        this.ctx.quadraticCurveTo(curr.x, curr.y, cpx, cpy);
+      }
+      const last = offsetPoints[offsetPoints.length - 1];
+      this.ctx.lineTo(last.x, last.y);
+
+      const alpha = 0.5 * (1 - distFromCenter * 0.4);
       this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha})`;
-      this.ctx.lineWidth = lw;
+      this.ctx.lineWidth = 2.5 * (1 - distFromCenter * 0.3);
       this.ctx.lineCap = 'round';
       this.ctx.lineJoin = 'round';
       this.ctx.stroke();
