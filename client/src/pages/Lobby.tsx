@@ -424,7 +424,7 @@ export default function Lobby() {
                     : value;
                   setNickname(cleaned.slice(0, 10));
                 }}
-                className="bg-black/20 border-white/10 h-12 text-lg font-medium focus-visible:ring-primary/50 transition-all hover:border-white/20"
+                className="bg-black/20 border-white/10 h-12 text-lg font-medium focus-visible:ring-[#D40046]/50 transition-all hover:border-white/20"
                 autoFocus
                 autoComplete="off"
               />
