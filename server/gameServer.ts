@@ -1065,18 +1065,6 @@ class GameRoom {
         this.damagePlayer(player, other, 30);
       }
     });
-
-    const dashNow = Date.now();
-    for (let i = 0; i < this.projectiles.length; i++) {
-      const proj = this.projectiles[i];
-      if (proj.ownerId === player.id) continue;
-      const dx = proj.x - player.x;
-      const dy = proj.y - player.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 400) {
-        proj.trackingDisabledUntil = dashNow + 3000;
-      }
-    }
   }
 
   protected executePierce(player: Player) {
