@@ -681,7 +681,7 @@ export class GameEngine {
         existing.maxCharge = pMaxCharge;
         existing.characterShape = pShape;
         if (!existing.supercharged && pSupercharged && existing.id === this.localPlayerId) {
-          proceduralMusic.setPlaybackRate(1.1 * 1.15, 1000);
+          proceduralMusic.setPlaybackRate(1.1 * 1.15, 2000);
         }
         existing.supercharged = pSupercharged;
         if (p.color) existing.color = p.color;
@@ -1461,8 +1461,8 @@ export class GameEngine {
       botX = pos.botX;
       botY = pos.botY;
     } else {
-      const ox = -size * 0.15;
-      const oy = size * 0.55;
+      const ox = size * 0.15;
+      const oy = size * 0.25;
       const perpX = -sin;
       const perpY = cos;
       topX = player.x + cos * ox + perpX * oy;
@@ -1503,11 +1503,11 @@ export class GameEngine {
 
     if (trail.length < 2) return;
 
-    const offsets = [-0.6, -0.3, 0, 0.3, 0.6];
+    const offsets = [-0.7, -0.35, 0, 0.35, 0.7];
 
     for (let o = 0; o < offsets.length; o++) {
-      const spread = offsets[o] * r;
-      const startIdx = Math.max(0, trail.length - 6);
+      const spread = offsets[o] * r * 1.2;
+      const startIdx = Math.max(0, trail.length - 8);
 
       this.ctx.beginPath();
 
@@ -1540,14 +1540,15 @@ export class GameEngine {
       const angle = player.facingAngle || 0;
       const endPerpX = -Math.sin(angle);
       const endPerpY = Math.cos(angle);
-      const endX = player.x + endPerpX * spread - Math.cos(angle) * r * 0.3;
-      const endY = player.y + endPerpY * spread - Math.sin(angle) * r * 0.3;
+      const endX = player.x + endPerpX * spread - Math.cos(angle) * r * 0.4;
+      const endY = player.y + endPerpY * spread - Math.sin(angle) * r * 0.4;
       this.ctx.lineTo(endX, endY);
 
-      const progress = (trail.length - startIdx) / 6;
-      const alpha = Math.min(0.45, progress * 0.35) * (1 - Math.abs(offsets[o]) * 0.8);
+      const baseAlpha = 0.65;
+      const distFromCenter = Math.abs(offsets[o]);
+      const alpha = baseAlpha * (1 - distFromCenter * 0.5);
       this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha})`;
-      this.ctx.lineWidth = 2.5 - Math.abs(offsets[o]) * 1.5;
+      this.ctx.lineWidth = 3 - distFromCenter * 1.5;
       this.ctx.lineCap = 'round';
       this.ctx.lineJoin = 'round';
       this.ctx.stroke();
@@ -1742,8 +1743,8 @@ export class GameEngine {
   private drawTrailingMiniTriangles(player: InterpolatedPlayer, size: number) {
     const angle = player.facingAngle || 0;
     const ms = size * 0.3;
-    const ox = -size * 0.15;
-    const oy = size * 0.55;
+    const ox = size * 0.15;
+    const oy = size * 0.25;
 
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
