@@ -37,8 +37,8 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ players, localPlayerId
     .slice(0, 10);
   
   return (
-    <Card className="absolute top-[180px] left-4 w-36 bg-black/40 backdrop-blur-md border-white/5 p-3 text-white pointer-events-none select-none">
-      <div className="space-y-2 text-sm font-medium">
+    <Card className="absolute top-2 left-2 md:top-4 md:left-4 w-28 md:w-36 bg-black/40 backdrop-blur-md border-white/5 p-2 md:p-3 text-white pointer-events-none select-none z-10">
+      <div className="space-y-1 md:space-y-2 text-xs md:text-sm font-medium">
         <div className="flex justify-between items-center">
           <span className="text-gray-400">You:</span>
           <span className={`${getRankColor(yourRank)} font-bold`}>#{yourRank || '--'} ({yourMass})</span>
@@ -49,7 +49,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ players, localPlayerId
         </div>
         {isStakeMode && (
           <div className="flex justify-between items-center">
-            <span className="text-gray-400">Time left:</span>
+            <span className="text-gray-400">Time:</span>
             <span className="text-cyan-400 font-bold">{formatTime(timeRemaining)}</span>
           </div>
         )}

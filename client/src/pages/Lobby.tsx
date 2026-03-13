@@ -302,7 +302,7 @@ export default function Lobby() {
   const canPlay = nickname.trim() && (!isStakeMode || walletAddress);
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-background">
+    <div className="min-h-screen flex items-start md:items-center justify-center relative overflow-y-auto bg-background py-4 md:py-0">
       <canvas
         ref={(canvas) => {
           if (!canvas || canvas.dataset.drawn) return;
@@ -340,7 +340,7 @@ export default function Lobby() {
       />
 
       {(mockLeaderboardEnabled ? MOCK_LEADERBOARD : weeklyLeaderboard).length > 0 && (
-        <div className="fixed top-4 left-4 z-20" data-testid="weekly-leaderboard">
+        <div className="hidden md:block fixed top-4 left-4 z-20" data-testid="weekly-leaderboard">
           <div className="bg-card/90 backdrop-blur-xl border border-white/10 rounded-lg p-4 w-64 shadow-xl">
             <div className="flex items-center gap-2 mb-3">
               <Crown className="w-4 h-4 text-yellow-400" />
@@ -377,9 +377,9 @@ export default function Lobby() {
         </div>
       )}
 
-      <Card className="w-full max-w-md bg-card/80 backdrop-blur-xl border-white/10 shadow-2xl relative z-10">
-        <CardHeader className="text-center pb-2">
-          <h1 className="text-4xl font-black tracking-tight font-mono uppercase" style={{ color: '#D40046' }}>
+      <Card className="w-full max-w-md mx-4 md:mx-0 bg-card/80 backdrop-blur-xl border-white/10 shadow-2xl relative z-10">
+        <CardHeader className="text-center pb-2 px-4 md:px-6">
+          <h1 className="text-3xl md:text-4xl font-black tracking-tight font-mono uppercase" style={{ color: '#D40046' }}>
             Orbit Arena
           </h1>
           <CardDescription className="text-gray-400 font-medium">
@@ -393,8 +393,8 @@ export default function Lobby() {
           )}
         </CardHeader>
         
-        <CardContent>
-          <form onSubmit={handlePlay} className="space-y-6">
+        <CardContent className="px-4 md:px-6">
+          <form onSubmit={handlePlay} className="space-y-4 md:space-y-6">
             <div className="space-y-2">
               <Label htmlFor="nickname" className="text-xs uppercase tracking-widest text-gray-500">
                 Operative Name

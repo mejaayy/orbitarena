@@ -23,9 +23,9 @@ export const Joystick: React.FC<JoystickProps> = ({ engine }) => {
   };
 
   return (
-    <div className="absolute bottom-12 left-12 z-50 md:hidden opacity-80">
+    <div className="absolute bottom-8 left-8 z-30 md:hidden opacity-80">
       <ReactJoystick 
-        size={100} 
+        size={120} 
         sticky={false} 
         baseColor="rgba(255, 255, 255, 0.1)" 
         stickColor="rgba(255, 255, 255, 0.5)" 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { GameCanvas } from '@/components/game/GameCanvas';
 import { Joystick } from '@/components/game/Joystick';
@@ -8,6 +8,17 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Trophy, Home, RotateCcw, LogOut, Coins, AlertCircle, Users, Timer, Award } from 'lucide-react';
 import { EXIT_FEE_PERCENT } from '@/lib/phantom';
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768 || 'ontouchstart' in window);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+  return isMobile;
+}
 
 export default function Game() {
   const [location, setLocation] = useLocation();
@@ -24,6 +35,7 @@ export default function Game() {
   const leaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const leaveStartRef = useRef<number>(0);
   const isHoldingQRef = useRef<boolean>(false);
+  const isMobile = useIsMobile();
 
   const initialParams = useRef(() => {
     const raw = sessionStorage.getItem('orbit-arena-session');
@@ -178,8 +190,8 @@ export default function Game() {
       />
       
       {isInLobby && (
-        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-20">
-          <div className="bg-card/95 backdrop-blur-xl border border-white/10 rounded-2xl p-8 max-w-md w-full mx-4 text-center">
+        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-20 p-4">
+          <div className="bg-card/95 backdrop-blur-xl border border-white/10 rounded-2xl p-4 md:p-8 max-w-md w-full text-center">
             <div className="mx-auto w-16 h-16 bg-accent/20 rounded-full flex items-center justify-center mb-4">
               <Users className="w-8 h-8 text-accent" />
             </div>
@@ -224,10 +236,10 @@ export default function Game() {
       )}
       
       {isSpectating && !roundEndData && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm px-6 py-3 rounded-lg border border-white/20 z-20">
+        <div className="absolute top-14 md:top-20 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm px-4 md:px-6 py-2 md:py-3 rounded-lg border border-white/20 z-20">
           <div className="text-center">
-            <div className="text-destructive font-bold text-lg">ELIMINATED</div>
-            <div className="text-gray-300 text-sm">Spectating until round ends</div>
+            <div className="text-destructive font-bold text-sm md:text-lg">ELIMINATED</div>
+            <div className="text-gray-300 text-xs md:text-sm">Spectating until round ends</div>
             {roundStatus?.timeRemaining && (
               <div className="text-white font-mono text-lg mt-1">
                 {formatTime(roundStatus.timeRemaining)}
@@ -237,11 +249,11 @@ export default function Game() {
         </div>
       )}
       
-      <div className="absolute bottom-4 right-4 text-white/30 text-[10px] font-mono pointer-events-none select-none">
+      <div className="absolute bottom-1 md:bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:right-4 md:translate-x-0 text-white/30 text-[10px] font-mono pointer-events-none select-none">
         FPS: {stats.fps} | Players: {stats.population}
       </div>
 
-      {!gameOverStats && !isInLobby && !isSpectating && (
+      {!gameOverStats && !isInLobby && !isSpectating && !isMobile && (
         <div className="absolute bottom-4 left-4 bg-black/70 backdrop-blur-sm rounded-lg border border-white/10 p-3 pointer-events-none select-none" data-testid="ability-hud">
           <div className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Abilities</div>
           <div className="flex flex-col gap-2">
@@ -272,18 +284,53 @@ export default function Game() {
         </div>
       )}
 
-      <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+      {!gameOverStats && !isInLobby && !isSpectating && isMobile && (
+        <div className="absolute bottom-6 right-6 flex flex-col gap-4 z-30" data-testid="mobile-ability-buttons">
+          <button
+            className="w-20 h-20 rounded-full bg-white/15 backdrop-blur-sm border-2 border-white/30 active:bg-white/30 active:scale-95 transition-all flex flex-col items-center justify-center select-none touch-none"
+            data-testid="mobile-ability1"
+            onTouchStart={(e) => {
+              e.preventDefault();
+              engine?.startHoldAbility1();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              engine?.stopHoldAbility1();
+            }}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <span className="text-white font-bold text-sm leading-none">
+              {characterShape === 'circle' ? 'Pull' : characterShape === 'triangle' ? 'Dash' : 'Push'}
+            </span>
+          </button>
+          <button
+            className="w-20 h-20 rounded-full bg-[#D40046]/30 backdrop-blur-sm border-2 border-[#D40046]/50 active:bg-[#D40046]/50 active:scale-95 transition-all flex flex-col items-center justify-center select-none touch-none"
+            data-testid="mobile-ability2"
+            onTouchStart={(e) => {
+              e.preventDefault();
+              engine?.triggerAbility('ABILITY_2');
+            }}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <span className="text-white font-bold text-sm leading-none">
+              {characterShape === 'circle' ? 'Slam' : characterShape === 'triangle' ? 'Shoot' : 'Stun'}
+            </span>
+          </button>
+        </div>
+      )}
+
+      <div className="absolute top-2 md:top-4 right-2 md:right-4 flex flex-col items-end gap-1.5 md:gap-2 z-20">
         {isStakeMode && isInRound && roundStatus?.timeRemaining && (
-          <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/20 flex items-center gap-2" data-testid="round-timer">
-            <Timer className="w-4 h-4 text-white" />
-            <span className="text-white font-mono font-bold text-lg">{formatTime(roundStatus.timeRemaining)}</span>
+          <div className="bg-black/60 backdrop-blur-sm px-2 md:px-4 py-1 md:py-2 rounded-lg border border-white/20 flex items-center gap-1.5" data-testid="round-timer">
+            <Timer className="w-3 h-3 md:w-4 md:h-4 text-white" />
+            <span className="text-white font-mono font-bold text-sm md:text-lg">{formatTime(roundStatus.timeRemaining)}</span>
           </div>
         )}
         
         {isStakeMode && isInRound && (
-          <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-accent/30 flex items-center gap-2" data-testid="prize-pool-display">
-            <Award className="w-4 h-4 text-accent" />
-            <span className="text-accent font-mono font-bold">Pool: $9.00</span>
+          <div className="bg-black/60 backdrop-blur-sm px-2 md:px-4 py-1 md:py-2 rounded-lg border border-accent/30 flex items-center gap-1.5" data-testid="prize-pool-display">
+            <Award className="w-3 h-3 md:w-4 md:h-4 text-accent" />
+            <span className="text-accent font-mono font-bold text-xs md:text-base">Pool: $9.00</span>
           </div>
         )}
         
@@ -291,15 +338,15 @@ export default function Game() {
           <Button
             variant="outline"
             size="sm"
-            className="gap-2 border-[#D40046]/50 text-[#D40046] hover:bg-[#D40046]/20"
+            className="gap-1.5 border-[#D40046]/50 text-[#D40046] hover:bg-[#D40046]/20 text-xs md:text-sm px-2 md:px-3"
             onClick={() => {
               engine?.sendLeave();
               setLocation('/');
             }}
             data-testid="button-leave"
           >
-            <LogOut className="w-4 h-4" />
-            Leave (Q)
+            <LogOut className="w-3 h-3 md:w-4 md:h-4" />
+            {isMobile ? 'Leave' : 'Leave (Q)'}
           </Button>
         )}
       </div>

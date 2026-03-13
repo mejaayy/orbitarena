@@ -212,6 +212,36 @@ export class GameEngine {
     }
   };
 
+  public triggerAbility(abilityType: 'ABILITY_1' | 'ABILITY_2', held?: boolean) {
+    this.sendAbility(abilityType, held);
+  }
+
+  public startHoldAbility1() {
+    if (this.rightClickHeld) return;
+    const now = performance.now();
+    const localPlayer = this.localPlayerId ? this.players.get(this.localPlayerId) : null;
+    const isCircle = localPlayer?.characterShape === 'circle';
+    if (isCircle && now - this.pullReleaseTime < this.PULL_RELEASE_COOLDOWN) return;
+    this.rightClickHeld = true;
+    this.sendAbility('ABILITY_1', false);
+    this.pullInterval = setInterval(() => {
+      if (this.rightClickHeld) {
+        this.sendAbility('ABILITY_1', true);
+      }
+    }, 150);
+  }
+
+  public stopHoldAbility1() {
+    if (this.rightClickHeld) {
+      this.pullReleaseTime = performance.now();
+    }
+    this.rightClickHeld = false;
+    if (this.pullInterval) {
+      clearInterval(this.pullInterval);
+      this.pullInterval = null;
+    }
+  }
+
   private sendAbility(abilityType: 'ABILITY_1' | 'ABILITY_2', held?: boolean) {
     if (this.ws?.readyState === WebSocket.OPEN && this.localPlayerId && !this.isSpectating) {
       const localPlayer = this.players.get(this.localPlayerId);
