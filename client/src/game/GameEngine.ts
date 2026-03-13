@@ -1759,16 +1759,15 @@ export class GameEngine {
       this.miniTriPositions.set(player.id, pos);
     }
 
-    const lerp = 0.15;
-    pos.topX += (targetTopX - pos.topX) * lerp;
-    pos.topY += (targetTopY - pos.topY) * lerp;
-    pos.botX += (targetBotX - pos.botX) * lerp;
-    pos.botY += (targetBotY - pos.botY) * lerp;
+    pos.topX = targetTopX;
+    pos.topY = targetTopY;
+    pos.botX = targetBotX;
+    pos.botY = targetBotY;
 
     let angleDiff = angle - pos.angle;
     while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
     while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-    pos.angle += angleDiff * lerp;
+    pos.angle += angleDiff * 0.3;
 
     this.ctx.save();
     this.ctx.fillStyle = player.color;
