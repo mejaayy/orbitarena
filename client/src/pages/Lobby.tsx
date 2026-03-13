@@ -74,6 +74,7 @@ export default function Lobby() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [weeklyLeaderboard, setWeeklyLeaderboard] = useState<WeeklyPlayer[]>([]);
   const [mockLeaderboardEnabled, setMockLeaderboardEnabled] = useState(false);
+  const [showMobileLeaderboard, setShowMobileLeaderboard] = useState(false);
   const [, setLocation] = useLocation();
 
   const AVATAR_COLORS = [
@@ -390,6 +391,17 @@ export default function Lobby() {
               <Users className="w-3 h-3" />
               <span>{serverStatus.playerCount} players online</span>
             </div>
+          )}
+          {(mockLeaderboardEnabled ? MOCK_LEADERBOARD : weeklyLeaderboard).length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowMobileLeaderboard(true)}
+              className="md:hidden flex items-center justify-center gap-1.5 text-xs text-yellow-400 mt-2 hover:text-yellow-300 transition-colors"
+              data-testid="button-mobile-leaderboard"
+            >
+              <Crown className="w-3 h-3" />
+              <span>View Leaderboard</span>
+            </button>
           )}
         </CardHeader>
         
@@ -846,6 +858,43 @@ export default function Lobby() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showMobileLeaderboard} onOpenChange={setShowMobileLeaderboard}>
+        <DialogContent className="bg-card/95 backdrop-blur-xl border-white/10 sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Crown className="w-5 h-5 text-yellow-400" />
+              Top Weekly Players
+              {mockLeaderboardEnabled && (
+                <span className="text-[10px] bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded">PREVIEW</span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-2">
+            {(mockLeaderboardEnabled ? MOCK_LEADERBOARD : weeklyLeaderboard).slice(0, 10).map((player, index) => (
+              <div 
+                key={index}
+                className="flex items-center justify-between text-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`w-5 text-center font-bold ${
+                    index === 0 ? 'text-yellow-400' : 
+                    index === 1 ? 'text-gray-300' : 
+                    index === 2 ? 'text-amber-600' : 'text-gray-500'
+                  }`}>
+                    {index + 1}
+                  </span>
+                  <span className="text-white font-mono text-xs">{player.wallet.slice(0, 4)}...{player.wallet.slice(-4)}</span>
+                </div>
+                <span className="text-green-400 font-mono font-bold">{player.earnedUsd} USDC</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-gray-500 text-center italic">
+            Based on in-game performance. Displayed amounts are not guaranteed. No refunds.
+          </p>
         </DialogContent>
       </Dialog>
 
