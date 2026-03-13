@@ -1056,9 +1056,6 @@ export class GameEngine {
       if (player.x + player.radius < viewLeft || player.x - player.radius > viewRight || 
           player.y + player.radius < viewTop || player.y - player.radius > viewBottom) return;
 
-      if (player.supercharged) {
-        this.drawEliteSpeedLines(player);
-      }
       this.drawPlayer(player);
       if (player.isStunned) {
         this.drawStunnedEffect(player);
@@ -1463,7 +1460,7 @@ export class GameEngine {
       botY = pos.botY;
     } else {
       const ox = size * 0.15;
-      const oy = size * 0.7;
+      const oy = size * 0.85;
       const perpX = -sin;
       const perpY = cos;
       topX = player.x + cos * ox + perpX * oy;
@@ -1750,7 +1747,7 @@ export class GameEngine {
     const angle = player.facingAngle || 0;
     const ms = size * 0.3;
     const ox = size * 0.15;
-    const oy = size * 0.7;
+    const oy = size * 0.85;
 
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
