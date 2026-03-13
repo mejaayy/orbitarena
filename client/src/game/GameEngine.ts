@@ -498,6 +498,18 @@ export class GameEngine {
     }
 
     if (payload.ability === 'MISSILE_LAUNCH') {
+      const launcher = this.players.get(payload.playerId);
+      if (launcher?.supercharged) {
+        this.abilityEffects.push({
+          type: 'ELITE_LAUNCH',
+          x: payload.x,
+          y: payload.y,
+          angle: payload.angle,
+          startTime: performance.now(),
+          duration: 350,
+          playerId: payload.playerId,
+        });
+      }
       this.triggerScreenShake(4.5, 150, payload.x, payload.y);
       return;
     }
@@ -1027,6 +1039,9 @@ export class GameEngine {
       if (player.x + player.radius < viewLeft || player.x - player.radius > viewRight || 
           player.y + player.radius < viewTop || player.y - player.radius > viewBottom) return;
 
+      if (player.supercharged) {
+        this.drawEliteSpeedLines(player);
+      }
       this.drawPlayer(player);
       if (player.isStunned) {
         this.drawStunnedEffect(player);
@@ -1184,6 +1199,9 @@ export class GameEngine {
         case 'STUN_WAVE':
           this.drawStunWaveEffect(ex, ey, progress, alpha);
           break;
+        case 'ELITE_LAUNCH':
+          this.drawEliteLaunchEffect(player, effect.angle, progress, alpha);
+          break;
       }
       
       return true;
@@ -1283,6 +1301,19 @@ export class GameEngine {
       this.ctx.translate(proj.x, proj.y);
       this.ctx.rotate(proj.angle);
 
+      const trailLen = size * 3.5;
+      const trailGrad = this.ctx.createLinearGradient(-size * 0.4, 0, -size * 0.4 - trailLen, 0);
+      trailGrad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.7)`);
+      trailGrad.addColorStop(0.4, `rgba(${Math.min(255, r + 60)}, ${Math.min(255, g + 40)}, ${Math.min(255, b + 30)}, 0.4)`);
+      trailGrad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+      this.ctx.beginPath();
+      this.ctx.moveTo(-size * 0.4, -size * 0.35);
+      this.ctx.lineTo(-size * 0.4 - trailLen, 0);
+      this.ctx.lineTo(-size * 0.4, size * 0.35);
+      this.ctx.closePath();
+      this.ctx.fillStyle = trailGrad;
+      this.ctx.fill();
+
       this.ctx.beginPath();
       this.ctx.moveTo(size * 1.2, 0);
       this.ctx.lineTo(-size * 0.8, -size * 0.7);
@@ -1292,13 +1323,12 @@ export class GameEngine {
       this.ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
       this.ctx.fill();
 
-      const trailLen = size * 2;
       this.ctx.beginPath();
-      this.ctx.moveTo(-size * 0.4, -size * 0.25);
-      this.ctx.lineTo(-size * 0.4 - trailLen, 0);
-      this.ctx.lineTo(-size * 0.4, size * 0.25);
+      this.ctx.moveTo(size * 0.8, 0);
+      this.ctx.lineTo(-size * 0.2, -size * 0.3);
+      this.ctx.lineTo(-size * 0.2, size * 0.3);
       this.ctx.closePath();
-      this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.5)`;
+      this.ctx.fillStyle = `rgba(${Math.min(255, r + 80)}, ${Math.min(255, g + 80)}, ${Math.min(255, b + 80)}, 0.6)`;
       this.ctx.fill();
 
       this.ctx.restore();
@@ -1397,6 +1427,78 @@ export class GameEngine {
     this.ctx.stroke();
   }
 
+
+  private drawEliteLaunchEffect(player: InterpolatedPlayer | undefined, angle: number, progress: number, alpha: number) {
+    if (!player) return;
+    const size = player.radius;
+    const ms = size * 0.35;
+    const ox = -size * 0.3;
+    const oy = size * 1.15;
+    const [cr, cg, cb] = player.color.startsWith('#') ? this.parseHexColor(player.color) : [212, 0, 70];
+
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const perpCos = Math.cos(angle + Math.PI / 2);
+    const perpSin = Math.sin(angle + Math.PI / 2);
+
+    const topX = player.x + cos * ox - perpCos * oy;
+    const topY = player.y + sin * ox - perpSin * oy;
+    const botX = player.x + cos * ox + perpCos * oy;
+    const botY = player.y + sin * ox + perpSin * oy;
+
+    const launchDist = (size + 30) * progress * 3;
+    const targetX = player.x + cos * launchDist;
+    const targetY = player.y + sin * launchDist;
+
+    this.ctx.beginPath();
+    this.ctx.moveTo(topX, topY);
+    this.ctx.lineTo(targetX, targetY);
+    this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha * 0.5})`;
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+
+    this.ctx.beginPath();
+    this.ctx.moveTo(botX, botY);
+    this.ctx.lineTo(targetX, targetY);
+    this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha * 0.5})`;
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+
+    const sparkAlpha = alpha * 0.8;
+    this.ctx.beginPath();
+    this.ctx.arc(targetX, targetY, ms * (1 - progress) * 2, 0, Math.PI * 2);
+    this.ctx.fillStyle = `rgba(${Math.min(255, cr + 60)}, ${Math.min(255, cg + 60)}, ${Math.min(255, cb + 60)}, ${sparkAlpha})`;
+    this.ctx.fill();
+  }
+
+  private drawEliteSpeedLines(player: InterpolatedPlayer) {
+    const angle = player.facingAngle || 0;
+    const now = performance.now();
+    const r = player.radius;
+    const [cr, cg, cb] = player.color.startsWith('#') ? this.parseHexColor(player.color) : [212, 0, 70];
+
+    const lineCount = 6;
+    for (let i = 0; i < lineCount; i++) {
+      const seed = (i * 7919 + Math.floor(now * 0.008)) % 100;
+      const phase = (seed / 100);
+      const spread = (i / lineCount - 0.5) * r * 3;
+      const perpAngle = angle + Math.PI / 2;
+      const lineLen = r * (1.5 + phase * 1.5);
+      const alpha = (1 - phase) * 0.4;
+
+      const sx = player.x - Math.cos(angle) * (r * 0.8 + phase * r * 2) + Math.cos(perpAngle) * spread;
+      const sy = player.y - Math.sin(angle) * (r * 0.8 + phase * r * 2) + Math.sin(perpAngle) * spread;
+      const ex = sx - Math.cos(angle) * lineLen;
+      const ey = sy - Math.sin(angle) * lineLen;
+
+      this.ctx.beginPath();
+      this.ctx.moveTo(sx, sy);
+      this.ctx.lineTo(ex, ey);
+      this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha})`;
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+    }
+  }
 
   private drawStunnedEffect(player: InterpolatedPlayer) {
     const now = performance.now();
