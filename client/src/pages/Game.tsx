@@ -202,7 +202,7 @@ export default function Game() {
             
             <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 mb-6">
               <div className="text-sm text-gray-400 mb-1">Prize Pool</div>
-              <div className="text-3xl font-mono font-bold text-accent">${roundStatus.prizePool.toFixed(2)}</div>
+              <div className="text-3xl font-mono font-bold text-accent">$9.00</div>
               <div className="text-xs text-gray-500 mt-2">
                 1st: ${roundStatus.prizes.first} | 2nd: ${roundStatus.prizes.second} | 3rd: ${roundStatus.prizes.third}
               </div>
@@ -283,7 +283,7 @@ export default function Game() {
         {isStakeMode && isInRound && (
           <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-accent/30 flex items-center gap-2" data-testid="prize-pool-display">
             <Award className="w-4 h-4 text-accent" />
-            <span className="text-accent font-mono font-bold">Pool: ${roundStatus?.prizePool?.toFixed(2)}</span>
+            <span className="text-accent font-mono font-bold">Pool: $9.00</span>
           </div>
         )}
         
@@ -351,7 +351,7 @@ export default function Game() {
             </div>
             <DialogTitle className="text-3xl font-black uppercase">Round Complete!</DialogTitle>
             <DialogDescription className="text-lg text-gray-300">
-              Prize Pool: ${roundEndData?.prizePool?.toFixed(2)}
+              Prize Pool: $9.00
             </DialogDescription>
           </DialogHeader>
           
