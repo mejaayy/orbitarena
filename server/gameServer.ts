@@ -133,11 +133,11 @@ const ENEMY_SCAN_RANGE = 800;
 const ENTRY_FEE = 1.00;
 const PLATFORM_FEE = 0.10;
 const PRIZE_CONTRIBUTION = 0.90;
-const ROUND_DURATION = 120000; // 2 minutes in ms
+const ROUND_DURATION = 180000; // 3 minutes in ms
 const COUNTDOWN_DURATION = 3000; // 3 seconds
-const PRIZE_1ST = 6.00;
-const PRIZE_2ND = 4.50;
-const PRIZE_3RD = 3.00;
+const PRIZE_1ST = 4.00;
+const PRIZE_2ND = 3.00;
+const PRIZE_3RD = 2.00;
 
 const BOT_NAMES = ['Orby', 'Cosmo', 'Nebula', 'Quasar', 'Nova', 'Comet', 'Astro', 'Lunar'];
 const BOT_SHAPES: CharacterShape[] = ['circle', 'triangle', 'square'];

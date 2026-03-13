@@ -97,11 +97,12 @@ Stake mode uses a round-based tournament structure (StakeGameRoom class):
 - Prize pool = numberOfPlayers × $0.90 = $13.50 for 15 players
 
 **Payouts (Fixed Amounts):**
-- 1st Place: $6.00
-- 2nd Place: $4.50
-- 3rd Place: $3.00
+- 1st Place: $4.00
+- 2nd Place: $3.00
+- 3rd Place: $2.00
 
 **Key Rules:**
+- Round lasts 3 minutes OR ends when only 1 player remains
 - No mid-round joining - players must wait for next round
 - Death converts to spectator mode (can watch but not play)
 - No re-entry after elimination
