@@ -1461,8 +1461,8 @@ export class GameEngine {
       botX = pos.botX;
       botY = pos.botY;
     } else {
-      const ox = size * 0.2;
-      const oy = size * 0.45;
+      const ox = size * 0.15;
+      const oy = size * 0.55;
       const perpX = -sin;
       const perpY = cos;
       topX = player.x + cos * ox + perpX * oy;
@@ -1740,8 +1740,8 @@ export class GameEngine {
   private drawTrailingMiniTriangles(player: InterpolatedPlayer, size: number) {
     const angle = player.facingAngle || 0;
     const ms = size * 0.3;
-    const ox = size * 0.2;
-    const oy = size * 0.45;
+    const ox = size * 0.15;
+    const oy = size * 0.55;
 
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
