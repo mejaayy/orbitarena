@@ -862,6 +862,10 @@ class GameRoom {
       this.activateBots();
     }
 
+    if (this.trainingMode) {
+      player.charge = MAX_CHARGE;
+    }
+
     this.send(ws, {
       type: 'JOINED',
       payload: { playerId, player, roomId: this.id, pickups: this.gameState.pickups }
@@ -1449,11 +1453,10 @@ class GameRoom {
 
     if (attacker) {
       attacker.kills++;
-      const eliteEligible = this.trainingMode
-        ? attacker.kills >= 2
-        : attacker.characterShape === 'triangle' && attacker.kills >= 2;
-      if (eliteEligible && !attacker.supercharged) {
+      log(`${attacker.name} got kill #${attacker.kills} (shape=${attacker.characterShape}, training=${this.trainingMode}, supercharged=${attacker.supercharged})`, 'room');
+      if (attacker.characterShape === 'triangle' && attacker.kills >= 2 && !attacker.supercharged) {
         attacker.supercharged = true;
+        log(`${attacker.name} activated ELITE MODE!`, 'room');
       }
       const attackerWs = this.clients.get(attacker.id);
       if (attackerWs) {
@@ -1467,6 +1470,17 @@ class GameRoom {
     log(`${attacker ? attacker.name : 'Environment'} eliminated ${victim.name} in room ${this.id}`, 'room');
 
     if (this.dummyIds.has(victim.id)) {
+      for (let i = 0; i < 3; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 30 + Math.random() * 40;
+        this.gameState.pickups.push({
+          id: `pickup-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          x: victim.x + Math.cos(angle) * dist,
+          y: victim.y + Math.sin(angle) * dist,
+          type: 'CHARGE',
+          value: CHARGE_PICKUP_VALUE
+        });
+      }
       this.respawnDummy(victim.id);
       return;
     }
