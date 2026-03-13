@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, X, Eye, EyeOff, Trash2, RefreshCw, Trophy, Lock, AlertTriangle, Ban, Shield, Snowflake, RotateCcw, LogOut, Volume2 } from 'lucide-react';
+import { Settings, X, Eye, EyeOff, Trash2, RefreshCw, Trophy, Lock, AlertTriangle, Ban, Shield, Snowflake, RotateCcw, LogOut, Volume2, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -49,6 +49,7 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
   const [musicEnabled, setMusicEnabled] = useState(proceduralMusic.enabled);
   const [pickupSoundsEnabled, setPickupSoundsEnabled] = useState(soundManager.pickupSoundsEnabled);
   const [abilitySoundsEnabled, setAbilitySoundsEnabled] = useState(soundManager.abilitySoundsEnabled);
+  const [trainingMode, setTrainingMode] = useState(false);
 
   const getAuthToken = () => sessionStorage.getItem(ADMIN_TOKEN_KEY);
   const setAuthToken = (token: string) => sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
@@ -68,6 +69,7 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
       fetchBannedWallets();
       fetchAlerts();
       fetchSettings();
+      fetchTrainingMode();
     }
   }, [isAuthenticated]);
 
@@ -129,6 +131,39 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
       }
     } catch (e) {
       console.error('Failed to fetch settings');
+    }
+  };
+
+  const fetchTrainingMode = async () => {
+    try {
+      const res = await fetch('/api/admin/training', { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setTrainingMode(data.enabled === true);
+      }
+    } catch (e) {
+      console.error('Failed to fetch training mode');
+    }
+  };
+
+  const handleToggleTrainingMode = async (enabled: boolean) => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/admin/training', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ enabled }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTrainingMode(data.enabled);
+      } else if (res.status === 401) {
+        handleSessionExpired();
+      }
+    } catch (e) {
+      setError('Failed to toggle training mode');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -651,6 +686,22 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled }: AdminP
                 </div>
                 <p className="text-xs text-gray-500 -mt-2 ml-1">
                   Stops updating the leaderboard (keeps display)
+                </p>
+
+                <div className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-green-400" />
+                    <Label className="text-sm text-white">Training Mode</Label>
+                  </div>
+                  <Switch
+                    checked={trainingMode}
+                    onCheckedChange={handleToggleTrainingMode}
+                    disabled={isLoading}
+                    data-testid="admin-training-mode-toggle"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 -mt-2 ml-1">
+                  Removes bots, spawns 3 static dummies (one per shape). Only you can join.
                 </p>
 
                 <Button

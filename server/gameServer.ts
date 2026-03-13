@@ -169,6 +169,8 @@ class GameRoom {
   protected botIds: Set<string> = new Set();
   protected comboTrackers: Map<string, { hits: number; lastHitTime: number }> = new Map();
   protected projectiles: Projectile[] = [];
+  trainingMode: boolean = false;
+  private dummyIds: Set<string> = new Set();
 
   constructor(id: string, isStakeMode: boolean = false) {
     this.id = id;
@@ -228,7 +230,7 @@ class GameRoom {
   }
 
   protected activateBots() {
-    if (this.botsActive || this.isStakeMode) return;
+    if (this.botsActive || this.isStakeMode || this.trainingMode) return;
 
     for (let i = 0; i < BOT_COUNT; i++) {
       const botId = `bot-${this.id}-${i}`;
@@ -265,6 +267,134 @@ class GameRoom {
     this.botIds.clear();
     this.botsActive = false;
     log(`Deactivated bots in room ${this.id}`, 'room');
+  }
+
+  enableTrainingMode() {
+    this.trainingMode = true;
+    this.deactivateBots();
+    this.removeDummies();
+
+    const shapes: CharacterShape[] = ['circle', 'triangle', 'square'];
+    const colors = ['#FF4444', '#44FF44', '#4444FF'];
+    const names = ['Circle Dummy', 'Triangle Dummy', 'Square Dummy'];
+    const cx = WORLD_SIZE / 2;
+    const cy = WORLD_SIZE / 2;
+
+    for (let i = 0; i < 3; i++) {
+      const dummyId = `dummy-${this.id}-${shapes[i]}`;
+      const angle = (i / 3) * Math.PI * 2;
+      const spread = 400;
+
+      const player: Player = {
+        id: dummyId,
+        name: names[i],
+        x: cx + Math.cos(angle) * spread,
+        y: cy + Math.sin(angle) * spread,
+        radius: INITIAL_RADIUS,
+        color: colors[i],
+        score: 0,
+        hp: INITIAL_HP,
+        maxHp: MAX_HP,
+        charge: 0,
+        maxCharge: MAX_CHARGE,
+        characterShape: shapes[i],
+        velocity: { x: 0, y: 0 },
+        knockbackVelocity: { x: 0, y: 0 },
+        balance: 0,
+        lastCombatTime: 0,
+        inputVector: { x: 0, y: 0 },
+        isSpectator: false,
+        isStunned: false,
+        stunEndTime: 0,
+        stunAttackerId: null,
+        lastStunDamageTime: 0,
+        facingAngle: angle + Math.PI,
+        lastAbilityTime: 0,
+        kills: 0,
+        supercharged: false
+      };
+
+      this.updatePlayerRadius(player);
+      this.gameState.players.set(dummyId, player);
+      this.dummyIds.add(dummyId);
+    }
+
+    log(`Training mode enabled in room ${this.id} - spawned 3 dummies`, 'room');
+  }
+
+  disableTrainingMode() {
+    this.trainingMode = false;
+    this.removeDummies();
+
+    if (this.getHumanPlayerCount() > 0 && !this.isStakeMode) {
+      this.activateBots();
+    }
+
+    log(`Training mode disabled in room ${this.id}`, 'room');
+  }
+
+  private removeDummies() {
+    for (const dummyId of this.dummyIds) {
+      this.gameState.players.delete(dummyId);
+    }
+    this.dummyIds.clear();
+  }
+
+  private respawnDummy(dummyId: string) {
+    if (!this.trainingMode || !this.dummyIds.has(dummyId)) return;
+
+    this.gameState.players.delete(dummyId);
+
+    const shapes: CharacterShape[] = ['circle', 'triangle', 'square'];
+    const colors = ['#FF4444', '#44FF44', '#4444FF'];
+    const names = ['Circle Dummy', 'Triangle Dummy', 'Square Dummy'];
+    const shapeIndex = shapes.findIndex(s => dummyId.endsWith(s));
+    if (shapeIndex === -1) return;
+
+    const cx = WORLD_SIZE / 2;
+    const cy = WORLD_SIZE / 2;
+    const angle = (shapeIndex / 3) * Math.PI * 2;
+    const spread = 400;
+
+    setTimeout(() => {
+      if (!this.trainingMode || !this.dummyIds.has(dummyId)) return;
+
+      const player: Player = {
+        id: dummyId,
+        name: names[shapeIndex],
+        x: cx + Math.cos(angle) * spread,
+        y: cy + Math.sin(angle) * spread,
+        radius: INITIAL_RADIUS,
+        color: colors[shapeIndex],
+        score: 0,
+        hp: INITIAL_HP,
+        maxHp: MAX_HP,
+        charge: 0,
+        maxCharge: MAX_CHARGE,
+        characterShape: shapes[shapeIndex],
+        velocity: { x: 0, y: 0 },
+        knockbackVelocity: { x: 0, y: 0 },
+        balance: 0,
+        lastCombatTime: 0,
+        inputVector: { x: 0, y: 0 },
+        isSpectator: false,
+        isStunned: false,
+        stunEndTime: 0,
+        stunAttackerId: null,
+        lastStunDamageTime: 0,
+        facingAngle: angle + Math.PI,
+        lastAbilityTime: 0,
+        kills: 0,
+        supercharged: false
+      };
+
+      this.updatePlayerRadius(player);
+      this.gameState.players.set(dummyId, player);
+    }, 1500);
+  }
+
+  isDummy(playerId: string): boolean {
+    return this.dummyIds.has(playerId);
   }
 
   private respawnBot(botId: string) {
@@ -663,14 +793,17 @@ class GameRoom {
   }
 
   getPlayerCount(): number {
-    return this.gameState.players.size - this.botIds.size;
+    return this.gameState.players.size - this.botIds.size - this.dummyIds.size;
   }
 
   getHumanPlayerCount(): number {
-    return this.gameState.players.size - this.botIds.size;
+    return this.gameState.players.size - this.botIds.size - this.dummyIds.size;
   }
 
   isFull(): boolean {
+    if (this.trainingMode) {
+      return this.getHumanPlayerCount() >= 1;
+    }
     return this.getHumanPlayerCount() >= MAX_PLAYERS_PER_ROOM;
   }
 
@@ -1329,6 +1462,17 @@ class GameRoom {
     }
 
     log(`${attacker ? attacker.name : 'Environment'} eliminated ${victim.name} in room ${this.id}`, 'room');
+
+    if (this.dummyIds.has(victim.id)) {
+      this.respawnDummy(victim.id);
+      return;
+    }
+
+    if (this.botIds.has(victim.id)) {
+      this.respawnBot(victim.id);
+      return;
+    }
+
     this.gameState.players.delete(victim.id);
     this.clients.delete(victim.id);
   }
@@ -1981,6 +2125,7 @@ export class GameServer {
   private roomIdCounter: number = 0;
   private ipConnections: Map<string, number> = new Map();
   private playerMessageCounts: Map<string, { count: number; windowStart: number }> = new Map();
+  private trainingModeEnabled: boolean = false;
 
   constructor(httpServer: Server) {
     this.wss = new WebSocketServer({ 
@@ -2288,6 +2433,26 @@ export class GameServer {
       });
     }
     return stats;
+  }
+
+  enableTrainingMode() {
+    for (const room of this.freeRooms.values()) {
+      room.enableTrainingMode();
+    }
+    this.trainingModeEnabled = true;
+    log('Training mode enabled globally', 'room');
+  }
+
+  disableTrainingMode() {
+    for (const room of this.freeRooms.values()) {
+      room.disableTrainingMode();
+    }
+    this.trainingModeEnabled = false;
+    log('Training mode disabled globally', 'room');
+  }
+
+  isTrainingMode(): boolean {
+    return this.trainingModeEnabled;
   }
 }
 

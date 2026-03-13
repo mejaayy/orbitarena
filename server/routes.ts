@@ -504,5 +504,24 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/admin/training", requireAdminAuth, async (req, res) => {
+    const gs = getGameServer();
+    res.json({ enabled: gs?.isTrainingMode() ?? false });
+  });
+
+  app.post("/api/admin/training", requireAdminAuth, async (req, res) => {
+    const gs = getGameServer();
+    if (!gs) {
+      return res.status(500).json({ error: 'Game server not available' });
+    }
+    const { enabled } = req.body;
+    if (enabled) {
+      gs.enableTrainingMode();
+    } else {
+      gs.disableTrainingMode();
+    }
+    res.json({ success: true, enabled: gs.isTrainingMode() });
+  });
+
   return httpServer;
 }
