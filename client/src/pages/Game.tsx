@@ -398,6 +398,7 @@ export default function Game() {
       <AdminPanel
         onMockLeaderboard={() => {}}
         mockLeaderboardEnabled={false}
+        position="bottom-right"
       />
     </div>
   );

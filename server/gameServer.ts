@@ -1449,7 +1449,10 @@ class GameRoom {
 
     if (attacker) {
       attacker.kills++;
-      if (attacker.characterShape === 'triangle' && attacker.kills >= 2 && !attacker.supercharged) {
+      const eliteEligible = this.trainingMode
+        ? attacker.kills >= 2
+        : attacker.characterShape === 'triangle' && attacker.kills >= 2;
+      if (eliteEligible && !attacker.supercharged) {
         attacker.supercharged = true;
       }
       const attackerWs = this.clients.get(attacker.id);
