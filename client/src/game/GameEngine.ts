@@ -164,6 +164,8 @@ export class GameEngine {
 
   private rightClickHeld = false;
   private pullInterval: ReturnType<typeof setInterval> | null = null;
+  private pullReleaseTime = 0;
+  private readonly PULL_RELEASE_COOLDOWN = 500;
 
   private handleKeyDown = (e: KeyboardEvent) => {
     // Space binding removed
@@ -179,6 +181,12 @@ export class GameEngine {
     } else if (e.button === 2) {
       e.preventDefault();
       if (!this.rightClickHeld) {
+        const now = performance.now();
+        const localPlayer = this.localPlayerId ? this.players.get(this.localPlayerId) : null;
+        const isCircle = localPlayer?.characterShape === 'circle';
+        if (isCircle && now - this.pullReleaseTime < this.PULL_RELEASE_COOLDOWN) {
+          return;
+        }
         this.rightClickHeld = true;
         this.sendAbility('ABILITY_1', false);
         this.pullInterval = setInterval(() => {
@@ -192,6 +200,9 @@ export class GameEngine {
 
   private handleMouseUp = (e: MouseEvent) => {
     if (e.button === 2) {
+      if (this.rightClickHeld) {
+        this.pullReleaseTime = performance.now();
+      }
       this.rightClickHeld = false;
       if (this.pullInterval) {
         clearInterval(this.pullInterval);
@@ -204,7 +215,7 @@ export class GameEngine {
     if (this.ws?.readyState === WebSocket.OPEN && this.localPlayerId && !this.isSpectating) {
       const localPlayer = this.players.get(this.localPlayerId);
       const isPull = localPlayer?.characterShape === 'circle' && abilityType === 'ABILITY_1';
-      const minCharge = isPull ? (held ? 5 : 15) : 20;
+      const minCharge = isPull ? (held ? 7 : 15) : 20;
       if (localPlayer && (localPlayer.charge || 0) < minCharge) {
         const now = performance.now();
         if (now - this.lastAbilityTime > this.ABILITY_COOLDOWN) {
@@ -527,8 +538,12 @@ export class GameEngine {
       distance: (payload as any).distance
     });
     
-    const shakeIntensity = this.getShakeIntensity(payload.ability);
-    this.triggerScreenShake(shakeIntensity.intensity, shakeIntensity.duration, payload.x, payload.y);
+    const isSelf = payload.playerId === this.localPlayerId;
+    const noSelfShake = isSelf && (payload.ability === 'PULL' || payload.ability === 'PUSH' || payload.ability === 'STUN_WAVE' || payload.ability === 'SLAM');
+    if (!noSelfShake) {
+      const shakeIntensity = this.getShakeIntensity(payload.ability);
+      this.triggerScreenShake(shakeIntensity.intensity, shakeIntensity.duration, payload.x, payload.y);
+    }
     
     if (payload.playerId === this.localPlayerId && payload.ability === 'DASH') {
       this.dashZoom.active = true;
