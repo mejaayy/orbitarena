@@ -74,6 +74,7 @@ export class GameEngine {
   ctx: CanvasRenderingContext2D;
   players: Map<string, InterpolatedPlayer> = new Map();
   pickups: Pickup[] = [];
+  private miniTriPositions: Map<string, { topX: number; topY: number; botX: number; botY: number; angle: number }> = new Map();
   localPlayerId: string | null = null;
   
   static WORLD_SIZE = 4000;
@@ -379,6 +380,7 @@ export class GameEngine {
 
       case 'PLAYER_LEFT':
         this.players.delete(message.payload.playerId);
+        this.miniTriPositions.delete(message.payload.playerId);
         break;
 
       case 'ERROR':
@@ -411,7 +413,7 @@ export class GameEngine {
       }
 
       case 'DAMAGE':
-        if (message.payload.targetId === this.localPlayerId) {
+        if (message.payload.targetId === this.localPlayerId && message.payload.attackerId !== this.localPlayerId) {
           this.showDamageFlash();
           soundManager.playDamage();
         }
@@ -538,12 +540,8 @@ export class GameEngine {
       distance: (payload as any).distance
     });
     
-    const isSelf = payload.playerId === this.localPlayerId;
-    const noSelfShake = isSelf && (payload.ability === 'PULL' || payload.ability === 'PUSH' || payload.ability === 'STUN_WAVE' || payload.ability === 'SLAM');
-    if (!noSelfShake) {
-      const shakeIntensity = this.getShakeIntensity(payload.ability);
-      this.triggerScreenShake(shakeIntensity.intensity, shakeIntensity.duration, payload.x, payload.y);
-    }
+    const shakeIntensity = this.getShakeIntensity(payload.ability);
+    this.triggerScreenShake(shakeIntensity.intensity, shakeIntensity.duration, payload.x, payload.y);
     
     if (payload.playerId === this.localPlayerId && payload.ability === 'DASH') {
       this.dashZoom.active = true;
@@ -650,6 +648,7 @@ export class GameEngine {
     this.players.forEach((_, id) => {
       if (!serverIds.has(id)) {
         this.players.delete(id);
+        this.miniTriPositions.delete(id);
       }
     });
 
@@ -1449,19 +1448,28 @@ export class GameEngine {
     if (!player) return;
     const size = player.radius;
     const ms = size * 0.35;
-    const ox = -size * 0.3;
-    const oy = size * 1.15;
     const [cr, cg, cb] = player.color.startsWith('#') ? this.parseHexColor(player.color) : [212, 0, 70];
 
+    const pos = this.miniTriPositions.get(player.id);
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
-    const perpCos = Math.cos(angle + Math.PI / 2);
-    const perpSin = Math.sin(angle + Math.PI / 2);
 
-    const topX = player.x + cos * ox - perpCos * oy;
-    const topY = player.y + sin * ox - perpSin * oy;
-    const botX = player.x + cos * ox + perpCos * oy;
-    const botY = player.y + sin * ox + perpSin * oy;
+    let topX: number, topY: number, botX: number, botY: number;
+    if (pos) {
+      topX = pos.topX;
+      topY = pos.topY;
+      botX = pos.botX;
+      botY = pos.botY;
+    } else {
+      const ox = -size * 0.3;
+      const oy = size * 1.15;
+      const perpX = -sin;
+      const perpY = cos;
+      topX = player.x + cos * ox + perpX * oy;
+      topY = player.y + sin * ox + perpY * oy;
+      botX = player.x + cos * ox - perpX * oy;
+      botY = player.y + sin * ox - perpY * oy;
+    }
 
     const launchDist = (size + 30) * progress * 3;
     const targetX = player.x + cos * launchDist;
@@ -1702,6 +1710,68 @@ export class GameEngine {
     }
   }
 
+  private drawTrailingMiniTriangles(player: InterpolatedPlayer, size: number) {
+    const angle = player.facingAngle || 0;
+    const ms = size * 0.35;
+    const ox = -size * 0.3;
+    const oy = size * 1.15;
+
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const perpX = -sin;
+    const perpY = cos;
+
+    const targetTopX = player.x + cos * ox + perpX * oy;
+    const targetTopY = player.y + sin * ox + perpY * oy;
+    const targetBotX = player.x + cos * ox - perpX * oy;
+    const targetBotY = player.y + sin * ox - perpY * oy;
+
+    let pos = this.miniTriPositions.get(player.id);
+    if (!pos) {
+      pos = { topX: targetTopX, topY: targetTopY, botX: targetBotX, botY: targetBotY, angle };
+      this.miniTriPositions.set(player.id, pos);
+    }
+
+    const lerp = 0.12;
+    pos.topX += (targetTopX - pos.topX) * lerp;
+    pos.topY += (targetTopY - pos.topY) * lerp;
+    pos.botX += (targetBotX - pos.botX) * lerp;
+    pos.botY += (targetBotY - pos.botY) * lerp;
+
+    let angleDiff = angle - pos.angle;
+    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+    pos.angle += angleDiff * lerp;
+
+    this.ctx.save();
+    this.ctx.fillStyle = player.color;
+    if (player.isStunned) this.ctx.globalAlpha = 0.5;
+
+    this.ctx.save();
+    this.ctx.translate(pos.topX, pos.topY);
+    this.ctx.rotate(pos.angle);
+    this.ctx.beginPath();
+    this.ctx.moveTo(ms, 0);
+    this.ctx.lineTo(-ms * 0.7, -ms * 0.8);
+    this.ctx.lineTo(-ms * 0.7, ms * 0.8);
+    this.ctx.closePath();
+    this.ctx.fill();
+    this.ctx.restore();
+
+    this.ctx.save();
+    this.ctx.translate(pos.botX, pos.botY);
+    this.ctx.rotate(pos.angle);
+    this.ctx.beginPath();
+    this.ctx.moveTo(ms, 0);
+    this.ctx.lineTo(-ms * 0.7, -ms * 0.8);
+    this.ctx.lineTo(-ms * 0.7, ms * 0.8);
+    this.ctx.closePath();
+    this.ctx.fill();
+    this.ctx.restore();
+
+    this.ctx.restore();
+  }
+
   drawPlayer(player: Player) {
     const shape = player.characterShape || 'circle';
     const angle = player.facingAngle || 0;
@@ -1729,21 +1799,13 @@ export class GameEngine {
       this.ctx.closePath();
       this.ctx.fill();
       if (player.supercharged) {
-        const ms = size * 0.35;
-        const ox = -size * 0.3;
-        const oy = size * 1.15;
-        this.ctx.beginPath();
-        this.ctx.moveTo(ox + ms, -oy);
-        this.ctx.lineTo(ox - ms * 0.7, -oy - ms * 0.8);
-        this.ctx.lineTo(ox - ms * 0.7, -oy + ms * 0.8);
-        this.ctx.closePath();
-        this.ctx.fill();
-        this.ctx.beginPath();
-        this.ctx.moveTo(ox + ms, oy);
-        this.ctx.lineTo(ox - ms * 0.7, oy - ms * 0.8);
-        this.ctx.lineTo(ox - ms * 0.7, oy + ms * 0.8);
-        this.ctx.closePath();
-        this.ctx.fill();
+        this.ctx.restore();
+        this.drawTrailingMiniTriangles(player, size);
+        this.ctx.save();
+        this.ctx.translate(player.x, player.y);
+        this.ctx.rotate(angle);
+        this.ctx.fillStyle = player.color;
+        if (player.isStunned) this.ctx.globalAlpha = 0.5;
       }
     } else if (shape === 'square') {
       const size = player.radius * 0.8;
