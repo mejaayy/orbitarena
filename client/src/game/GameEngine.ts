@@ -1461,8 +1461,8 @@ export class GameEngine {
       botX = pos.botX;
       botY = pos.botY;
     } else {
-      const ox = -size * 0.15;
-      const oy = size * 0.5;
+      const ox = size * 0.2;
+      const oy = size * 0.45;
       const perpX = -sin;
       const perpY = cos;
       topX = player.x + cos * ox + perpX * oy;
@@ -1500,49 +1500,52 @@ export class GameEngine {
     const r = player.radius;
     const [cr, cg, cb] = player.color.startsWith('#') ? this.parseHexColor(player.color) : [212, 0, 70];
     const trail = player.trail;
+    const angle = player.facingAngle || 0;
 
-    if (trail.length < 2) return;
+    let prevAngle = angle;
+    if (trail.length >= 2) {
+      const last = trail[trail.length - 1];
+      const prev = trail[trail.length - 2];
+      prevAngle = Math.atan2(last.y - prev.y, last.x - prev.x);
+    } else if (trail.length === 1) {
+      const last = trail[trail.length - 1];
+      prevAngle = Math.atan2(player.y - last.y, player.x - last.x);
+    }
 
-    const offsets = [-0.5, -0.25, 0, 0.25, 0.5];
-    const lineCount = offsets.length;
+    let angleDelta = prevAngle - angle;
+    while (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
+    while (angleDelta < -Math.PI) angleDelta += Math.PI * 2;
 
-    for (let o = 0; o < lineCount; o++) {
-      const spread = offsets[o] * r * 0.8;
-      const startIdx = Math.max(0, trail.length - 5);
+    const spreads = [-1.2, -0.6, 0, 0.6, 1.2];
+    const lineLength = r * 3;
+    const segments = 8;
+
+    for (let s = 0; s < spreads.length; s++) {
+      const perpOffset = spreads[s] * r * 0.5;
+      const distFromCenter = Math.abs(spreads[s]) / 1.2;
+      const alpha = 0.5 * (1 - distFromCenter * 0.5);
+      const lw = 2.5 * (1 - distFromCenter * 0.4);
 
       this.ctx.beginPath();
 
-      let started = false;
-      for (let i = startIdx; i < trail.length; i++) {
-        const t = trail[i];
-        let nextX: number, nextY: number;
-        if (i < trail.length - 1) {
-          nextX = trail[i + 1].x - t.x;
-          nextY = trail[i + 1].y - t.y;
-        } else {
-          nextX = player.x - t.x;
-          nextY = player.y - t.y;
-        }
-        const len = Math.sqrt(nextX * nextX + nextY * nextY) || 1;
-        const perpX = -nextY / len;
-        const perpY = nextX / len;
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const curveAngle = angle + angleDelta * t * 0.6;
+        const backAngle = curveAngle + Math.PI;
 
-        const px = t.x + perpX * spread;
-        const py = t.y + perpY * spread;
+        const dist = t * lineLength;
+        const px = player.x + Math.cos(backAngle) * dist + Math.cos(backAngle + Math.PI / 2) * perpOffset;
+        const py = player.y + Math.sin(backAngle) * dist + Math.sin(backAngle + Math.PI / 2) * perpOffset;
 
-        if (!started) {
+        if (i === 0) {
           this.ctx.moveTo(px, py);
-          started = true;
         } else {
           this.ctx.lineTo(px, py);
         }
       }
 
-      const baseAlpha = 0.55;
-      const distFromCenter = Math.abs(offsets[o]);
-      const alpha = baseAlpha * (1 - distFromCenter * 0.6);
       this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha})`;
-      this.ctx.lineWidth = 2.5 - distFromCenter * 1.2;
+      this.ctx.lineWidth = lw;
       this.ctx.lineCap = 'round';
       this.ctx.lineJoin = 'round';
       this.ctx.stroke();
@@ -1737,8 +1740,8 @@ export class GameEngine {
   private drawTrailingMiniTriangles(player: InterpolatedPlayer, size: number) {
     const angle = player.facingAngle || 0;
     const ms = size * 0.3;
-    const ox = -size * 0.15;
-    const oy = size * 0.5;
+    const ox = size * 0.2;
+    const oy = size * 0.45;
 
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
