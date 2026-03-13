@@ -1461,8 +1461,8 @@ export class GameEngine {
       botX = pos.botX;
       botY = pos.botY;
     } else {
-      const ox = -size * 0.3;
-      const oy = size * 1.15;
+      const ox = -size * 0.15;
+      const oy = size * 0.55;
       const perpX = -sin;
       const perpY = cos;
       topX = player.x + cos * ox + perpX * oy;
@@ -1497,30 +1497,59 @@ export class GameEngine {
   }
 
   private drawEliteSpeedLines(player: InterpolatedPlayer) {
-    const angle = player.facingAngle || 0;
-    const now = performance.now();
     const r = player.radius;
     const [cr, cg, cb] = player.color.startsWith('#') ? this.parseHexColor(player.color) : [212, 0, 70];
+    const trail = player.trail;
 
-    const lineCount = 6;
-    for (let i = 0; i < lineCount; i++) {
-      const seed = (i * 7919 + Math.floor(now * 0.008)) % 100;
-      const phase = (seed / 100);
-      const spread = (i / lineCount - 0.5) * r * 3;
-      const perpAngle = angle + Math.PI / 2;
-      const lineLen = r * (1.5 + phase * 1.5);
-      const alpha = (1 - phase) * 0.4;
+    if (trail.length < 2) return;
 
-      const sx = player.x - Math.cos(angle) * (r * 0.8 + phase * r * 2) + Math.cos(perpAngle) * spread;
-      const sy = player.y - Math.sin(angle) * (r * 0.8 + phase * r * 2) + Math.sin(perpAngle) * spread;
-      const ex = sx - Math.cos(angle) * lineLen;
-      const ey = sy - Math.sin(angle) * lineLen;
+    const offsets = [-0.6, -0.3, 0, 0.3, 0.6];
+
+    for (let o = 0; o < offsets.length; o++) {
+      const spread = offsets[o] * r;
+      const startIdx = Math.max(0, trail.length - 6);
 
       this.ctx.beginPath();
-      this.ctx.moveTo(sx, sy);
-      this.ctx.lineTo(ex, ey);
+
+      let started = false;
+      for (let i = startIdx; i < trail.length; i++) {
+        const t = trail[i];
+        let nextX: number, nextY: number;
+        if (i < trail.length - 1) {
+          nextX = trail[i + 1].x - t.x;
+          nextY = trail[i + 1].y - t.y;
+        } else {
+          nextX = player.x - t.x;
+          nextY = player.y - t.y;
+        }
+        const len = Math.sqrt(nextX * nextX + nextY * nextY) || 1;
+        const perpX = -nextY / len;
+        const perpY = nextX / len;
+
+        const px = t.x + perpX * spread;
+        const py = t.y + perpY * spread;
+
+        if (!started) {
+          this.ctx.moveTo(px, py);
+          started = true;
+        } else {
+          this.ctx.lineTo(px, py);
+        }
+      }
+
+      const angle = player.facingAngle || 0;
+      const endPerpX = -Math.sin(angle);
+      const endPerpY = Math.cos(angle);
+      const endX = player.x + endPerpX * spread - Math.cos(angle) * r * 0.3;
+      const endY = player.y + endPerpY * spread - Math.sin(angle) * r * 0.3;
+      this.ctx.lineTo(endX, endY);
+
+      const progress = (trail.length - startIdx) / 6;
+      const alpha = Math.min(0.45, progress * 0.35) * (1 - Math.abs(offsets[o]) * 0.8);
       this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha})`;
-      this.ctx.lineWidth = 2;
+      this.ctx.lineWidth = 2.5 - Math.abs(offsets[o]) * 1.5;
+      this.ctx.lineCap = 'round';
+      this.ctx.lineJoin = 'round';
       this.ctx.stroke();
     }
   }
@@ -1712,9 +1741,9 @@ export class GameEngine {
 
   private drawTrailingMiniTriangles(player: InterpolatedPlayer, size: number) {
     const angle = player.facingAngle || 0;
-    const ms = size * 0.35;
-    const ox = -size * 0.3;
-    const oy = size * 1.15;
+    const ms = size * 0.3;
+    const ox = -size * 0.15;
+    const oy = size * 0.55;
 
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
@@ -1732,7 +1761,7 @@ export class GameEngine {
       this.miniTriPositions.set(player.id, pos);
     }
 
-    const lerp = 0.12;
+    const lerp = 0.15;
     pos.topX += (targetTopX - pos.topX) * lerp;
     pos.topY += (targetTopY - pos.topY) * lerp;
     pos.botX += (targetBotX - pos.botX) * lerp;
