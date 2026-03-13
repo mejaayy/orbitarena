@@ -1635,7 +1635,10 @@ class StakeGameRoom extends GameRoom {
         stunEndTime: 0,
         stunAttackerId: null,
         lastStunDamageTime: 0,
-        facingAngle: 0
+        facingAngle: 0,
+        lastAbilityTime: 0,
+        kills: 0,
+        supercharged: false
       };
 
       // Set initial radius based on HP

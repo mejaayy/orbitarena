@@ -15,7 +15,7 @@ export class ProceduralMusicManager {
     const audio = new Audio('/music.mp3');
     audio.loop = false;
     audio.volume = this.volume;
-    audio.playbackRate = 1.1;
+    audio.playbackRate = this.baseRate;
     return audio;
   }
 
@@ -93,6 +93,10 @@ export class ProceduralMusicManager {
   }
 
   stop() {
+    if (this.rateTransition) {
+      cancelAnimationFrame(this.rateTransition);
+      this.rateTransition = null;
+    }
     if (this.audio) {
       this.audio.pause();
       this.audio.currentTime = 0;
@@ -104,6 +108,8 @@ export class ProceduralMusicManager {
     }
     this.isPlaying = false;
     this.crossfading = false;
+    this.baseRate = 1.1;
+    this.targetRate = 1.1;
   }
 
   setVolume(volume: number) {
@@ -111,6 +117,37 @@ export class ProceduralMusicManager {
     if (this.audio) {
       this.audio.volume = this.volume;
     }
+  }
+
+  private rateTransition: number | null = null;
+  private targetRate: number = 1.1;
+  private baseRate: number = 1.1;
+
+  setPlaybackRate(rate: number, transitionMs: number = 1000) {
+    if (this.rateTransition) {
+      cancelAnimationFrame(this.rateTransition);
+      this.rateTransition = null;
+    }
+    this.targetRate = rate;
+    const startRate = this.audio?.playbackRate ?? this.baseRate;
+    if (Math.abs(startRate - rate) < 0.01) return;
+    const startTime = performance.now();
+
+    const step = () => {
+      const elapsed = performance.now() - startTime;
+      const progress = Math.min(1, elapsed / transitionMs);
+      const smooth = progress * progress * (3 - 2 * progress);
+      const current = startRate + (rate - startRate) * smooth;
+      if (this.audio) this.audio.playbackRate = current;
+      if (this.nextAudio) this.nextAudio.playbackRate = current;
+      if (progress < 1) {
+        this.rateTransition = requestAnimationFrame(step);
+      } else {
+        this.rateTransition = null;
+        this.baseRate = rate;
+      }
+    };
+    this.rateTransition = requestAnimationFrame(step);
   }
 }
 

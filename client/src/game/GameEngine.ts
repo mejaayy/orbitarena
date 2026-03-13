@@ -652,6 +652,9 @@ export class GameEngine {
         existing.charge = pCharge;
         existing.maxCharge = pMaxCharge;
         existing.characterShape = pShape;
+        if (!existing.supercharged && pSupercharged && existing.id === this.localPlayerId) {
+          proceduralMusic.setPlaybackRate(1.1 * 1.15, 1000);
+        }
         existing.supercharged = pSupercharged;
         if (p.color) existing.color = p.color;
         if (p.name) existing.name = p.name;
