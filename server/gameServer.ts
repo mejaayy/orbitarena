@@ -116,6 +116,7 @@ const ABILITY_COOLDOWN = 450;
 const MISSILE_COOLDOWN = 700;
 const PULL_COOLDOWN = 0;
 const ABILITY_RANGE = 400;
+const CIRCLE_ABILITY_RANGE = ABILITY_RANGE * 0.7;
 const ABILITY_DAMAGE = 25;
 const PROJECTILE_RANGE = 1200;
 const DASH_DISTANCE = 240;
@@ -830,6 +831,7 @@ class GameRoom {
 
   protected executePull(player: Player, held?: boolean) {
     const pullStrength = held ? 25 : 45;
+    const pullRange = CIRCLE_ABILITY_RANGE * 1.5;
     this.gameState.players.forEach(other => {
       if (other.id === player.id || other.isSpectator) return;
       
@@ -837,10 +839,10 @@ class GameRoom {
       const dy = player.y - other.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       
-      if (dist < ABILITY_RANGE * 1.5 && dist > 0) {
+      if (dist < pullRange && dist > 0) {
         const nx = dx / dist;
         const ny = dy / dist;
-        const distRatio = 1 - (dist / (ABILITY_RANGE * 1.5));
+        const distRatio = 1 - (dist / pullRange);
         const force = pullStrength * (0.3 + distRatio * 0.7);
         other.knockbackVelocity.x += nx * force;
         other.knockbackVelocity.y += ny * force;
@@ -856,8 +858,8 @@ class GameRoom {
       const dy = other.y - player.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       
-      if (dist < ABILITY_RANGE) {
-        const distRatio = dist / ABILITY_RANGE;
+      if (dist < CIRCLE_ABILITY_RANGE) {
+        const distRatio = dist / CIRCLE_ABILITY_RANGE;
         const damage = Math.floor(50 - distRatio * 30);
         this.damagePlayer(player, other, damage);
       }
@@ -869,7 +871,7 @@ class GameRoom {
       const dx = proj.x - player.x;
       const dy = proj.y - player.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < ABILITY_RANGE) {
+      if (dist < CIRCLE_ABILITY_RANGE) {
         this.explodeProjectile(proj);
         toDetonate.push(i);
       }
