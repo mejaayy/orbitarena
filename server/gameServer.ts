@@ -1082,7 +1082,8 @@ class GameRoom {
         ability: 'MISSILE_EXPLODE',
         projectileId: proj.id,
         x: proj.x,
-        y: proj.y
+        y: proj.y,
+        playerId: proj.ownerId
       }
     });
   }
