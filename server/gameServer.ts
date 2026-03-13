@@ -46,6 +46,8 @@ interface Player {
   lastStunDamageTime: number;
   facingAngle: number;
   lastAbilityTime: number;
+  kills: number;
+  supercharged: boolean;
 }
 
 type PickupType = 'HP' | 'CHARGE';
@@ -215,7 +217,9 @@ class GameRoom {
       stunAttackerId: null,
       lastStunDamageTime: 0,
       facingAngle: Math.random() * Math.PI * 2,
-      lastAbilityTime: 0
+      lastAbilityTime: 0,
+      kills: 0,
+      supercharged: false
     };
 
     this.updatePlayerRadius(player);
@@ -932,7 +936,7 @@ class GameRoom {
       x: player.x + Math.cos(angle) * (player.radius + MISSILE_RADIUS + 5),
       y: player.y + Math.sin(angle) * (player.radius + MISSILE_RADIUS + 5),
       angle: angle,
-      speed: PROJECTILE_SPEED,
+      speed: PROJECTILE_SPEED * (player.supercharged ? 1.3 : 1),
       damage: 30,
       spawnTime: Date.now(),
       lifespan: MISSILE_LIFESPAN,
@@ -1222,7 +1226,7 @@ class GameRoom {
       
       if (length > 0) {
         const speedFactor = Math.max(0.5, 1 - (player.radius / 200));
-        const speed = MAX_SPEED * speedFactor;
+        const speed = MAX_SPEED * speedFactor * (player.supercharged ? 1.3 : 1);
         
         player.velocity.x = (inputVector.x / length) * speed;
         player.velocity.y = (inputVector.y / length) * speed;
@@ -1297,6 +1301,10 @@ class GameRoom {
     }
 
     if (attacker) {
+      attacker.kills++;
+      if (attacker.characterShape === 'triangle' && attacker.kills >= 2 && !attacker.supercharged) {
+        attacker.supercharged = true;
+      }
       const attackerWs = this.clients.get(attacker.id);
       if (attackerWs) {
         this.send(attackerWs, {
@@ -1398,7 +1406,8 @@ class GameRoom {
         fa: Math.round(p.facingAngle * 100) / 100,
         st: p.isStunned ? 1 : 0,
         sp: p.isSpectator ? 1 : 0,
-        b: this.botIds.has(p.id) ? 1 : 0
+        b: this.botIds.has(p.id) ? 1 : 0,
+        sc: p.supercharged ? 1 : 0
       });
     });
 
@@ -1830,6 +1839,13 @@ class StakeGameRoom extends GameRoom {
       });
     }
 
+    if (attacker) {
+      attacker.kills++;
+      if (attacker.characterShape === 'triangle' && attacker.kills >= 2 && !attacker.supercharged) {
+        attacker.supercharged = true;
+      }
+    }
+
     log(`${attacker ? attacker.name : 'Environment'} eliminated ${victim.name} in stake room ${this.id} - victim now spectating`, 'room');
     
     // Check if only one active player remains
@@ -1859,7 +1875,8 @@ class StakeGameRoom extends GameRoom {
       fa: Math.round(p.facingAngle * 100) / 100,
       st: p.isStunned ? 1 : 0,
       sp: p.isSpectator ? 1 : 0,
-      b: this.botIds.has(p.id) ? 1 : 0
+      b: this.botIds.has(p.id) ? 1 : 0,
+      sc: p.supercharged ? 1 : 0
     }));
 
     const timeRemaining = Math.max(0, ROUND_DURATION - (Date.now() - this.roundStartTime));

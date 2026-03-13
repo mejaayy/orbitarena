@@ -26,6 +26,7 @@ export interface Player {
   balance?: number;
   isStunned?: boolean;
   facingAngle?: number;
+  supercharged?: boolean;
 }
 
 interface InterpolatedPlayer extends Player {
@@ -636,6 +637,7 @@ export class GameEngine {
       const pFacing = p.fa ?? p.facingAngle ?? 0;
       const pStunned = !!(p.st ?? p.isStunned);
       const pSpectator = !!(p.sp ?? p.isSpectator);
+      const pSupercharged = !!(p.sc ?? p.supercharged);
       const existing = this.players.get(p.id);
       if (existing) {
         existing.prevX = existing.x;
@@ -650,6 +652,7 @@ export class GameEngine {
         existing.charge = pCharge;
         existing.maxCharge = pMaxCharge;
         existing.characterShape = pShape;
+        existing.supercharged = pSupercharged;
         if (p.color) existing.color = p.color;
         if (p.name) existing.name = p.name;
         if (existing.isStunned && !pStunned && existing.id === this.localPlayerId) {
@@ -673,6 +676,7 @@ export class GameEngine {
           characterShape: pShape,
           velocity: { x: 0, y: 0 },
           isStunned: pStunned,
+          supercharged: pSupercharged,
           facingAngle: pFacing,
           prevX: px,
           prevY: py,
@@ -890,7 +894,7 @@ export class GameEngine {
         
         if (length > 0) {
           const speedFactor = Math.max(0.5, 1 - (player.radius / 200));
-          const speed = GameEngine.MAX_SPEED * speedFactor;
+          const speed = GameEngine.MAX_SPEED * speedFactor * (player.supercharged ? 1.3 : 1);
           const vx = (input.x / length) * speed;
           const vy = (input.y / length) * speed;
           
@@ -1602,6 +1606,23 @@ export class GameEngine {
       this.ctx.lineTo(-size * 0.7, size * 0.8);
       this.ctx.closePath();
       this.ctx.fill();
+      if (player.supercharged) {
+        const ms = size * 0.35;
+        const ox = -size * 0.3;
+        const oy = size * 1.15;
+        this.ctx.beginPath();
+        this.ctx.moveTo(ox + ms, -oy);
+        this.ctx.lineTo(ox - ms * 0.7, -oy - ms * 0.8);
+        this.ctx.lineTo(ox - ms * 0.7, -oy + ms * 0.8);
+        this.ctx.closePath();
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.moveTo(ox + ms, oy);
+        this.ctx.lineTo(ox - ms * 0.7, oy - ms * 0.8);
+        this.ctx.lineTo(ox - ms * 0.7, oy + ms * 0.8);
+        this.ctx.closePath();
+        this.ctx.fill();
+      }
     } else if (shape === 'square') {
       const size = player.radius * 0.8;
       this.ctx.fillRect(-size, -size, size * 2, size * 2);
