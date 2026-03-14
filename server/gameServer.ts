@@ -131,6 +131,7 @@ const ENEMY_SCAN_RANGE = 800;
 const SQUARE_AURA_RADIUS = 250;
 const SQUARE_AURA_MISSILE_SLOW = 0.5;
 const SQUARE_AURA_PLAYER_SLOW = 0.75;
+const SQUARE_AURA_TIMER_SLOW = 0.7;
 
 // Stake mode constants
 const ENTRY_FEE = 1.00;
@@ -1166,14 +1167,20 @@ class GameRoom {
       }
 
       let effectiveSpeed = proj.speed;
+      let inAura = false;
       this.gameState.players.forEach(p => {
         if (p.isSpectator || !p.supercharged || p.characterShape !== 'square' || p.id === proj.ownerId) return;
         const dx = proj.x - p.x;
         const dy = proj.y - p.y;
         if (dx * dx + dy * dy < SQUARE_AURA_RADIUS * SQUARE_AURA_RADIUS) {
           effectiveSpeed *= SQUARE_AURA_MISSILE_SLOW;
+          inAura = true;
         }
       });
+      if (inAura) {
+        const tickMs = (1 / TICK_RATE) * 1000;
+        proj.spawnTime += tickMs * (1 - SQUARE_AURA_TIMER_SLOW);
+      }
       proj.x += Math.cos(proj.angle) * effectiveSpeed;
       proj.y += Math.sin(proj.angle) * effectiveSpeed;
 
