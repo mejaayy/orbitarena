@@ -128,6 +128,9 @@ const MISSILE_LIFESPAN = 7000;
 const MISSILE_TURN_RATE = 0.09;
 const MISSILE_RADIUS = 25;
 const ENEMY_SCAN_RANGE = 800;
+const SQUARE_AURA_RADIUS = 250;
+const SQUARE_AURA_MISSILE_SLOW = 0.5;
+const SQUARE_AURA_PLAYER_SLOW = 0.75;
 
 // Stake mode constants
 const ENTRY_FEE = 1.00;
@@ -1162,8 +1165,17 @@ class GameRoom {
         }
       }
 
-      proj.x += Math.cos(proj.angle) * proj.speed;
-      proj.y += Math.sin(proj.angle) * proj.speed;
+      let effectiveSpeed = proj.speed;
+      this.gameState.players.forEach(p => {
+        if (p.isSpectator || !p.supercharged || p.characterShape !== 'square' || p.id === proj.ownerId) return;
+        const dx = proj.x - p.x;
+        const dy = proj.y - p.y;
+        if (dx * dx + dy * dy < SQUARE_AURA_RADIUS * SQUARE_AURA_RADIUS) {
+          effectiveSpeed *= SQUARE_AURA_MISSILE_SLOW;
+        }
+      });
+      proj.x += Math.cos(proj.angle) * effectiveSpeed;
+      proj.y += Math.sin(proj.angle) * effectiveSpeed;
 
       if (proj.x < 0 || proj.x > WORLD_SIZE || proj.y < 0 || proj.y > WORLD_SIZE) {
         this.explodeProjectile(proj);
@@ -1387,7 +1399,15 @@ class GameRoom {
       
       if (length > 0) {
         const speedFactor = Math.max(0.5, 1 - (player.radius / 200));
-        const speed = MAX_SPEED * speedFactor * (player.supercharged ? 1.3 : 1);
+        let speed = MAX_SPEED * speedFactor * (player.supercharged ? 1.3 : 1);
+        this.gameState.players.forEach(p => {
+          if (p.isSpectator || !p.supercharged || p.characterShape !== 'square' || p.id === player.id) return;
+          const dx = player.x - p.x;
+          const dy = player.y - p.y;
+          if (dx * dx + dy * dy < SQUARE_AURA_RADIUS * SQUARE_AURA_RADIUS) {
+            speed *= SQUARE_AURA_PLAYER_SLOW;
+          }
+        });
         
         player.velocity.x = (inputVector.x / length) * speed;
         player.velocity.y = (inputVector.y / length) * speed;
@@ -1464,7 +1484,7 @@ class GameRoom {
     if (attacker) {
       attacker.kills++;
       log(`${attacker.name} got kill #${attacker.kills} (shape=${attacker.characterShape}, training=${this.trainingMode}, supercharged=${attacker.supercharged})`, 'room');
-      if (attacker.characterShape === 'triangle' && attacker.kills >= 2 && !attacker.supercharged) {
+      if ((attacker.characterShape === 'triangle' || attacker.characterShape === 'square') && attacker.kills >= 2 && !attacker.supercharged) {
         attacker.supercharged = true;
         log(`${attacker.name} activated ELITE MODE!`, 'room');
       }
@@ -2031,7 +2051,7 @@ class StakeGameRoom extends GameRoom {
 
     if (attacker) {
       attacker.kills++;
-      if (attacker.characterShape === 'triangle' && attacker.kills >= 2 && !attacker.supercharged) {
+      if ((attacker.characterShape === 'triangle' || attacker.characterShape === 'square') && attacker.kills >= 2 && !attacker.supercharged) {
         attacker.supercharged = true;
       }
     }

@@ -955,7 +955,14 @@ export class GameEngine {
         
         if (length > 0) {
           const speedFactor = Math.max(0.5, 1 - (player.radius / 200));
-          const speed = GameEngine.MAX_SPEED * speedFactor * (player.supercharged ? 1.3 : 1);
+          let speed = GameEngine.MAX_SPEED * speedFactor * (player.supercharged ? 1.3 : 1);
+          const AURA_R = 250;
+          this.players.forEach(p => {
+            if (p.id === player.id || !p.supercharged || p.characterShape !== 'square') return;
+            const dx = player.x - p.x;
+            const dy = player.y - p.y;
+            if (dx * dx + dy * dy < AURA_R * AURA_R) speed *= 0.75;
+          });
           const vx = (input.x / length) * speed;
           const vy = (input.y / length) * speed;
           
@@ -1871,7 +1878,23 @@ export class GameEngine {
       }
     } else if (shape === 'square') {
       const size = player.radius * 0.8;
-      this.ctx.fillRect(-size, -size, size * 2, size * 2);
+      if (player.supercharged) {
+        this.ctx.save();
+        this.ctx.rotate(Math.PI / 4);
+        this.ctx.fillRect(-size, -size, size * 2, size * 2);
+        this.ctx.restore();
+        this.ctx.fillRect(-size, -size, size * 2, size * 2);
+
+        this.ctx.restore();
+        this.drawSquareAura(player);
+        this.ctx.save();
+        this.ctx.translate(player.x, player.y);
+        this.ctx.rotate(angle);
+        this.ctx.fillStyle = player.color;
+        if (player.isStunned) this.ctx.globalAlpha = 0.5;
+      } else {
+        this.ctx.fillRect(-size, -size, size * 2, size * 2);
+      }
     }
     
     this.ctx.globalAlpha = 1;
@@ -1916,5 +1939,26 @@ export class GameEngine {
     // Draw name below the player
     this.ctx.fillStyle = textColor;
     this.ctx.fillText(player.name, player.x, player.y + player.radius + 5);
+  }
+
+  private drawSquareAura(player: InterpolatedPlayer) {
+    const AURA_RADIUS = 250;
+    const time = performance.now() / 1000;
+    const pulse = 0.08 + Math.sin(time * 2) * 0.03;
+
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.arc(player.x, player.y, AURA_RADIUS, 0, Math.PI * 2);
+    this.ctx.strokeStyle = player.color;
+    this.ctx.globalAlpha = pulse;
+    this.ctx.fillStyle = player.color;
+    this.ctx.fill();
+    this.ctx.globalAlpha = 0.3;
+    this.ctx.lineWidth = 2;
+    this.ctx.setLineDash([8, 8]);
+    this.ctx.lineDashOffset = -time * 30;
+    this.ctx.stroke();
+    this.ctx.setLineDash([]);
+    this.ctx.restore();
   }
 }
