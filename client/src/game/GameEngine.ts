@@ -118,6 +118,7 @@ export class GameEngine {
   private inputSendInterval: number = 33;
   private mouseScreenX: number = -1;
   private mouseScreenY: number = -1;
+  private isMobile: boolean = window.innerWidth < 768 || 'ontouchstart' in window;
   private lastSentFacingAngle: number = 0;
   
   onGameOver: (stats: { score: number, killer?: string, balance?: number }) => void;
@@ -159,6 +160,7 @@ export class GameEngine {
   };
 
   private handleMouseMove = (e: MouseEvent) => {
+    if (this.isMobile) return;
     this.mouseScreenX = e.clientX;
     this.mouseScreenY = e.clientY;
   };
@@ -177,6 +179,7 @@ export class GameEngine {
   };
 
   private handleMouseDown = (e: MouseEvent) => {
+    if (this.isMobile) return;
     if (e.button === 0) {
       this.sendAbility('ABILITY_2');
     } else if (e.button === 2) {
@@ -918,10 +921,18 @@ export class GameEngine {
     
     const localPlayer = this.players.get(this.localPlayerId!);
     if (localPlayer && !this.isSpectating) {
-      const newAngle = this.getFacingAngle();
-      if (newAngle !== null) {
-        localPlayer.facingAngle = newAngle;
-        this.localInputVector = { x: Math.cos(newAngle), y: Math.sin(newAngle) };
+      if (this.isMobile) {
+        const iv = this.localInputVector;
+        const len = Math.sqrt(iv.x * iv.x + iv.y * iv.y);
+        if (len > 0) {
+          localPlayer.facingAngle = Math.atan2(iv.y, iv.x);
+        }
+      } else {
+        const newAngle = this.getFacingAngle();
+        if (newAngle !== null) {
+          localPlayer.facingAngle = newAngle;
+          this.localInputVector = { x: Math.cos(newAngle), y: Math.sin(newAngle) };
+        }
       }
       
       const now = performance.now();
