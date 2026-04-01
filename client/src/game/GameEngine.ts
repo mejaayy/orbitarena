@@ -1984,15 +1984,27 @@ export class GameEngine {
       this.miniTriPositions.set(player.id, pos);
     }
 
-    pos.topX = targetTopX;
-    pos.topY = targetTopY;
-    pos.botX = targetBotX;
-    pos.botY = targetBotY;
+    const now = performance.now();
+    const isDashing = this.abilityEffects.some(
+      e => e.type === 'DASH' && e.playerId === player.id && now - e.startTime < e.duration
+    );
 
-    let angleDiff = angle - pos.angle;
-    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-    pos.angle += angleDiff * 0.3;
+    if (isDashing) {
+      pos.topX += (targetTopX - pos.topX) * 0.12;
+      pos.topY += (targetTopY - pos.topY) * 0.12;
+      pos.botX += (targetBotX - pos.botX) * 0.12;
+      pos.botY += (targetBotY - pos.botY) * 0.12;
+      let angleDiff = angle - pos.angle;
+      while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+      while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+      pos.angle += angleDiff * 0.15;
+    } else {
+      pos.topX = targetTopX;
+      pos.topY = targetTopY;
+      pos.botX = targetBotX;
+      pos.botY = targetBotY;
+      pos.angle = angle;
+    }
 
     this.ctx.save();
     this.ctx.fillStyle = player.color;
