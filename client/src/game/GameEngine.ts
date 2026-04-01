@@ -1990,29 +1990,29 @@ export class GameEngine {
     );
 
     if (isDashing) {
-      pos.topX += (targetTopX - pos.topX) * 0.12;
-      pos.topY += (targetTopY - pos.topY) * 0.12;
-      pos.botX += (targetBotX - pos.botX) * 0.12;
-      pos.botY += (targetBotY - pos.botY) * 0.12;
+      pos.topX += (targetTopX - pos.topX) * 0.18;
+      pos.topY += (targetTopY - pos.topY) * 0.18;
+      pos.botX += (targetBotX - pos.botX) * 0.18;
+      pos.botY += (targetBotY - pos.botY) * 0.18;
       let angleDiff = angle - pos.angle;
       while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
       while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-      pos.angle += angleDiff * 0.15;
+      pos.angle += angleDiff * 0.22;
       pos.wasDashing = true;
     } else {
       if (pos.wasDashing) {
-        pos.catchUpUntil = now + 280;
+        pos.catchUpUntil = now + 150;
         pos.wasDashing = false;
       }
       if (pos.catchUpUntil && now < pos.catchUpUntil) {
-        pos.topX += (targetTopX - pos.topX) * 0.28;
-        pos.topY += (targetTopY - pos.topY) * 0.28;
-        pos.botX += (targetBotX - pos.botX) * 0.28;
-        pos.botY += (targetBotY - pos.botY) * 0.28;
+        pos.topX += (targetTopX - pos.topX) * 0.42;
+        pos.topY += (targetTopY - pos.topY) * 0.42;
+        pos.botX += (targetBotX - pos.botX) * 0.42;
+        pos.botY += (targetBotY - pos.botY) * 0.42;
         let angleDiff = angle - pos.angle;
         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
         while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-        pos.angle += angleDiff * 0.32;
+        pos.angle += angleDiff * 0.45;
       } else {
         pos.topX = targetTopX;
         pos.topY = targetTopY;
