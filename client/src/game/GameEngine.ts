@@ -74,7 +74,7 @@ export class GameEngine {
   ctx: CanvasRenderingContext2D;
   players: Map<string, InterpolatedPlayer> = new Map();
   pickups: Pickup[] = [];
-  private miniTriPositions: Map<string, { topX: number; topY: number; botX: number; botY: number; angle: number }> = new Map();
+  private miniTriPositions: Map<string, { topX: number; topY: number; botX: number; botY: number; angle: number; wasDashing?: boolean; catchUpUntil?: number }> = new Map();
   localPlayerId: string | null = null;
   
   static WORLD_SIZE = 4000;
@@ -1998,12 +1998,28 @@ export class GameEngine {
       while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
       while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
       pos.angle += angleDiff * 0.15;
+      pos.wasDashing = true;
     } else {
-      pos.topX = targetTopX;
-      pos.topY = targetTopY;
-      pos.botX = targetBotX;
-      pos.botY = targetBotY;
-      pos.angle = angle;
+      if (pos.wasDashing) {
+        pos.catchUpUntil = now + 280;
+        pos.wasDashing = false;
+      }
+      if (pos.catchUpUntil && now < pos.catchUpUntil) {
+        pos.topX += (targetTopX - pos.topX) * 0.28;
+        pos.topY += (targetTopY - pos.topY) * 0.28;
+        pos.botX += (targetBotX - pos.botX) * 0.28;
+        pos.botY += (targetBotY - pos.botY) * 0.28;
+        let angleDiff = angle - pos.angle;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        pos.angle += angleDiff * 0.32;
+      } else {
+        pos.topX = targetTopX;
+        pos.topY = targetTopY;
+        pos.botX = targetBotX;
+        pos.botY = targetBotY;
+        pos.angle = angle;
+      }
     }
 
     this.ctx.save();
