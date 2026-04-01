@@ -382,7 +382,7 @@ export class GameEngine {
                       startTime: performance.now(),
                       duration: 400,
                       playerId: this.localPlayerId || '',
-                      color: '#4488FF',
+                      color: '#D40046',
                     });
                   }
                 }
@@ -471,7 +471,7 @@ export class GameEngine {
           startTime: now,
           duration: 400,
           playerId: this.localPlayerId || '',
-          color: '#D40046',
+          color: '#00CC44',
         });
         break;
       }
