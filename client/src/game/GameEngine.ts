@@ -395,16 +395,7 @@ export class GameEngine {
         soundManager.playElimination();
         const eliminatedPlayer = this.localPlayerId ? this.players.get(this.localPlayerId) : null;
         if (eliminatedPlayer) {
-          this.abilityEffects.push({
-            type: 'DEATH_BURST',
-            x: eliminatedPlayer.x,
-            y: eliminatedPlayer.y,
-            angle: 0,
-            startTime: performance.now(),
-            duration: 800,
-            playerId: this.localPlayerId || '',
-            color: eliminatedPlayer.color,
-          });
+          this.pushDeathBurst(eliminatedPlayer);
         }
         if (message.payload.isSpectating) {
           // Stake mode - become spectator
@@ -436,17 +427,8 @@ export class GameEngine {
 
       case 'PLAYER_LEFT': {
         const leaving = this.players.get(message.payload.playerId);
-        if (leaving) {
-          this.abilityEffects.push({
-            type: 'DEATH_BURST',
-            x: leaving.x,
-            y: leaving.y,
-            angle: 0,
-            startTime: performance.now(),
-            duration: 700,
-            playerId: message.payload.playerId,
-            color: leaving.color,
-          });
+        if (leaving && !leaving.isSpectator) {
+          this.pushDeathBurst(leaving);
         }
         this.players.delete(message.payload.playerId);
         this.miniTriPositions.delete(message.payload.playerId);
@@ -539,6 +521,25 @@ export class GameEngine {
     color?: string;
     shape?: string;
   }> = [];
+
+  private recentDeathBursts: Map<string, number> = new Map();
+
+  private pushDeathBurst(player: InterpolatedPlayer) {
+    const now = performance.now();
+    const last = this.recentDeathBursts.get(player.id) || 0;
+    if (now - last < 2000) return;
+    this.recentDeathBursts.set(player.id, now);
+    this.abilityEffects.push({
+      type: 'DEATH_BURST',
+      x: player.x,
+      y: player.y,
+      angle: 0,
+      startTime: now,
+      duration: 700,
+      playerId: player.id,
+      color: player.color,
+    });
+  }
 
   private serverProjectiles: Array<{
     x: number;
@@ -717,8 +718,11 @@ export class GameEngine {
       serverIds.add(state.players[i].id);
     }
     
-    this.players.forEach((_, id) => {
+    this.players.forEach((player, id) => {
       if (!serverIds.has(id)) {
+        if (!player.isSpectator) {
+          this.pushDeathBurst(player);
+        }
         this.players.delete(id);
         this.miniTriPositions.delete(id);
       }
