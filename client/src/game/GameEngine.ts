@@ -367,13 +367,22 @@ export class GameEngine {
                 const dx = localPlayer.x - pickup.x;
                 const dy = localPlayer.y - pickup.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
-                // If pickup was close to local player, they probably collected it
                 if (dist < localPlayer.radius + pickup.radius + 30) {
                   if (pickup.type === 'HP') {
                     soundManager.playPickupHP();
                   } else if (pickup.type === 'CHARGE') {
                     soundManager.playPickupCharge();
                   }
+                  this.abilityEffects.push({
+                    type: 'PICKUP_FLASH',
+                    x: pickup.x,
+                    y: pickup.y,
+                    angle: 0,
+                    startTime: performance.now(),
+                    duration: 400,
+                    playerId: this.localPlayerId || '',
+                    color: pickup.type === 'HP' ? '#D40046' : '#4488FF',
+                  });
                 }
               }
             }
@@ -382,8 +391,21 @@ export class GameEngine {
         this.applyPickupDelta(message.payload);
         break;
 
-      case 'ELIMINATED':
+      case 'ELIMINATED': {
         soundManager.playElimination();
+        const eliminatedPlayer = this.localPlayerId ? this.players.get(this.localPlayerId) : null;
+        if (eliminatedPlayer) {
+          this.abilityEffects.push({
+            type: 'DEATH_BURST',
+            x: eliminatedPlayer.x,
+            y: eliminatedPlayer.y,
+            angle: 0,
+            startTime: performance.now(),
+            duration: 800,
+            playerId: this.localPlayerId || '',
+            color: eliminatedPlayer.color,
+          });
+        }
         if (message.payload.isSpectating) {
           // Stake mode - become spectator
           this.isSpectating = true;
@@ -397,6 +419,7 @@ export class GameEngine {
           this.stop();
         }
         break;
+      }
 
       case 'ROUND_STATUS':
         this.roundStatus = message.payload;
@@ -411,10 +434,24 @@ export class GameEngine {
         soundManager.playKillPing();
         break;
 
-      case 'PLAYER_LEFT':
+      case 'PLAYER_LEFT': {
+        const leaving = this.players.get(message.payload.playerId);
+        if (leaving) {
+          this.abilityEffects.push({
+            type: 'DEATH_BURST',
+            x: leaving.x,
+            y: leaving.y,
+            angle: 0,
+            startTime: performance.now(),
+            duration: 700,
+            playerId: message.payload.playerId,
+            color: leaving.color,
+          });
+        }
         this.players.delete(message.payload.playerId);
         this.miniTriPositions.delete(message.payload.playerId);
         break;
+      }
 
       case 'ERROR':
         console.error('Server error:', message.payload.message);
@@ -499,6 +536,8 @@ export class GameEngine {
     startTime: number;
     duration: number;
     playerId: string;
+    color?: string;
+    shape?: string;
   }> = [];
 
   private serverProjectiles: Array<{
@@ -713,8 +752,21 @@ export class GameEngine {
         existing.charge = pCharge;
         existing.maxCharge = pMaxCharge;
         existing.characterShape = pShape;
-        if (!existing.supercharged && pSupercharged && existing.id === this.localPlayerId) {
-          proceduralMusic.setPlaybackRate(1.1 * 1.15, 2000);
+        if (!existing.supercharged && pSupercharged) {
+          if (existing.id === this.localPlayerId) {
+            proceduralMusic.setPlaybackRate(1.1 * 1.15, 2000);
+          }
+          this.abilityEffects.push({
+            type: `ELITE_ACTIVATE_${(existing.characterShape || 'circle').toUpperCase()}`,
+            x: existing.x,
+            y: existing.y,
+            angle: existing.facingAngle || 0,
+            startTime: performance.now(),
+            duration: 1000,
+            playerId: existing.id,
+            color: existing.color,
+            shape: existing.characterShape,
+          });
         }
         existing.supercharged = pSupercharged;
         if (p.color) existing.color = p.color;
@@ -1263,6 +1315,21 @@ export class GameEngine {
           break;
         case 'ELITE_LAUNCH':
           this.drawEliteLaunchEffect(player, effect.angle, progress, alpha);
+          break;
+        case 'ELITE_ACTIVATE_CIRCLE':
+          this.drawEliteActivateCircle(ex, ey, progress, alpha, effect.color || '#FFFFFF');
+          break;
+        case 'ELITE_ACTIVATE_TRIANGLE':
+          this.drawEliteActivateTriangle(ex, ey, progress, alpha, effect.color || '#FFFFFF');
+          break;
+        case 'ELITE_ACTIVATE_SQUARE':
+          this.drawEliteActivateSquare(ex, ey, progress, alpha, effect.color || '#FFFFFF');
+          break;
+        case 'DEATH_BURST':
+          this.drawDeathBurst(ex, ey, progress, alpha, effect.color || '#FFFFFF');
+          break;
+        case 'PICKUP_FLASH':
+          this.drawPickupFlash(effect.x, effect.y, progress, alpha, effect.color || '#FFFFFF');
           break;
       }
       
@@ -1870,6 +1937,15 @@ export class GameEngine {
       this.ctx.beginPath();
       this.ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
       this.ctx.fill();
+      if (player.supercharged) {
+        this.ctx.restore();
+        this.drawCircleEliteIdle(player);
+        this.ctx.save();
+        this.ctx.translate(player.x, player.y);
+        this.ctx.rotate(angle);
+        this.ctx.fillStyle = player.color;
+        if (player.isStunned) this.ctx.globalAlpha = 0.5;
+      }
     } else if (shape === 'triangle') {
       const size = player.radius;
       this.ctx.beginPath();
@@ -1880,6 +1956,7 @@ export class GameEngine {
       this.ctx.fill();
       if (player.supercharged) {
         this.ctx.restore();
+        this.drawTriangleEliteIdle(player);
         this.drawTrailingMiniTriangles(player, size);
         this.ctx.save();
         this.ctx.translate(player.x, player.y);
@@ -1898,6 +1975,7 @@ export class GameEngine {
 
         this.ctx.restore();
         this.drawSquareAura(player);
+        this.drawSquareEliteIdle(player);
         this.ctx.save();
         this.ctx.translate(player.x, player.y);
         this.ctx.rotate(angle);
@@ -1970,6 +2048,197 @@ export class GameEngine {
     this.ctx.lineDashOffset = -time * 30;
     this.ctx.stroke();
     this.ctx.setLineDash([]);
+    this.ctx.restore();
+  }
+
+  private drawCircleEliteIdle(player: InterpolatedPlayer) {
+    const time = performance.now() / 1000;
+    const orbitRadius = player.radius * 1.7;
+    const [cr, cg, cb] = this.parseHexColor(player.color);
+    const dotCount = 4;
+    this.ctx.save();
+    for (let i = 0; i < dotCount; i++) {
+      const a = (i / dotCount) * Math.PI * 2 + time * 1.2;
+      const dotX = player.x + Math.cos(a) * orbitRadius;
+      const dotY = player.y + Math.sin(a) * orbitRadius;
+      const pulse = 0.6 + Math.sin(time * 3 + i * 1.5) * 0.2;
+      this.ctx.beginPath();
+      this.ctx.arc(dotX, dotY, player.radius * 0.12, 0, Math.PI * 2);
+      this.ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${pulse})`;
+      this.ctx.fill();
+    }
+    const ringPulse = 0.12 + Math.sin(time * 2.5) * 0.05;
+    this.ctx.beginPath();
+    this.ctx.arc(player.x, player.y, orbitRadius, 0, Math.PI * 2);
+    this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${ringPulse})`;
+    this.ctx.lineWidth = 1;
+    this.ctx.stroke();
+    this.ctx.restore();
+  }
+
+  private drawTriangleEliteIdle(player: InterpolatedPlayer) {
+    const time = performance.now() / 1000;
+    const [cr, cg, cb] = this.parseHexColor(player.color);
+    const haloRadius = player.radius * 1.35;
+    const pulse = 0.1 + Math.sin(time * 3) * 0.05;
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.arc(player.x, player.y, haloRadius, 0, Math.PI * 2);
+    this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${pulse * 2})`;
+    this.ctx.lineWidth = 2.5;
+    this.ctx.stroke();
+    this.ctx.beginPath();
+    this.ctx.arc(player.x, player.y, haloRadius * 1.2, 0, Math.PI * 2);
+    this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${pulse})`;
+    this.ctx.lineWidth = 1;
+    this.ctx.stroke();
+    this.ctx.restore();
+  }
+
+  private drawSquareEliteIdle(player: InterpolatedPlayer) {
+    const AURA_RADIUS = 250;
+    const time = performance.now() / 1000;
+    const [cr, cg, cb] = this.parseHexColor(player.color);
+    const markerCount = 4;
+    const markerSize = 6;
+    this.ctx.save();
+    for (let i = 0; i < markerCount; i++) {
+      const a = (i / markerCount) * Math.PI * 2 + time * 0.5;
+      const mx = player.x + Math.cos(a) * AURA_RADIUS;
+      const my = player.y + Math.sin(a) * AURA_RADIUS;
+      this.ctx.save();
+      this.ctx.translate(mx, my);
+      this.ctx.rotate(a + time * 1.5);
+      this.ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, 0.7)`;
+      this.ctx.fillRect(-markerSize / 2, -markerSize / 2, markerSize, markerSize);
+      this.ctx.restore();
+    }
+    this.ctx.restore();
+  }
+
+  private drawEliteActivateCircle(x: number, y: number, progress: number, alpha: number, color: string) {
+    const [cr, cg, cb] = this.parseHexColor(color);
+    this.ctx.save();
+    const ring1R = 50 + progress * 220;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, ring1R, 0, Math.PI * 2);
+    this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha * 0.9})`;
+    this.ctx.lineWidth = 4 * (1 - progress * 0.7);
+    this.ctx.stroke();
+    const ring2R = 20 + progress * 140;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, ring2R, 0, Math.PI * 2);
+    this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha * 0.5})`;
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+    const spokeCount = 8;
+    const spokeLen = 40 + progress * 80;
+    for (let i = 0; i < spokeCount; i++) {
+      const a = (i / spokeCount) * Math.PI * 2;
+      const innerR = ring1R * 0.6;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x + Math.cos(a) * innerR, y + Math.sin(a) * innerR);
+      this.ctx.lineTo(x + Math.cos(a) * (innerR + spokeLen), y + Math.sin(a) * (innerR + spokeLen));
+      this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha * 0.6})`;
+      this.ctx.lineWidth = 2 * (1 - progress);
+      this.ctx.stroke();
+    }
+    this.ctx.restore();
+  }
+
+  private drawEliteActivateTriangle(x: number, y: number, progress: number, alpha: number, color: string) {
+    const [cr, cg, cb] = this.parseHexColor(color);
+    const spikeCount = 6;
+    const spikeLen = progress * 160;
+    this.ctx.save();
+    for (let i = 0; i < spikeCount; i++) {
+      const a = (i / spikeCount) * Math.PI * 2;
+      const baseW = 8 * (1 - progress);
+      this.ctx.beginPath();
+      this.ctx.moveTo(
+        x + Math.cos(a + 0.1) * baseW,
+        y + Math.sin(a + 0.1) * baseW
+      );
+      this.ctx.lineTo(
+        x + Math.cos(a) * spikeLen,
+        y + Math.sin(a) * spikeLen
+      );
+      this.ctx.lineTo(
+        x + Math.cos(a - 0.1) * baseW,
+        y + Math.sin(a - 0.1) * baseW
+      );
+      this.ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha * 0.7})`;
+      this.ctx.fill();
+    }
+    const flashR = 30 * (1 - progress);
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, flashR, 0, Math.PI * 2);
+    this.ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha * 0.9})`;
+    this.ctx.fill();
+    this.ctx.restore();
+  }
+
+  private drawEliteActivateSquare(x: number, y: number, progress: number, alpha: number, color: string) {
+    const [cr, cg, cb] = this.parseHexColor(color);
+    const fragmentCount = 8;
+    const maxDist = progress * 180;
+    this.ctx.save();
+    for (let i = 0; i < fragmentCount; i++) {
+      const a = (i / fragmentCount) * Math.PI * 2 + progress * 2;
+      const dist = maxDist * (0.5 + (i % 2) * 0.5);
+      const fx = x + Math.cos(a) * dist;
+      const fy = y + Math.sin(a) * dist;
+      const fSize = (12 - progress * 8) * (1 + (i % 3) * 0.3);
+      this.ctx.save();
+      this.ctx.translate(fx, fy);
+      this.ctx.rotate(a + progress * Math.PI);
+      this.ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha * 0.8})`;
+      this.ctx.fillRect(-fSize / 2, -fSize / 2, fSize, fSize);
+      this.ctx.restore();
+    }
+    const flashR = 40 * (1 - progress);
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, flashR, 0, Math.PI * 2);
+    this.ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha * 0.6})`;
+    this.ctx.fill();
+    this.ctx.restore();
+  }
+
+  private drawDeathBurst(x: number, y: number, progress: number, alpha: number, color: string) {
+    const [cr, cg, cb] = this.parseHexColor(color);
+    const particleCount = 10;
+    this.ctx.save();
+    for (let i = 0; i < particleCount; i++) {
+      const a = (i / particleCount) * Math.PI * 2 + i * 0.3;
+      const speed = 60 + (i % 3) * 40;
+      const dist = progress * speed;
+      const px = x + Math.cos(a) * dist;
+      const py = y + Math.sin(a) * dist;
+      const pSize = Math.max(1, (5 - progress * 5) * (1 + (i % 2)));
+      this.ctx.beginPath();
+      this.ctx.arc(px, py, pSize, 0, Math.PI * 2);
+      this.ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha * 0.8})`;
+      this.ctx.fill();
+    }
+    const ringR = progress * 70;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, ringR, 0, Math.PI * 2);
+    this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha * 0.5})`;
+    this.ctx.lineWidth = 2 * (1 - progress);
+    this.ctx.stroke();
+    this.ctx.restore();
+  }
+
+  private drawPickupFlash(x: number, y: number, progress: number, alpha: number, color: string) {
+    const [cr, cg, cb] = this.parseHexColor(color);
+    const eased = 1 - Math.pow(1 - progress, 2);
+    const ringR = 8 + eased * 28;
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, ringR, 0, Math.PI * 2);
+    this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha * 0.9})`;
+    this.ctx.lineWidth = 3 * (1 - progress);
+    this.ctx.stroke();
     this.ctx.restore();
   }
 }
