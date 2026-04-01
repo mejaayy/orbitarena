@@ -621,6 +621,24 @@ export class GameEngine {
       return;
     }
 
+    if (payload.ability === 'SLAM') {
+      const caster = this.players.get(payload.playerId);
+      if (caster?.supercharged) {
+        this.abilityEffects.push({
+          type: 'ELITE_SLAM',
+          x: payload.x,
+          y: payload.y,
+          angle: payload.angle,
+          startTime: performance.now(),
+          duration: 750,
+          playerId: payload.playerId,
+          color: caster.color,
+        });
+        this.triggerScreenShake(28, 550, payload.x, payload.y);
+        return;
+      }
+    }
+
     this.abilityEffects.push({
       type: payload.ability,
       x: payload.x,
@@ -1328,6 +1346,9 @@ export class GameEngine {
         case 'SLAM':
           this.drawSlamEffect(ex, ey, progress, alpha);
           break;
+        case 'ELITE_SLAM':
+          this.drawEliteSlamEffect(ex, ey, progress, alpha, effect.color || '#FFFFFF');
+          break;
         case 'PIERCE':
           break;
         case 'PUSH':
@@ -1378,6 +1399,66 @@ export class GameEngine {
     this.ctx.strokeStyle = `rgba(212, 0, 70, ${alpha * 0.8})`;
     this.ctx.lineWidth = 4;
     this.ctx.stroke();
+  }
+
+  private drawEliteSlamEffect(x: number, y: number, progress: number, alpha: number, color: string) {
+    const [cr, cg, cb] = this.parseHexColor(color);
+    const maxRadius = 244;
+
+    this.ctx.save();
+
+    // Inner fill flash — fades out fast
+    const fillAlpha = alpha * (1 - progress) * 0.35;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, maxRadius * 0.55 * progress, 0, Math.PI * 2);
+    this.ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${fillAlpha})`;
+    this.ctx.fill();
+
+    // Ring 1: primary expanding ring
+    const r1 = maxRadius * Math.min(1, progress * 1.4);
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, r1, 0, Math.PI * 2);
+    this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha * 0.95})`;
+    this.ctx.lineWidth = 6;
+    this.ctx.stroke();
+
+    // Ring 2: white highlight ring, slightly behind ring 1
+    if (progress > 0.12) {
+      const p2 = (progress - 0.12) / 0.88;
+      const r2 = maxRadius * Math.min(1, p2 * 1.4);
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, r2, 0, Math.PI * 2);
+      this.ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - p2) * alpha * 0.55})`;
+      this.ctx.lineWidth = 3;
+      this.ctx.stroke();
+    }
+
+    // Ring 3: slower outer shockwave ring
+    if (progress > 0.25) {
+      const p3 = (progress - 0.25) / 0.75;
+      const r3 = maxRadius * 1.18 * p3;
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, r3, 0, Math.PI * 2);
+      this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${(1 - p3) * alpha * 0.4})`;
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+    }
+
+    // 8 radiating spokes
+    const spokeCount = 8;
+    for (let i = 0; i < spokeCount; i++) {
+      const a = (i / spokeCount) * Math.PI * 2;
+      const innerR = maxRadius * 0.18;
+      const outerR = maxRadius * Math.min(1, progress * 1.4);
+      this.ctx.beginPath();
+      this.ctx.moveTo(x + Math.cos(a) * innerR, y + Math.sin(a) * innerR);
+      this.ctx.lineTo(x + Math.cos(a) * outerR, y + Math.sin(a) * outerR);
+      this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha * 0.4 * (1 - progress)})`;
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+    }
+
+    this.ctx.restore();
   }
 
   private drawDashEffect(x: number, y: number, angle: number, progress: number, alpha: number, playerId?: string) {
@@ -2076,26 +2157,22 @@ export class GameEngine {
 
   private drawCircleEliteIdle(player: InterpolatedPlayer) {
     const time = performance.now() / 1000;
-    const orbitRadius = player.radius * 1.7;
+    const rx = player.radius * 2.2;
+    const ry = player.radius * 1.45;
     const [cr, cg, cb] = this.parseHexColor(player.color);
-    const dotCount = 4;
+    const circleR = player.radius * 0.38;
+    const count = 3;
     this.ctx.save();
-    for (let i = 0; i < dotCount; i++) {
-      const a = (i / dotCount) * Math.PI * 2 + time * 1.2;
-      const dotX = player.x + Math.cos(a) * orbitRadius;
-      const dotY = player.y + Math.sin(a) * orbitRadius;
-      const pulse = 0.6 + Math.sin(time * 3 + i * 1.5) * 0.2;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + time * 1.2;
+      const cx = player.x + Math.cos(a) * rx;
+      const cy = player.y + Math.sin(a) * ry;
+      const pulse = 0.75 + Math.sin(time * 3 + i * 2.1) * 0.2;
       this.ctx.beginPath();
-      this.ctx.arc(dotX, dotY, player.radius * 0.12, 0, Math.PI * 2);
+      this.ctx.arc(cx, cy, circleR, 0, Math.PI * 2);
       this.ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${pulse})`;
       this.ctx.fill();
     }
-    const ringPulse = 0.12 + Math.sin(time * 2.5) * 0.05;
-    this.ctx.beginPath();
-    this.ctx.arc(player.x, player.y, orbitRadius, 0, Math.PI * 2);
-    this.ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${ringPulse})`;
-    this.ctx.lineWidth = 1;
-    this.ctx.stroke();
     this.ctx.restore();
   }
 

@@ -994,6 +994,9 @@ class GameRoom {
   }
 
   protected executeSlam(player: Player) {
+    const range = player.supercharged ? CIRCLE_ABILITY_RANGE * 1.25 : CIRCLE_ABILITY_RANGE;
+    const damageMult = player.supercharged ? 1.5 : 1.0;
+
     this.gameState.players.forEach(other => {
       if (other.id === player.id || other.isSpectator) return;
       
@@ -1001,9 +1004,9 @@ class GameRoom {
       const dy = other.y - player.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       
-      if (dist < CIRCLE_ABILITY_RANGE) {
-        const distRatio = dist / CIRCLE_ABILITY_RANGE;
-        const damage = Math.floor(50 - distRatio * 30);
+      if (dist < range) {
+        const distRatio = dist / range;
+        const damage = Math.floor((50 - distRatio * 30) * damageMult);
         this.damagePlayer(player, other, damage);
       }
     });
@@ -1014,7 +1017,7 @@ class GameRoom {
       const dx = proj.x - player.x;
       const dy = proj.y - player.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < CIRCLE_ABILITY_RANGE) {
+      if (dist < range) {
         this.explodeProjectile(proj);
         toDetonate.push(i);
       }
