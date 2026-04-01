@@ -37,7 +37,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ players, localPlayerId
     .slice(0, 10);
   
   return (
-    <Card className="absolute top-2 left-2 md:top-4 md:left-4 w-28 md:w-36 bg-black/40 backdrop-blur-md border-white/5 p-2 md:p-3 text-white pointer-events-none select-none z-10">
+    <Card className="absolute top-2 left-2 md:top-4 md:left-4 w-28 md:w-36 bg-black/40 backdrop-blur-md border-white/5 p-2 md:p-3 text-white pointer-events-none select-none z-[-1]">
       <div className="space-y-1 md:space-y-2 text-xs md:text-sm font-medium">
         <div className="flex justify-between items-center">
           <span className="text-gray-400">You:</span>
