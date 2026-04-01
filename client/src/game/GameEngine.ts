@@ -357,7 +357,7 @@ export class GameEngine {
         break;
 
       case 'PICKUP_DELTA':
-        // Play pickup sound if a collected pickup was near local player
+        // Play pickup sound and flash if a collected pickup was near local player
         if (message.payload.collected && Array.isArray(message.payload.collected)) {
           const localPlayer = this.players.get(this.localPlayerId);
           if (localPlayer) {
@@ -370,19 +370,21 @@ export class GameEngine {
                 if (dist < localPlayer.radius + pickup.radius + 30) {
                   if (pickup.type === 'HP') {
                     soundManager.playPickupHP();
+                    // HP flash is triggered exactly via the HEAL server message (player-specific)
                   } else if (pickup.type === 'CHARGE') {
                     soundManager.playPickupCharge();
+                    // Charge has no player-specific server message, so use proximity heuristic
+                    this.abilityEffects.push({
+                      type: 'PICKUP_FLASH',
+                      x: pickup.x,
+                      y: pickup.y,
+                      angle: 0,
+                      startTime: performance.now(),
+                      duration: 400,
+                      playerId: this.localPlayerId || '',
+                      color: '#4488FF',
+                    });
                   }
-                  this.abilityEffects.push({
-                    type: 'PICKUP_FLASH',
-                    x: pickup.x,
-                    y: pickup.y,
-                    angle: 0,
-                    startTime: performance.now(),
-                    duration: 400,
-                    playerId: this.localPlayerId || '',
-                    color: pickup.type === 'HP' ? '#D40046' : '#4488FF',
-                  });
                 }
               }
             }
@@ -461,6 +463,16 @@ export class GameEngine {
             floatOffset: 0,
           };
         }
+        this.abilityEffects.push({
+          type: 'PICKUP_FLASH',
+          x: message.payload.x,
+          y: message.payload.y,
+          angle: 0,
+          startTime: now,
+          duration: 400,
+          playerId: this.localPlayerId || '',
+          color: '#D40046',
+        });
         break;
       }
 
@@ -529,6 +541,13 @@ export class GameEngine {
     const last = this.recentDeathBursts.get(player.id) || 0;
     if (now - last < 2000) return;
     this.recentDeathBursts.set(player.id, now);
+    // Prune stale entries (older than 5s) to keep the map bounded
+    if (this.recentDeathBursts.size > 50) {
+      const cutoff = now - 5000;
+      this.recentDeathBursts.forEach((t, id) => {
+        if (t < cutoff) this.recentDeathBursts.delete(id);
+      });
+    }
     this.abilityEffects.push({
       type: 'DEATH_BURST',
       x: player.x,
