@@ -1563,56 +1563,14 @@ export class GameEngine {
       this.ctx.fillStyle = flame;
       this.ctx.fill();
 
-      // Swept fins (back)
+      // Simple triangle body
       this.ctx.beginPath();
-      this.ctx.moveTo(-size * 0.28, -size * 0.46);
-      this.ctx.lineTo(-size * 0.92, -size * 0.78);
-      this.ctx.lineTo(-size * 0.58, -size * 0.2);
-      this.ctx.closePath();
-      this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.88)`;
-      this.ctx.fill();
-
-      this.ctx.beginPath();
-      this.ctx.moveTo(-size * 0.28, size * 0.46);
-      this.ctx.lineTo(-size * 0.92, size * 0.78);
-      this.ctx.lineTo(-size * 0.58, size * 0.2);
-      this.ctx.closePath();
-      this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.88)`;
-      this.ctx.fill();
-
-      // Body (rectangular section only — nose is separate)
-      this.ctx.beginPath();
-      this.ctx.moveTo(size * 0.1, -size * 0.46);
-      this.ctx.lineTo(-size * 0.28, -size * 0.46);
-      this.ctx.lineTo(-size * 0.58, -size * 0.2);
-      this.ctx.lineTo(-size * 0.58, size * 0.2);
-      this.ctx.lineTo(-size * 0.28, size * 0.46);
-      this.ctx.lineTo(size * 0.1, size * 0.46);
+      this.ctx.moveTo(size * 1.2, 0);
+      this.ctx.lineTo(-size * 0.8, -size * 0.7);
+      this.ctx.lineTo(-size * 0.8, size * 0.7);
       this.ctx.closePath();
       this.ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
       this.ctx.fill();
-
-      // Highlight stripe on body
-      this.ctx.beginPath();
-      this.ctx.moveTo(size * 0.1, -size * 0.34);
-      this.ctx.lineTo(-size * 0.2, -size * 0.34);
-      this.ctx.lineTo(-size * 0.2, -size * 0.12);
-      this.ctx.lineTo(size * 0.1, -size * 0.12);
-      this.ctx.closePath();
-      this.ctx.fillStyle = `rgba(255, 255, 255, 0.2)`;
-      this.ctx.fill();
-
-      // Triangle nose — bright white, clearly separate from body
-      this.ctx.beginPath();
-      this.ctx.moveTo(size * 1.35, 0);
-      this.ctx.lineTo(size * 0.1, -size * 0.46);
-      this.ctx.lineTo(size * 0.1, size * 0.46);
-      this.ctx.closePath();
-      this.ctx.fillStyle = `rgba(255, 255, 255, 0.92)`;
-      this.ctx.fill();
-      this.ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.6)`;
-      this.ctx.lineWidth = 1;
-      this.ctx.stroke();
 
       this.ctx.restore();
     }
