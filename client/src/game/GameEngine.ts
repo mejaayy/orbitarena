@@ -2174,16 +2174,20 @@ export class GameEngine {
 
   private drawCircleEliteIdle(player: InterpolatedPlayer) {
     const time = performance.now() / 1000;
-    const rx = player.radius * 2.2;
-    const ry = player.radius * 1.45;
+    const rx = player.radius * 1.65;
+    const ry = player.radius * 1.0;
     const [cr, cg, cb] = this.parseHexColor(player.color);
     const circleR = player.radius * 0.38;
     const count = 3;
+    const a = time * 1.2;
     this.ctx.save();
     for (let i = 0; i < count; i++) {
-      const a = (i / count) * Math.PI * 2 + time * 1.2;
-      const cx = player.x + Math.cos(a) * rx;
-      const cy = player.y + Math.sin(a) * ry;
+      // Each orb has its own oval, rotated by i * 120°
+      const theta = (i / count) * Math.PI * 2;
+      const localX = rx * Math.cos(a);
+      const localY = ry * Math.sin(a);
+      const cx = player.x + localX * Math.cos(theta) - localY * Math.sin(theta);
+      const cy = player.y + localX * Math.sin(theta) + localY * Math.cos(theta);
       const pulse = 0.75 + Math.sin(time * 3 + i * 2.1) * 0.2;
       this.ctx.beginPath();
       this.ctx.arc(cx, cy, circleR, 0, Math.PI * 2);
