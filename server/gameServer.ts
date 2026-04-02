@@ -1494,7 +1494,7 @@ class GameRoom {
     if (attacker) {
       attacker.kills++;
       log(`${attacker.name} got kill #${attacker.kills} (shape=${attacker.characterShape}, training=${this.trainingMode}, supercharged=${attacker.supercharged})`, 'room');
-      if ((attacker.characterShape === 'triangle' || attacker.characterShape === 'square') && attacker.kills >= 2 && !attacker.supercharged) {
+      if (attacker.kills >= 2 && !attacker.supercharged) {
         attacker.supercharged = true;
         log(`${attacker.name} activated ELITE MODE!`, 'room');
       }
@@ -2061,7 +2061,7 @@ class StakeGameRoom extends GameRoom {
 
     if (attacker) {
       attacker.kills++;
-      if ((attacker.characterShape === 'triangle' || attacker.characterShape === 'square') && attacker.kills >= 2 && !attacker.supercharged) {
+      if (attacker.kills >= 2 && !attacker.supercharged) {
         attacker.supercharged = true;
       }
     }
