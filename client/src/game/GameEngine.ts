@@ -1525,43 +1525,104 @@ export class GameEngine {
   }
 
   private drawMissiles() {
+    const now = performance.now();
     for (let i = 0; i < this.serverProjectiles.length; i++) {
       const proj = this.serverProjectiles[i];
       const [r, g, b] = proj.color.startsWith('#') ? this.parseHexColor(proj.color) : [212, 0, 70];
       const size = proj.radius;
+      const flicker = 0.82 + Math.sin(now * 0.025 + i * 2.3) * 0.18;
 
       this.ctx.save();
       this.ctx.translate(proj.x, proj.y);
       this.ctx.rotate(proj.angle);
 
-      const trailLen = size * 3.5;
-      const trailGrad = this.ctx.createLinearGradient(-size * 0.4, 0, -size * 0.4 - trailLen, 0);
-      trailGrad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.7)`);
-      trailGrad.addColorStop(0.4, `rgba(${Math.min(255, r + 60)}, ${Math.min(255, g + 40)}, ${Math.min(255, b + 30)}, 0.4)`);
-      trailGrad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+      // Wide soft color trail
+      const trailLen = size * 6.5;
+      const outerTrail = this.ctx.createLinearGradient(-size * 0.3, 0, -size * 0.3 - trailLen, 0);
+      outerTrail.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.18)`);
+      outerTrail.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
       this.ctx.beginPath();
-      this.ctx.moveTo(-size * 0.4, -size * 0.35);
-      this.ctx.lineTo(-size * 0.4 - trailLen, 0);
-      this.ctx.lineTo(-size * 0.4, size * 0.35);
+      this.ctx.moveTo(-size * 0.3, -size * 0.65);
+      this.ctx.lineTo(-size * 0.3 - trailLen, 0);
+      this.ctx.lineTo(-size * 0.3, size * 0.65);
       this.ctx.closePath();
-      this.ctx.fillStyle = trailGrad;
+      this.ctx.fillStyle = outerTrail;
+      this.ctx.fill();
+
+      // Flickering engine flame: white-hot core fading to player color
+      const flameLen = size * 3.0 * flicker;
+      const flame = this.ctx.createLinearGradient(-size * 0.32, 0, -size * 0.32 - flameLen, 0);
+      flame.addColorStop(0, `rgba(255, 255, 220, 0.98)`);
+      flame.addColorStop(0.2, `rgba(${Math.min(255, r + 100)}, ${Math.min(255, g + 60)}, ${b}, 0.85)`);
+      flame.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+      this.ctx.beginPath();
+      this.ctx.moveTo(-size * 0.32, -size * 0.3 * flicker);
+      this.ctx.lineTo(-size * 0.32 - flameLen, 0);
+      this.ctx.lineTo(-size * 0.32, size * 0.3 * flicker);
+      this.ctx.closePath();
+      this.ctx.fillStyle = flame;
+      this.ctx.fill();
+
+      // Body glow halo
+      const bodyGlow = this.ctx.createRadialGradient(size * 0.2, 0, 0, size * 0.2, 0, size * 1.4);
+      bodyGlow.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.22)`);
+      bodyGlow.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+      this.ctx.beginPath();
+      this.ctx.arc(size * 0.2, 0, size * 1.4, 0, Math.PI * 2);
+      this.ctx.fillStyle = bodyGlow;
+      this.ctx.fill();
+
+      // Swept fins (back)
+      this.ctx.beginPath();
+      this.ctx.moveTo(-size * 0.28, -size * 0.46);
+      this.ctx.lineTo(-size * 0.92, -size * 0.78);
+      this.ctx.lineTo(-size * 0.58, -size * 0.2);
+      this.ctx.closePath();
+      this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.88)`;
       this.ctx.fill();
 
       this.ctx.beginPath();
-      this.ctx.moveTo(size * 1.2, 0);
-      this.ctx.lineTo(-size * 0.8, -size * 0.7);
-      this.ctx.lineTo(-size * 0.4, 0);
-      this.ctx.lineTo(-size * 0.8, size * 0.7);
+      this.ctx.moveTo(-size * 0.28, size * 0.46);
+      this.ctx.lineTo(-size * 0.92, size * 0.78);
+      this.ctx.lineTo(-size * 0.58, size * 0.2);
       this.ctx.closePath();
-      this.ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.88)`;
       this.ctx.fill();
 
+      // Main dart body with brightness gradient (nose is lighter)
       this.ctx.beginPath();
-      this.ctx.moveTo(size * 0.8, 0);
-      this.ctx.lineTo(-size * 0.2, -size * 0.3);
-      this.ctx.lineTo(-size * 0.2, size * 0.3);
+      this.ctx.moveTo(size * 1.35, 0);
+      this.ctx.lineTo(size * 0.1, -size * 0.46);
+      this.ctx.lineTo(-size * 0.28, -size * 0.46);
+      this.ctx.lineTo(-size * 0.58, -size * 0.2);
+      this.ctx.lineTo(-size * 0.58, size * 0.2);
+      this.ctx.lineTo(-size * 0.28, size * 0.46);
+      this.ctx.lineTo(size * 0.1, size * 0.46);
       this.ctx.closePath();
-      this.ctx.fillStyle = `rgba(${Math.min(255, r + 80)}, ${Math.min(255, g + 80)}, ${Math.min(255, b + 80)}, 0.6)`;
+      const bodyGrad = this.ctx.createLinearGradient(size * 1.35, 0, -size * 0.58, 0);
+      bodyGrad.addColorStop(0, `rgb(${Math.min(255, r + 70)}, ${Math.min(255, g + 70)}, ${Math.min(255, b + 70)})`);
+      bodyGrad.addColorStop(1, `rgb(${r}, ${g}, ${b})`);
+      this.ctx.fillStyle = bodyGrad;
+      this.ctx.fill();
+
+      // Highlight stripe along the top half
+      this.ctx.beginPath();
+      this.ctx.moveTo(size * 1.2, -size * 0.05);
+      this.ctx.lineTo(size * 0.1, -size * 0.34);
+      this.ctx.lineTo(-size * 0.2, -size * 0.34);
+      this.ctx.lineTo(-size * 0.2, -size * 0.12);
+      this.ctx.closePath();
+      this.ctx.fillStyle = `rgba(255, 255, 255, 0.2)`;
+      this.ctx.fill();
+
+      // Bright glowing nose tip
+      const noseGrad = this.ctx.createRadialGradient(size * 0.95, 0, 0, size * 0.95, 0, size * 0.65);
+      noseGrad.addColorStop(0, `rgba(255, 255, 255, 0.95)`);
+      noseGrad.addColorStop(0.45, `rgba(${Math.min(255, r + 80)}, ${Math.min(255, g + 80)}, ${Math.min(255, b + 80)}, 0.5)`);
+      noseGrad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+      this.ctx.beginPath();
+      this.ctx.arc(size * 0.95, 0, size * 0.65, 0, Math.PI * 2);
+      this.ctx.fillStyle = noseGrad;
       this.ctx.fill();
 
       this.ctx.restore();
