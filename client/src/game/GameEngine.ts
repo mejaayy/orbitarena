@@ -1615,14 +1615,13 @@ export class GameEngine {
       this.ctx.fillStyle = `rgba(255, 255, 255, 0.2)`;
       this.ctx.fill();
 
-      // Bright glowing nose tip
-      const noseGrad = this.ctx.createRadialGradient(size * 0.95, 0, 0, size * 0.95, 0, size * 0.65);
-      noseGrad.addColorStop(0, `rgba(255, 255, 255, 0.95)`);
-      noseGrad.addColorStop(0.45, `rgba(${Math.min(255, r + 80)}, ${Math.min(255, g + 80)}, ${Math.min(255, b + 80)}, 0.5)`);
-      noseGrad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+      // Triangle nose tip
       this.ctx.beginPath();
-      this.ctx.arc(size * 0.95, 0, size * 0.65, 0, Math.PI * 2);
-      this.ctx.fillStyle = noseGrad;
+      this.ctx.moveTo(size * 1.35, 0);
+      this.ctx.lineTo(size * 0.1, -size * 0.46);
+      this.ctx.lineTo(size * 0.1, size * 0.46);
+      this.ctx.closePath();
+      this.ctx.fillStyle = `rgb(${Math.min(255, r + 80)}, ${Math.min(255, g + 80)}, ${Math.min(255, b + 80)})`;
       this.ctx.fill();
 
       this.ctx.restore();
