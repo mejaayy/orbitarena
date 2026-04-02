@@ -1990,7 +1990,7 @@ export class GameEngine {
     let trailOffsetY = 0;
     if (dashEffect) {
       const dashProgress = (now - dashEffect.startTime) / dashEffect.duration;
-      const trailMag = 35 * (1 - dashProgress) * (1 - dashProgress);
+      const trailMag = 70 * (1 - dashProgress) * (1 - dashProgress);
       trailOffsetX = -Math.cos(dashEffect.angle) * trailMag;
       trailOffsetY = -Math.sin(dashEffect.angle) * trailMag;
     }
