@@ -74,7 +74,7 @@ export class GameEngine {
   ctx: CanvasRenderingContext2D;
   players: Map<string, InterpolatedPlayer> = new Map();
   pickups: Pickup[] = [];
-  private miniTriPositions: Map<string, { topX: number; topY: number; botX: number; botY: number; angle: number; wasDashing?: boolean; catchUpUntil?: number }> = new Map();
+  private miniTriPositions: Map<string, { topX: number; topY: number; botX: number; botY: number; angle: number }> = new Map();
   localPlayerId: string | null = null;
   
   static WORLD_SIZE = 4000;
@@ -1989,38 +1989,15 @@ export class GameEngine {
       e => e.type === 'DASH' && e.playerId === player.id && now - e.startTime < e.duration
     );
 
-    if (isDashing) {
-      pos.topX += (targetTopX - pos.topX) * 0.18;
-      pos.topY += (targetTopY - pos.topY) * 0.18;
-      pos.botX += (targetBotX - pos.botX) * 0.18;
-      pos.botY += (targetBotY - pos.botY) * 0.18;
-      let angleDiff = angle - pos.angle;
-      while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-      while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-      pos.angle += angleDiff * 0.22;
-      pos.wasDashing = true;
-    } else {
-      if (pos.wasDashing) {
-        pos.catchUpUntil = now + 150;
-        pos.wasDashing = false;
-      }
-      if (pos.catchUpUntil && now < pos.catchUpUntil) {
-        pos.topX += (targetTopX - pos.topX) * 0.42;
-        pos.topY += (targetTopY - pos.topY) * 0.42;
-        pos.botX += (targetBotX - pos.botX) * 0.42;
-        pos.botY += (targetBotY - pos.botY) * 0.42;
-        let angleDiff = angle - pos.angle;
-        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-        pos.angle += angleDiff * 0.45;
-      } else {
-        pos.topX = targetTopX;
-        pos.topY = targetTopY;
-        pos.botX = targetBotX;
-        pos.botY = targetBotY;
-        pos.angle = angle;
-      }
-    }
+    const lerpRate = isDashing ? 0.18 : 0.75;
+    pos.topX += (targetTopX - pos.topX) * lerpRate;
+    pos.topY += (targetTopY - pos.topY) * lerpRate;
+    pos.botX += (targetBotX - pos.botX) * lerpRate;
+    pos.botY += (targetBotY - pos.botY) * lerpRate;
+    let angleDiff = angle - pos.angle;
+    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+    pos.angle += angleDiff * lerpRate;
 
     this.ctx.save();
     this.ctx.fillStyle = player.color;
