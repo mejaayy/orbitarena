@@ -1563,15 +1563,6 @@ export class GameEngine {
       this.ctx.fillStyle = flame;
       this.ctx.fill();
 
-      // Body glow halo
-      const bodyGlow = this.ctx.createRadialGradient(size * 0.2, 0, 0, size * 0.2, 0, size * 1.4);
-      bodyGlow.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.22)`);
-      bodyGlow.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
-      this.ctx.beginPath();
-      this.ctx.arc(size * 0.2, 0, size * 1.4, 0, Math.PI * 2);
-      this.ctx.fillStyle = bodyGlow;
-      this.ctx.fill();
-
       // Swept fins (back)
       this.ctx.beginPath();
       this.ctx.moveTo(-size * 0.28, -size * 0.46);
@@ -1589,40 +1580,39 @@ export class GameEngine {
       this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.88)`;
       this.ctx.fill();
 
-      // Main dart body with brightness gradient (nose is lighter)
+      // Body (rectangular section only — nose is separate)
       this.ctx.beginPath();
-      this.ctx.moveTo(size * 1.35, 0);
-      this.ctx.lineTo(size * 0.1, -size * 0.46);
+      this.ctx.moveTo(size * 0.1, -size * 0.46);
       this.ctx.lineTo(-size * 0.28, -size * 0.46);
       this.ctx.lineTo(-size * 0.58, -size * 0.2);
       this.ctx.lineTo(-size * 0.58, size * 0.2);
       this.ctx.lineTo(-size * 0.28, size * 0.46);
       this.ctx.lineTo(size * 0.1, size * 0.46);
       this.ctx.closePath();
-      const bodyGrad = this.ctx.createLinearGradient(size * 1.35, 0, -size * 0.58, 0);
-      bodyGrad.addColorStop(0, `rgb(${Math.min(255, r + 70)}, ${Math.min(255, g + 70)}, ${Math.min(255, b + 70)})`);
-      bodyGrad.addColorStop(1, `rgb(${r}, ${g}, ${b})`);
-      this.ctx.fillStyle = bodyGrad;
+      this.ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
       this.ctx.fill();
 
-      // Highlight stripe along the top half
+      // Highlight stripe on body
       this.ctx.beginPath();
-      this.ctx.moveTo(size * 1.2, -size * 0.05);
-      this.ctx.lineTo(size * 0.1, -size * 0.34);
+      this.ctx.moveTo(size * 0.1, -size * 0.34);
       this.ctx.lineTo(-size * 0.2, -size * 0.34);
       this.ctx.lineTo(-size * 0.2, -size * 0.12);
+      this.ctx.lineTo(size * 0.1, -size * 0.12);
       this.ctx.closePath();
       this.ctx.fillStyle = `rgba(255, 255, 255, 0.2)`;
       this.ctx.fill();
 
-      // Triangle nose tip
+      // Triangle nose — bright white, clearly separate from body
       this.ctx.beginPath();
       this.ctx.moveTo(size * 1.35, 0);
       this.ctx.lineTo(size * 0.1, -size * 0.46);
       this.ctx.lineTo(size * 0.1, size * 0.46);
       this.ctx.closePath();
-      this.ctx.fillStyle = `rgb(${Math.min(255, r + 80)}, ${Math.min(255, g + 80)}, ${Math.min(255, b + 80)})`;
+      this.ctx.fillStyle = `rgba(255, 255, 255, 0.92)`;
       this.ctx.fill();
+      this.ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.6)`;
+      this.ctx.lineWidth = 1;
+      this.ctx.stroke();
 
       this.ctx.restore();
     }
