@@ -1056,18 +1056,33 @@ class GameRoom {
       player.facingAngle = angle; // Update player's facing angle to visually point at target
     }
 
+    const startX = player.x;
+    const startY = player.y;
+
     player.x += Math.cos(angle) * DASH_DISTANCE;
     player.y += Math.sin(angle) * DASH_DISTANCE;
     player.x = Math.max(player.radius, Math.min(WORLD_SIZE - player.radius, player.x));
     player.y = Math.max(player.radius, Math.min(WORLD_SIZE - player.radius, player.y));
-    
+
+    const endX = player.x;
+    const endY = player.y;
+    const segDx = endX - startX;
+    const segDy = endY - startY;
+    const segLenSq = segDx * segDx + segDy * segDy;
+
     this.gameState.players.forEach(other => {
       if (other.id === player.id || other.isSpectator) return;
-      
-      const dx = other.x - player.x;
-      const dy = other.y - player.y;
+
+      // Closest point on the dash segment to this opponent
+      const t = segLenSq === 0 ? 0 : Math.max(0, Math.min(1,
+        ((other.x - startX) * segDx + (other.y - startY) * segDy) / segLenSq
+      ));
+      const closestX = startX + t * segDx;
+      const closestY = startY + t * segDy;
+      const dx = other.x - closestX;
+      const dy = other.y - closestY;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      
+
       if (dist < player.radius + other.radius + 20) {
         this.damagePlayer(player, other, 30);
       }
