@@ -1973,40 +1973,51 @@ export class GameEngine {
     const perpX = -sin;
     const perpY = cos;
 
-    const targetTopX = player.x + cos * ox + perpX * oy;
-    const targetTopY = player.y + sin * ox + perpY * oy;
-    const targetBotX = player.x + cos * ox - perpX * oy;
-    const targetBotY = player.y + sin * ox - perpY * oy;
+    // Base positions always locked exactly to the player
+    const baseTopX = player.x + cos * ox + perpX * oy;
+    const baseTopY = player.y + sin * ox + perpY * oy;
+    const baseBotX = player.x + cos * ox - perpX * oy;
+    const baseBotY = player.y + sin * ox - perpY * oy;
 
-    let pos = this.miniTriPositions.get(player.id);
-    if (!pos) {
-      pos = { topX: targetTopX, topY: targetTopY, botX: targetBotX, botY: targetBotY, angle };
-      this.miniTriPositions.set(player.id, pos);
-    }
-
+    // During a dash, apply a backward offset that decays smoothly to 0
+    // by the time the dash animation ends — so there is never anything to snap back
     const now = performance.now();
-    const isDashing = this.abilityEffects.some(
+    const dashEffect = this.abilityEffects.find(
       e => e.type === 'DASH' && e.playerId === player.id && now - e.startTime < e.duration
     );
 
-    const lerpRate = isDashing ? 0.18 : 0.5;
+    let trailOffsetX = 0;
+    let trailOffsetY = 0;
+    if (dashEffect) {
+      const dashProgress = (now - dashEffect.startTime) / dashEffect.duration;
+      const trailMag = 35 * (1 - dashProgress) * (1 - dashProgress);
+      trailOffsetX = -Math.cos(dashEffect.angle) * trailMag;
+      trailOffsetY = -Math.sin(dashEffect.angle) * trailMag;
+    }
 
-    pos.topX += (targetTopX - pos.topX) * lerpRate;
-    pos.topY += (targetTopY - pos.topY) * lerpRate;
-    pos.botX += (targetBotX - pos.botX) * lerpRate;
-    pos.botY += (targetBotY - pos.botY) * lerpRate;
-    let angleDiff = angle - pos.angle;
-    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-    pos.angle += angleDiff * lerpRate;
+    const topX = baseTopX + trailOffsetX;
+    const topY = baseTopY + trailOffsetY;
+    const botX = baseBotX + trailOffsetX;
+    const botY = baseBotY + trailOffsetY;
+
+    // Store so drawEliteLaunchEffect can read current positions
+    let pos = this.miniTriPositions.get(player.id);
+    if (!pos) {
+      pos = { topX, topY, botX, botY, angle };
+      this.miniTriPositions.set(player.id, pos);
+    } else {
+      pos.topX = topX; pos.topY = topY;
+      pos.botX = botX; pos.botY = botY;
+      pos.angle = angle;
+    }
 
     this.ctx.save();
     this.ctx.fillStyle = player.color;
     if (player.isStunned) this.ctx.globalAlpha = 0.5;
 
     this.ctx.save();
-    this.ctx.translate(pos.topX, pos.topY);
-    this.ctx.rotate(pos.angle);
+    this.ctx.translate(topX, topY);
+    this.ctx.rotate(angle);
     this.ctx.beginPath();
     this.ctx.moveTo(ms, 0);
     this.ctx.lineTo(-ms * 0.7, -ms * 0.8);
@@ -2016,8 +2027,8 @@ export class GameEngine {
     this.ctx.restore();
 
     this.ctx.save();
-    this.ctx.translate(pos.botX, pos.botY);
-    this.ctx.rotate(pos.angle);
+    this.ctx.translate(botX, botY);
+    this.ctx.rotate(angle);
     this.ctx.beginPath();
     this.ctx.moveTo(ms, 0);
     this.ctx.lineTo(-ms * 0.7, -ms * 0.8);
