@@ -74,7 +74,7 @@ export class GameEngine {
   ctx: CanvasRenderingContext2D;
   players: Map<string, InterpolatedPlayer> = new Map();
   pickups: Pickup[] = [];
-  private miniTriPositions: Map<string, { topX: number; topY: number; botX: number; botY: number; angle: number; lastDashTime?: number }> = new Map();
+  private miniTriPositions: Map<string, { topX: number; topY: number; botX: number; botY: number; angle: number }> = new Map();
   localPlayerId: string | null = null;
   
   static WORLD_SIZE = 4000;
@@ -1989,12 +1989,7 @@ export class GameEngine {
       e => e.type === 'DASH' && e.playerId === player.id && now - e.startTime < e.duration
     );
 
-    if (isDashing) {
-      pos.lastDashTime = now;
-    }
-    const timeSinceDash = isDashing ? 0 : (now - (pos.lastDashTime ?? now - 9999));
-    const t = Math.min(1, timeSinceDash / 320);
-    const lerpRate = 0.18 + (0.72 - 0.18) * t;
+    const lerpRate = isDashing ? 0.18 : 0.5;
 
     pos.topX += (targetTopX - pos.topX) * lerpRate;
     pos.topY += (targetTopY - pos.topY) * lerpRate;
