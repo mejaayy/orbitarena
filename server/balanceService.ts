@@ -6,9 +6,9 @@ const ENTRY_FEE_CENTS = 100;
 const PLATFORM_FEE_CENTS = 10;
 const PRIZE_CONTRIBUTION_CENTS = 90;
 
-const PRIZE_1ST_CENTS = 600;
-const PRIZE_2ND_CENTS = 450;
-const PRIZE_3RD_CENTS = 300;
+const PRIZE_1ST_CENTS = 400;
+const PRIZE_2ND_CENTS = 300;
+const PRIZE_3RD_CENTS = 200;
 
 function maskWallet(wallet: string): string {
   if (!wallet || wallet.length < 12) return '****';

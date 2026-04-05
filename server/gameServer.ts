@@ -142,6 +142,7 @@ const COUNTDOWN_DURATION = 3000; // 3 seconds
 const PRIZE_1ST = 4.00;
 const PRIZE_2ND = 3.00;
 const PRIZE_3RD = 2.00;
+const TOTAL_PRIZE_POOL = PRIZE_1ST + PRIZE_2ND + PRIZE_3RD; // $9.00
 
 const BOT_NAMES = ['Orby', 'Cosmo', 'Nebula', 'Quasar', 'Nova', 'Comet', 'Astro', 'Lunar'];
 const BOT_SHAPES: CharacterShape[] = ['circle', 'triangle', 'square'];
@@ -1788,7 +1789,7 @@ class StakeGameRoom extends GameRoom {
         isLobby: true,
         playerCount: this.lobbyPlayers.size,
         maxPlayers: MAX_PLAYERS_PER_ROOM,
-        prizePool: this.lobbyPlayers.size * PRIZE_CONTRIBUTION
+        prizePool: TOTAL_PRIZE_POOL
       }
     });
 
@@ -1809,7 +1810,7 @@ class StakeGameRoom extends GameRoom {
 
     this.roundState = 'COUNTDOWN';
     this.countdownStartTime = Date.now();
-    this.prizePool = this.lobbyPlayers.size * PRIZE_CONTRIBUTION;
+    this.prizePool = TOTAL_PRIZE_POOL;
 
     log(`Starting ${COUNTDOWN_DURATION/1000}s countdown for stake room ${this.id}. Prize pool: $${this.prizePool.toFixed(2)}`, 'room');
 
@@ -1833,7 +1834,7 @@ class StakeGameRoom extends GameRoom {
   private startRound() {
     this.roundState = 'PLAYING';
     this.roundStartTime = Date.now();
-    this.prizePool = this.lobbyPlayers.size * PRIZE_CONTRIBUTION;
+    this.prizePool = TOTAL_PRIZE_POOL;
 
     // Reset pickups
     this.gameState.pickups = [];
@@ -2163,7 +2164,7 @@ class StakeGameRoom extends GameRoom {
       roundState: this.roundState,
       playerCount: this.lobbyPlayers.size,
       maxPlayers: MAX_PLAYERS_PER_ROOM,
-      prizePool: this.lobbyPlayers.size * PRIZE_CONTRIBUTION,
+      prizePool: TOTAL_PRIZE_POOL,
       countdownRemaining: this.roundState === 'COUNTDOWN' 
         ? Math.max(0, COUNTDOWN_DURATION - (Date.now() - this.countdownStartTime))
         : 0,

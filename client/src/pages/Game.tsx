@@ -214,7 +214,7 @@ export default function Game() {
             
             <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 mb-6">
               <div className="text-sm text-gray-400 mb-1">Prize Pool</div>
-              <div className="text-3xl font-mono font-bold text-accent">$9.00</div>
+              <div className="text-3xl font-mono font-bold text-accent">${(roundStatus.prizes.first + roundStatus.prizes.second + roundStatus.prizes.third).toFixed(2)}</div>
               <div className="text-xs text-gray-500 mt-2">
                 1st: ${roundStatus.prizes.first} | 2nd: ${roundStatus.prizes.second} | 3rd: ${roundStatus.prizes.third}
               </div>
@@ -246,6 +246,14 @@ export default function Game() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {isSpectating && isStakeMode && !roundEndData && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-black/85 backdrop-blur-sm px-5 py-2 rounded-full border border-accent/40 z-20 whitespace-nowrap">
+          <span className="text-accent text-xs md:text-sm font-medium">
+            🏆 If you placed top 3, your USDC prize will be credited to your balance when the round ends
+          </span>
         </div>
       )}
       
@@ -330,7 +338,7 @@ export default function Game() {
         {isStakeMode && isInRound && (
           <div className="bg-black/60 backdrop-blur-sm px-2 md:px-4 py-1 md:py-2 rounded-lg border border-accent/30 flex items-center gap-1.5" data-testid="prize-pool-display">
             <Award className="w-3 h-3 md:w-4 md:h-4 text-accent" />
-            <span className="text-accent font-mono font-bold text-xs md:text-base">Pool: $9.00</span>
+            <span className="text-accent font-mono font-bold text-xs md:text-base">Pool: ${(roundStatus?.prizes ? roundStatus.prizes.first + roundStatus.prizes.second + roundStatus.prizes.third : 9).toFixed(2)}</span>
           </div>
         )}
         
@@ -398,26 +406,46 @@ export default function Game() {
             </div>
             <DialogTitle className="text-3xl font-black uppercase">Round Complete!</DialogTitle>
             <DialogDescription className="text-lg text-gray-300">
-              Prize Pool: $9.00
+              Prize Pool: ${roundEndData?.prizePool?.toFixed(2) ?? '9.00'}
             </DialogDescription>
           </DialogHeader>
+
+          {(() => {
+            const myResult = roundEndData?.standings.find(s => s.playerId === engine?.localPlayerId);
+            if (!myResult) return null;
+            if (myResult.prize > 0) {
+              return (
+                <div className="bg-accent/15 border border-accent/40 rounded-xl p-4 text-center">
+                  <div className="text-xs uppercase tracking-widest text-gray-400 mb-1">Your Prize</div>
+                  <div className="text-3xl font-mono font-bold text-accent">${myResult.prize.toFixed(2)} USDC</div>
+                  <div className="text-xs text-gray-400 mt-2">✓ Credited to your in-game balance</div>
+                </div>
+              );
+            }
+            return (
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+                <div className="text-sm text-gray-400">You finished <span className="font-bold text-white">#{myResult.rank}</span> with {myResult.score} pts — no prize this round</div>
+              </div>
+            );
+          })()}
           
-          <div className="py-4 space-y-3">
+          <div className="py-2 space-y-2">
             {roundEndData?.standings.slice(0, 5).map((player, index) => {
+              const isLocal = player.playerId === engine?.localPlayerId;
               const isWinner = index < 3;
               const colors = ['text-yellow-400', 'text-gray-300', 'text-amber-600'];
               return (
                 <div 
                   key={player.playerId}
                   className={`flex items-center justify-between p-3 rounded-lg ${
-                    isWinner ? 'bg-accent/10 border border-accent/30' : 'bg-white/5'
+                    isLocal ? 'bg-primary/20 border border-primary/40' : isWinner ? 'bg-accent/10 border border-accent/30' : 'bg-white/5'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <span className={`text-2xl font-bold ${colors[index] || 'text-gray-500'}`}>
                       #{player.rank}
                     </span>
-                    <span className="font-semibold">{player.name}</span>
+                    <span className="font-semibold">{player.name}{isLocal && <span className="text-xs text-primary ml-1">(you)</span>}</span>
                   </div>
                   <div className="text-right">
                     <div className="text-sm text-gray-400">{player.score} pts</div>

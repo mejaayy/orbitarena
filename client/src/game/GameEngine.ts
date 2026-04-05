@@ -344,7 +344,7 @@ export class GameEngine {
             maxPlayers: message.payload.maxPlayers,
             prizePool: message.payload.prizePool,
             countdownRemaining: 0,
-            prizes: { first: 6.00, second: 4.50, third: 3.00 }
+            prizes: message.payload.prizes ?? { first: 4.00, second: 3.00, third: 2.00 }
           };
           if (this.roundStatus) {
             this.onRoundStatusChange?.(this.roundStatus);
@@ -1116,9 +1116,23 @@ export class GameEngine {
 
   private updateCamera() {
     const localPlayer = this.players.get(this.localPlayerId!);
-    if (localPlayer) {
+    if (localPlayer && !localPlayer.isSpectator) {
       this.camera.x += (localPlayer.x - this.camera.x) * 0.3;
       this.camera.y += (localPlayer.y - this.camera.y) * 0.3;
+    } else if (this.isSpectating) {
+      // Follow the highest-scoring active (non-spectator) player
+      let bestX = this.camera.x;
+      let bestY = this.camera.y;
+      let bestScore = -1;
+      this.players.forEach(p => {
+        if (!p.isSpectator && p.score > bestScore) {
+          bestScore = p.score;
+          bestX = p.x;
+          bestY = p.y;
+        }
+      });
+      this.camera.x += (bestX - this.camera.x) * 0.06;
+      this.camera.y += (bestY - this.camera.y) * 0.06;
     }
   }
 
