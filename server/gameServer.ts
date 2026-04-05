@@ -1569,11 +1569,16 @@ class GameRoom {
       }
     }
     
+    // Elite mode bonuses: 1.2× damage dealt, 1.5× score earned
+    if (attacker?.supercharged) {
+      damage = Math.round(damage * 1.2);
+    }
+
     victim.hp -= damage;
     victim.lastCombatTime = Date.now();
     if (attacker) {
       attacker.lastCombatTime = Date.now();
-      attacker.score += damage;
+      attacker.score += attacker.supercharged ? Math.round(damage * 1.5) : damage;
     }
     
     const victimWs = this.clients.get(victim.id);
