@@ -2356,6 +2356,9 @@ export class GameServer {
   }
 
   private handleAbilityMessage(playerId: string, payload: { abilityType: AbilityType; held?: boolean }) {
+    if (!payload || (payload.abilityType !== 'ABILITY_1' && payload.abilityType !== 'ABILITY_2')) {
+      return;
+    }
     const room = this.getRoom(playerId);
     if (room) {
       room.handleAbility(playerId, payload.abilityType, payload.held);
