@@ -1718,7 +1718,7 @@ class StakeGameRoom extends GameRoom {
   private prizePool: number = 0;
   private matchId: string = '';
   private lobbyPlayers: Map<string, { ws: WebSocket; name: string; walletAddress?: string; playerColor?: string; characterShape?: CharacterShape }> = new Map();
-  private disconnectedPlayers: Map<string, { oldPlayerId: string; snapshot: Player; timeout: NodeJS.Timeout }> = new Map();
+  private disconnectedPlayers: Map<string, { oldPlayerId: string; timeout: NodeJS.Timeout }> = new Map();
 
   constructor(id: string) {
     super(id, true);
@@ -1931,6 +1931,12 @@ class StakeGameRoom extends GameRoom {
       this.roundEndTimeout = null;
     }
 
+    // Clear any pending reconnect grace periods — round is over
+    for (const [, entry] of this.disconnectedPlayers) {
+      clearTimeout(entry.timeout);
+    }
+    this.disconnectedPlayers.clear();
+
     // Calculate final standings
     const allPlayers = Array.from(this.gameState.players.values());
     const sortedByScore = allPlayers.sort((a, b) => b.score - a.score);
@@ -2067,37 +2073,32 @@ class StakeGameRoom extends GameRoom {
       return;
     }
 
-    // During game, give active players a grace period to reconnect
+    // During game, give active players a grace period to reconnect.
+    // Character stays frozen in the arena and can still be eliminated by others.
     if (this.roundState === 'PLAYING') {
       const player = this.gameState.players.get(playerId);
       if (player && !player.isSpectator && player.walletAddress) {
         const walletKey = player.walletAddress;
 
-        // Snapshot exact state and remove from game so physics/collisions don't affect them
-        const snapshot: Player = {
-          ...player,
-          velocity: { ...player.velocity },
-          knockbackVelocity: { ...player.knockbackVelocity },
-          inputVector: { ...player.inputVector },
-        };
-        this.gameState.players.delete(playerId);
-        this.clients.delete(playerId);
+        // Freeze the character in place (stops moving, can still take damage/be killed)
+        player.velocity = { x: 0, y: 0 };
+        player.knockbackVelocity = { x: 0, y: 0 };
+        player.inputVector = { x: 0, y: 0 };
+        this.clients.delete(playerId); // Remove WS but keep player in gameState
 
         const timeout = setTimeout(() => {
           if (this.disconnectedPlayers.has(walletKey)) {
             this.disconnectedPlayers.delete(walletKey);
-            // Re-add as spectator after grace period expires
-            snapshot.id = playerId;
-            snapshot.isSpectator = true;
-            snapshot.velocity = { x: 0, y: 0 };
-            snapshot.knockbackVelocity = { x: 0, y: 0 };
-            this.gameState.players.set(playerId, snapshot);
-            log(`Player ${snapshot.name} reconnect grace expired - forfeited`, 'room');
+            const p = this.gameState.players.get(playerId);
+            if (p && !p.isSpectator) {
+              p.isSpectator = true;
+              log(`Player ${p.name} reconnect grace expired - became spectator`, 'room');
+            }
           }
         }, RECONNECT_GRACE_MS);
 
-        this.disconnectedPlayers.set(walletKey, { oldPlayerId: playerId, snapshot, timeout });
-        log(`Player ${player.name} disconnected - ${RECONNECT_GRACE_MS / 1000}s reconnect window open`, 'room');
+        this.disconnectedPlayers.set(walletKey, { oldPlayerId: playerId, timeout });
+        log(`Player ${player.name} disconnected - frozen in arena, ${RECONNECT_GRACE_MS / 1000}s to reconnect`, 'room');
         return;
       }
       this.clients.delete(playerId);
@@ -2114,23 +2115,22 @@ class StakeGameRoom extends GameRoom {
     clearTimeout(entry.timeout);
     this.disconnectedPlayers.delete(walletAddress);
 
-    // Restore player from snapshot with frozen state (exact HP/position/energy at disconnect)
-    const restoredPlayer: Player = {
-      ...entry.snapshot,
-      id: newPlayerId,
-      isSpectator: false,
-      velocity: { ...entry.snapshot.velocity },
-      knockbackVelocity: { x: 0, y: 0 },
-      inputVector: { x: 0, y: 0 },
-    };
-    this.gameState.players.set(newPlayerId, restoredPlayer);
+    // Get the player's current live state (they may have taken damage while disconnected)
+    const player = this.gameState.players.get(entry.oldPlayerId);
+    if (!player) return false;
+
+    // Swap player to new connection ID
+    this.gameState.players.delete(entry.oldPlayerId);
+    player.id = newPlayerId;
+    player.inputVector = { x: 0, y: 0 };
+    this.gameState.players.set(newPlayerId, player);
     this.clients.set(newPlayerId, ws);
 
     this.send(ws, {
       type: 'JOINED',
       payload: {
         playerId: newPlayerId,
-        player: restoredPlayer,
+        player,
         roomId: this.id,
         pickups: this.gameState.pickups,
         roundStartTime: this.roundStartTime,
@@ -2140,7 +2140,8 @@ class StakeGameRoom extends GameRoom {
       }
     });
 
-    log(`Player ${restoredPlayer.name} reconnected to ${this.id} — HP:${restoredPlayer.hp} pos:(${Math.round(restoredPlayer.x)},${Math.round(restoredPlayer.y)})`, 'room');
+    const status = player.isSpectator ? 'as spectator (was eliminated while disconnected)' : `HP:${player.hp} pos:(${Math.round(player.x)},${Math.round(player.y)})`;
+    log(`Player ${player.name} reconnected to ${this.id} — ${status}`, 'room');
     return true;
   }
 
