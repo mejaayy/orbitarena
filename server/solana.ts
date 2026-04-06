@@ -9,9 +9,31 @@ import {
 const USDC_MINT_MAINNET = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 const USDC_MINT_DEVNET  = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
 
+const MAX_PRIMARY_RETRIES = 4;
+const BASE_DELAY_MS = 1000;
+
 function solanaLog(message: string, level: string = 'solana') {
   const ts = new Date().toLocaleTimeString();
   console.log(`${ts} [${level}] ${message}`);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+function isRetryableError(err: any): boolean {
+  const msg = (err?.message || '').toLowerCase();
+  return (
+    msg.includes('429') ||
+    msg.includes('rate limit') ||
+    msg.includes('too many requests') ||
+    msg.includes('503') ||
+    msg.includes('502') ||
+    msg.includes('econnreset') ||
+    msg.includes('socket hang up') ||
+    msg.includes('timeout') ||
+    msg.includes('fetch failed')
+  );
 }
 
 export function getSolanaNetwork(): string {
@@ -31,8 +53,65 @@ export function getServerConnection(): Connection {
   const defaultUrl = network === 'devnet'
     ? 'https://api.devnet.solana.com'
     : 'https://api.mainnet-beta.solana.com';
-  solanaLog(`No SOLANA_RPC_URL configured — using default: ${defaultUrl}`, 'warn');
   return new Connection(defaultUrl, 'confirmed');
+}
+
+function getPublicFallbackConnection(): Connection {
+  const network = getSolanaNetwork();
+  const url = network === 'devnet'
+    ? 'https://api.devnet.solana.com'
+    : 'https://api.mainnet-beta.solana.com';
+  return new Connection(url, 'confirmed');
+}
+
+/**
+ * Runs fn against the primary connection with exponential backoff retries.
+ * If the primary RPC keeps rate-limiting and a paid RPC is configured,
+ * falls back to the free public Solana endpoint so operations continue
+ * (slower, but not stopped).
+ */
+async function withRetryAndFallback<T>(
+  fn: (connection: Connection) => Promise<T>,
+  label: string
+): Promise<T> {
+  const primaryConn = getServerConnection();
+  const hasDedicatedRpc = !!process.env.SOLANA_RPC_URL;
+
+  // Try primary with exponential backoff
+  let lastError: any;
+  for (let attempt = 0; attempt < MAX_PRIMARY_RETRIES; attempt++) {
+    try {
+      return await fn(primaryConn);
+    } catch (err: any) {
+      lastError = err;
+      if (!isRetryableError(err)) throw err; // Non-retryable (e.g. bad signature) — fail fast
+      if (attempt < MAX_PRIMARY_RETRIES - 1) {
+        const delay = BASE_DELAY_MS * Math.pow(2, attempt); // 1s, 2s, 4s, 8s
+        solanaLog(`${label}: rate limited — retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_PRIMARY_RETRIES})`, 'warn');
+        await sleep(delay);
+      }
+    }
+  }
+
+  // Primary exhausted — fall back to public endpoint (only useful if primary was a paid RPC)
+  if (hasDedicatedRpc) {
+    solanaLog(`${label}: primary RPC exhausted after ${MAX_PRIMARY_RETRIES} attempts — switching to public endpoint (slower but operational)`, 'warn');
+    const fallback = getPublicFallbackConnection();
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await fn(fallback);
+      } catch (err: any) {
+        if (!isRetryableError(err)) throw err;
+        if (attempt < 2) {
+          const delay = BASE_DELAY_MS * Math.pow(2, attempt + 2); // 4s, 8s
+          solanaLog(`${label}: public fallback also rate limited — retrying in ${delay}ms`, 'warn');
+          await sleep(delay);
+        }
+      }
+    }
+  }
+
+  throw lastError ?? new Error(`${label}: all RPC endpoints exhausted`);
 }
 
 export function getPlatformKeypair(): Keypair {
@@ -68,25 +147,34 @@ export async function verifyUSDCDeposit(
   expectedAmountCents: number
 ): Promise<DepositVerificationResult> {
   try {
-    const connection = getServerConnection();
     const platformWallet = getPlatformWalletAddress();
     const usdcMint = getUSDCMint();
+    const mintStr = usdcMint.toBase58();
 
     solanaLog(`Verifying deposit tx ${txSignature.slice(0, 16)}... from ${fromWalletAddress.slice(0, 8)}...`);
 
-    // Retry up to 3 times waiting for finality
+    // Fetch the transaction — retry for both "not yet confirmed" and rate limit cases
     let tx = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      tx = await connection.getParsedTransaction(txSignature, {
-        commitment: 'confirmed',
-        maxSupportedTransactionVersion: 0,
-      });
-      if (tx) break;
-      await new Promise(r => setTimeout(r, 2500));
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        tx = await withRetryAndFallback(
+          conn => conn.getParsedTransaction(txSignature, {
+            commitment: 'confirmed',
+            maxSupportedTransactionVersion: 0,
+          }),
+          'getParsedTransaction'
+        );
+        if (tx) break;
+        // Transaction exists on network but not yet propagated — wait and retry
+        await sleep(2500);
+      } catch (err: any) {
+        if (attempt === 4) throw err;
+        await sleep(2500);
+      }
     }
 
     if (!tx) {
-      return { valid: false, error: 'Transaction not found on-chain — it may still be processing, please retry.' };
+      return { valid: false, error: 'Transaction not found on-chain — it may still be processing, please try confirming again in a moment.' };
     }
 
     if (tx.meta?.err) {
@@ -95,9 +183,7 @@ export async function verifyUSDCDeposit(
 
     const preBalances  = tx.meta?.preTokenBalances  || [];
     const postBalances = tx.meta?.postTokenBalances || [];
-    const mintStr = usdcMint.toBase58();
 
-    // Find platform wallet balance change for USDC
     const platformPost = postBalances.find(b => b.mint === mintStr && b.owner === platformWallet);
     const platformPre  = preBalances.find(b  => b.mint === mintStr && b.owner === platformWallet);
 
@@ -117,7 +203,6 @@ export async function verifyUSDCDeposit(
       };
     }
 
-    // Verify the sender owns the source USDC token account
     const senderPre = preBalances.find(b => b.mint === mintStr && b.owner === fromWalletAddress);
     const accountKeys = tx.transaction.message.accountKeys;
     const feePayer = typeof accountKeys[0] === 'string' ? accountKeys[0] : (accountKeys[0] as any).pubkey?.toBase58();
@@ -145,10 +230,9 @@ export async function executeUSDCWithdrawal(
   amountCents: number
 ): Promise<WithdrawalExecutionResult> {
   try {
-    const connection    = getServerConnection();
-    const platformKp    = getPlatformKeypair();
-    const usdcMint      = getUSDCMint();
-    const toPubkey      = new PublicKey(toWalletAddress);
+    const platformKp = getPlatformKeypair();
+    const usdcMint   = getUSDCMint();
+    const toPubkey   = new PublicKey(toWalletAddress);
 
     // USDC has 6 decimals. cents × 10,000 = USDC atomic units.
     const atomicAmount = BigInt(amountCents) * BigInt(10_000);
@@ -158,44 +242,49 @@ export async function executeUSDCWithdrawal(
     const sourceATA = await getAssociatedTokenAddress(usdcMint, platformKp.publicKey);
     const destATA   = await getAssociatedTokenAddress(usdcMint, toPubkey);
 
-    const instructions = [];
+    // --- Phase 1: Setup — fully retryable ---
 
-    // Create destination ATA if it doesn't exist yet (platform pays rent)
+    const instructions = [];
     try {
-      await getAccount(connection, destATA);
+      await withRetryAndFallback(conn => getAccount(conn, destATA), 'getAccount');
     } catch {
+      // ATA doesn't exist — platform creates it
       instructions.push(
-        createAssociatedTokenAccountInstruction(
-          platformKp.publicKey,
-          destATA,
-          toPubkey,
-          usdcMint
-        )
+        createAssociatedTokenAccountInstruction(platformKp.publicKey, destATA, toPubkey, usdcMint)
       );
     }
 
     instructions.push(
-      createTransferInstruction(
-        sourceATA,
-        destATA,
-        platformKp.publicKey,
-        atomicAmount
-      )
+      createTransferInstruction(sourceATA, destATA, platformKp.publicKey, atomicAmount)
     );
 
-    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+    const { blockhash, lastValidBlockHeight } = await withRetryAndFallback(
+      conn => conn.getLatestBlockhash('confirmed'),
+      'getLatestBlockhash'
+    );
+
+    // --- Phase 2: Build and sign once, then send ---
+    // Sending the same signed transaction bytes to multiple RPCs is safe —
+    // Solana validators are idempotent for identical signed transactions.
+
     const transaction = new Transaction({ recentBlockhash: blockhash, feePayer: platformKp.publicKey });
     transaction.add(...instructions);
     transaction.sign(platformKp);
+    const serialized = transaction.serialize();
 
-    const txSignature = await connection.sendRawTransaction(transaction.serialize(), {
-      skipPreflight: false,
-      preflightCommitment: 'confirmed',
-    });
+    const txSignature = await withRetryAndFallback(
+      conn => conn.sendRawTransaction(serialized, {
+        skipPreflight: false,
+        preflightCommitment: 'confirmed',
+      }),
+      'sendRawTransaction'
+    );
 
-    const confirmation = await connection.confirmTransaction(
-      { signature: txSignature, blockhash, lastValidBlockHeight },
-      'confirmed'
+    // --- Phase 3: Confirm — retryable/fallback, same signature ---
+
+    const confirmation = await withRetryAndFallback(
+      conn => conn.confirmTransaction({ signature: txSignature, blockhash, lastValidBlockHeight }, 'confirmed'),
+      'confirmTransaction'
     );
 
     if (confirmation.value.err) {
