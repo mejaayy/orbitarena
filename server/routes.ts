@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { initGameServer, getGameServer } from "./gameServer";
 import { balanceService } from "./balanceService";
+import { getSolanaNetwork, getUSDCMint, getPlatformWalletAddress, getRpcErrorStatus } from "./solana";
 import { z } from "zod";
 import { db } from "./db";
 import { weeklyEarnings, bannedWallets, adminSettings, winStreaks } from "@shared/schema";
@@ -84,7 +85,6 @@ export async function registerRoutes(
 
   app.get("/api/config", async (req, res) => {
     try {
-      const { getSolanaNetwork, getUSDCMint, getPlatformWalletAddress } = await import('./solana');
       const network = getSolanaNetwork();
       const mint = getUSDCMint().toBase58();
       const platformWalletAddress = getPlatformWalletAddress();
@@ -485,6 +485,11 @@ export async function registerRoutes(
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
+  });
+
+  // Admin: RPC health status (protected)
+  app.get("/api/admin/rpc-status", requireAdminAuth, (req, res) => {
+    res.json(getRpcErrorStatus());
   });
 
   // Admin: Clear alerts (protected)

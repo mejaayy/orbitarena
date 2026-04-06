@@ -27,6 +27,15 @@ interface Alert {
   isCritical: boolean;
 }
 
+interface RpcStatus {
+  totalErrors: number;
+  fallbackActivations: number;
+  windowMinutes: number;
+  isUnderPressure: boolean;
+  isCritical: boolean;
+  lastErrorAt: number | null;
+}
+
 const ADMIN_TOKEN_KEY = 'orbit-arena-admin-token';
 
 export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled, position = 'top-right' }: AdminPanelProps) {
@@ -45,6 +54,7 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled, position
   const [banWalletInput, setBanWalletInput] = useState('');
   const [banReasonInput, setBanReasonInput] = useState('');
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [rpcStatus, setRpcStatus] = useState<RpcStatus | null>(null);
   const [leaderboardFrozen, setLeaderboardFrozen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [musicEnabled, setMusicEnabled] = useState(proceduralMusic.enabled);
@@ -69,10 +79,17 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled, position
     if (isAuthenticated) {
       fetchBannedWallets();
       fetchAlerts();
+      fetchRpcStatus();
       fetchSettings();
       fetchTrainingMode();
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !isOpen) return;
+    const interval = setInterval(fetchRpcStatus, 30_000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, isOpen]);
 
   const checkAuthStatus = async () => {
     setIsCheckingAuth(true);
@@ -120,6 +137,17 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled, position
       }
     } catch (e) {
       console.error('Failed to fetch alerts');
+    }
+  };
+
+  const fetchRpcStatus = async () => {
+    try {
+      const res = await fetch('/api/admin/rpc-status', { headers: authHeaders() });
+      if (res.ok) {
+        setRpcStatus(await res.json());
+      }
+    } catch (e) {
+      console.error('Failed to fetch RPC status');
     }
   };
 
@@ -414,6 +442,8 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled, position
   };
 
   const criticalAlertCount = alerts.filter(a => a.isCritical).length;
+  const rpcHasIssues = rpcStatus?.isUnderPressure || rpcStatus?.isCritical;
+  const totalAlertBadge = alerts.length + (rpcHasIssues ? 1 : 0);
 
   if (!isOpen) {
     return (
@@ -424,11 +454,11 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled, position
         data-testid="admin-panel-toggle"
       >
         <Settings className="w-5 h-5 text-gray-400" />
-        {isAuthenticated && alerts.length > 0 && (
+        {isAuthenticated && totalAlertBadge > 0 && (
           <span className={`absolute -top-1 -right-1 w-4 h-4 text-[10px] font-bold rounded-full flex items-center justify-center ${
-            criticalAlertCount > 0 ? 'bg-red-500 animate-pulse' : 'bg-yellow-500'
+            criticalAlertCount > 0 || rpcStatus?.isCritical ? 'bg-red-500 animate-pulse' : 'bg-yellow-500'
           }`}>
-            {alerts.length}
+            {totalAlertBadge}
           </span>
         )}
       </button>
@@ -647,11 +677,11 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled, position
                 }`}
               >
                 Alerts
-                {alerts.length > 0 && (
+                {totalAlertBadge > 0 && (
                   <span className={`absolute -top-1 -right-1 w-4 h-4 text-[10px] font-bold rounded-full flex items-center justify-center ${
-                    criticalAlertCount > 0 ? 'bg-red-500' : 'bg-yellow-500'
+                    criticalAlertCount > 0 || rpcStatus?.isCritical ? 'bg-red-500' : 'bg-yellow-500'
                   }`}>
-                    {alerts.length}
+                    {totalAlertBadge}
                   </span>
                 )}
               </button>
@@ -807,6 +837,36 @@ export function AdminPanel({ onMockLeaderboard, mockLeaderboardEnabled, position
 
             {activeTab === 'alerts' && (
               <div className="space-y-4">
+
+                {rpcStatus && rpcHasIssues && (
+                  <div className={`p-3 rounded-lg border ${
+                    rpcStatus.isCritical
+                      ? 'bg-red-500/10 border-red-500/40'
+                      : 'bg-yellow-500/10 border-yellow-500/30'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <AlertTriangle className={`w-4 h-4 ${rpcStatus.isCritical ? 'text-red-400' : 'text-yellow-400'}`} />
+                      <span className={`text-sm font-bold ${rpcStatus.isCritical ? 'text-red-300' : 'text-yellow-300'}`}>
+                        {rpcStatus.isCritical ? 'RPC Under Heavy Pressure' : 'RPC Slowdowns Detected'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-300 mb-1">
+                      {rpcStatus.totalErrors} error{rpcStatus.totalErrors !== 1 ? 's' : ''} in the last {rpcStatus.windowMinutes} minutes
+                      {rpcStatus.fallbackActivations > 0 && ` · fell back to public endpoint ${rpcStatus.fallbackActivations} time${rpcStatus.fallbackActivations !== 1 ? 's' : ''}`}
+                    </p>
+                    {rpcStatus.lastErrorAt && (
+                      <p className="text-xs text-gray-500">
+                        Last error: {new Date(rpcStatus.lastErrorAt).toLocaleTimeString()}
+                      </p>
+                    )}
+                    <p className={`text-xs mt-1 ${rpcStatus.isCritical ? 'text-red-400' : 'text-yellow-500'}`}>
+                      {rpcStatus.isCritical
+                        ? 'Deposits and withdrawals are being delayed — consider adding a paid RPC URL.'
+                        : 'Operations are slowing down but still completing via retries.'}
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <AlertTriangle className={`w-4 h-4 ${criticalAlertCount > 0 ? 'text-red-500' : 'text-yellow-400'}`} />

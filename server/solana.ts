@@ -11,6 +11,50 @@ const USDC_MINT_DEVNET  = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJ
 
 const MAX_PRIMARY_RETRIES = 4;
 const BASE_DELAY_MS = 1000;
+const RPC_ERROR_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+
+interface RpcErrorEvent {
+  timestamp: number;
+  label: string;
+  usedFallback: boolean;
+}
+
+const rpcErrorLog: RpcErrorEvent[] = [];
+
+function recordRpcError(label: string, usedFallback: boolean) {
+  const now = Date.now();
+  rpcErrorLog.push({ timestamp: now, label, usedFallback });
+  // Trim entries outside the window
+  const cutoff = now - RPC_ERROR_WINDOW_MS;
+  while (rpcErrorLog.length > 0 && rpcErrorLog[0].timestamp < cutoff) {
+    rpcErrorLog.shift();
+  }
+}
+
+export interface RpcErrorStatus {
+  totalErrors: number;
+  fallbackActivations: number;
+  windowMinutes: number;
+  isUnderPressure: boolean;
+  isCritical: boolean;
+  lastErrorAt: number | null;
+}
+
+export function getRpcErrorStatus(): RpcErrorStatus {
+  const now = Date.now();
+  const cutoff = now - RPC_ERROR_WINDOW_MS;
+  const recent = rpcErrorLog.filter(e => e.timestamp >= cutoff);
+  const fallbackCount = recent.filter(e => e.usedFallback).length;
+  const lastEvent = recent[recent.length - 1] ?? null;
+  return {
+    totalErrors: recent.length,
+    fallbackActivations: fallbackCount,
+    windowMinutes: 10,
+    isUnderPressure: recent.length >= 5,
+    isCritical: recent.length >= 15 || fallbackCount >= 3,
+    lastErrorAt: lastEvent ? lastEvent.timestamp : null,
+  };
+}
 
 function solanaLog(message: string, level: string = 'solana') {
   const ts = new Date().toLocaleTimeString();
@@ -95,6 +139,7 @@ async function withRetryAndFallback<T>(
 
   // Primary exhausted — fall back to public endpoint (only useful if primary was a paid RPC)
   if (hasDedicatedRpc) {
+    recordRpcError(label, true);
     solanaLog(`${label}: primary RPC exhausted after ${MAX_PRIMARY_RETRIES} attempts — switching to public endpoint (slower but operational)`, 'warn');
     const fallback = getPublicFallbackConnection();
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -109,6 +154,9 @@ async function withRetryAndFallback<T>(
         }
       }
     }
+  } else {
+    // Primary is already public — just record the error
+    recordRpcError(label, false);
   }
 
   throw lastError ?? new Error(`${label}: all RPC endpoints exhausted`);
