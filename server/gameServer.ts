@@ -1521,6 +1521,10 @@ class GameRoom {
           payload: { victimName: victim.name }
         });
       }
+      // Track kills for free mode (stake mode tracks at round end)
+      if (!this.isStakeMode && !this.trainingMode && attacker.walletAddress) {
+        balanceService.incrementStats(attacker.walletAddress, 1, 0, 0).catch(() => {});
+      }
     }
 
     log(`${attacker ? attacker.name : 'Environment'} eliminated ${victim.name} in room ${this.id}`, 'room');
@@ -1702,6 +1706,8 @@ class GameRoom {
   }
 }
 
+const RECONNECT_GRACE_MS = 15_000;
+
 // Stake room with round-based tournament system
 class StakeGameRoom extends GameRoom {
   private roundState: RoundState = 'LOBBY';
@@ -1712,6 +1718,7 @@ class StakeGameRoom extends GameRoom {
   private prizePool: number = 0;
   private matchId: string = '';
   private lobbyPlayers: Map<string, { ws: WebSocket; name: string; walletAddress?: string; playerColor?: string; characterShape?: CharacterShape }> = new Map();
+  private disconnectedPlayers: Map<string, { oldPlayerId: string; player: Player; timeout: NodeJS.Timeout }> = new Map();
 
   constructor(id: string) {
     super(id, true);
@@ -1941,6 +1948,19 @@ class StakeGameRoom extends GameRoom {
     // Process payouts via balance service (idempotent)
     await balanceService.settlePayouts(this.matchId, standings);
 
+    // Update lifetime stats for all participants
+    for (let i = 0; i < sortedByScore.length; i++) {
+      const player = sortedByScore[i];
+      if (player.walletAddress) {
+        balanceService.incrementStats(
+          player.walletAddress,
+          player.kills,
+          1,
+          i === 0 ? 1 : 0
+        ).catch(() => {});
+      }
+    }
+
     // Broadcast round end to all players
     this.broadcast({
       type: 'ROUND_END',
@@ -2047,18 +2067,60 @@ class StakeGameRoom extends GameRoom {
       return;
     }
 
-    // During game, disconnecting forfeits (become spectator or removed)
+    // During game, give active players a grace period to reconnect
     if (this.roundState === 'PLAYING') {
       const player = this.gameState.players.get(playerId);
-      if (player && !player.isSpectator) {
-        player.isSpectator = true;
-        log(`Player ${player.name} disconnected during round in ${this.id} - forfeited`, 'room');
+      if (player && !player.isSpectator && player.walletAddress) {
+        const walletKey = player.walletAddress;
+        const timeout = setTimeout(() => {
+          if (this.disconnectedPlayers.has(walletKey)) {
+            this.disconnectedPlayers.delete(walletKey);
+            const p = this.gameState.players.get(playerId);
+            if (p) p.isSpectator = true;
+            log(`Player ${player.name} reconnect grace expired - forfeited`, 'room');
+          }
+        }, RECONNECT_GRACE_MS);
+        this.disconnectedPlayers.set(walletKey, { oldPlayerId: playerId, player, timeout });
+        log(`Player ${player.name} disconnected - ${RECONNECT_GRACE_MS / 1000}s reconnect window open`, 'room');
       }
       this.clients.delete(playerId);
       return;
     }
 
     super.handleDisconnect(playerId);
+  }
+
+  tryReconnectWallet(newPlayerId: string, ws: WebSocket, walletAddress: string): boolean {
+    const entry = this.disconnectedPlayers.get(walletAddress);
+    if (!entry || this.roundState !== 'PLAYING') return false;
+
+    clearTimeout(entry.timeout);
+    this.disconnectedPlayers.delete(walletAddress);
+
+    // Swap the player to the new connection ID
+    const player = entry.player;
+    this.gameState.players.delete(entry.oldPlayerId);
+    player.id = newPlayerId;
+    player.isSpectator = false;
+    this.gameState.players.set(newPlayerId, player);
+    this.clients.set(newPlayerId, ws);
+
+    this.send(ws, {
+      type: 'JOINED',
+      payload: {
+        playerId: newPlayerId,
+        player,
+        roomId: this.id,
+        pickups: this.gameState.pickups,
+        roundStartTime: this.roundStartTime,
+        roundDuration: ROUND_DURATION,
+        prizePool: this.prizePool,
+        reconnected: true,
+      }
+    });
+
+    log(`Player ${player.name} successfully reconnected to ${this.id}`, 'room');
+    return true;
   }
 
   protected handleElimination(attacker: Player | null, victim: Player) {
@@ -2393,6 +2455,17 @@ export class GameServer {
     return { valid: true, sanitized: { name, isStakeMode, walletAddress, playerColor, characterShape } };
   }
 
+  private tryReconnect(newPlayerId: string, ws: WebSocket, walletAddress: string): boolean {
+    for (const room of this.stakeRooms.values()) {
+      if (room.tryReconnectWallet(newPlayerId, ws, walletAddress)) {
+        this.playerToRoom.set(newPlayerId, room.id);
+        this.playerStakeMode.set(newPlayerId, true);
+        return true;
+      }
+    }
+    return false;
+  }
+
   private handleJoin(playerId: string, ws: WebSocket, payload: { name: string; isStakeMode?: boolean; walletAddress?: string; playerColor?: string; characterShape?: CharacterShape }) {
     const validation = this.validateJoinPayload(payload);
     if (!validation.valid || !validation.sanitized) {
@@ -2401,6 +2474,12 @@ export class GameServer {
     }
 
     const sanitized = validation.sanitized;
+
+    // Check if this is a reconnecting stake player before normal room assignment
+    if (sanitized.isStakeMode && sanitized.walletAddress) {
+      if (this.tryReconnect(playerId, ws, sanitized.walletAddress)) return;
+    }
+
     const room = this.findAvailableRoom(sanitized.isStakeMode);
     
     if (!room) {

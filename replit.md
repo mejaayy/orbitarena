@@ -155,6 +155,27 @@ The admin panel uses a secure server-side authentication system:
 - **Token**: USDC (SPL token) for entry fees and rewards
 - **Entry Fee**: 1 USDC to join stake mode
 
+### Player Stats & Profile System
+
+Players with connected wallets accumulate persistent lifetime stats tracked in the database:
+- **totalKills**: incremented every kill (free mode: per elimination; stake mode: batch at round end)
+- **totalGames**: incremented per stake round completed
+- **totalWins**: incremented for 1st place finishes in stake rounds
+
+The `/profile?wallet=xxx` page displays stats cards (wins, win rate, kills, games), lifetime USDC summary (deposited/prizes/withdrawn), and full transaction history. Accessible from the stake wallet section in the lobby.
+
+API endpoint: `GET /api/stats/:walletAddress` — returns stats + up to 50 recent transactions.
+
+### Reconnect Grace Period (Stake Mode)
+
+When a stake player disconnects during a PLAYING round, they enter a 15-second reconnect grace period stored in `StakeGameRoom.disconnectedPlayers`. If they reconnect within 15 seconds with the same wallet address, their position and HP are fully restored. After 15 seconds, they are forfeited to spectator status. A "Connection Lost" overlay with a countdown message appears on the client side during disconnect.
+
+### Leave Confirmation & Fund Persistence
+
+- **Lobby leave**: Clicking "Leave Lobby" in stake mode shows a confirmation dialog explaining that the $1.00 entry fee will be refunded. Funds persist in PostgreSQL regardless of browser close.
+- **beforeunload warning**: Browser tab close/refresh shows a native browser confirmation dialog while in stake mode.
+- **Fund safety messaging**: The profile page and game UI explicitly communicate that USDC balances persist between sessions.
+
 ## External Dependencies
 
 ### Third-Party Services

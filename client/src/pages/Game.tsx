@@ -29,6 +29,8 @@ export default function Game() {
   const [isHoldingLeave, setIsHoldingLeave] = useState(false);
   const [leaveProgress, setLeaveProgress] = useState(0);
   const [leaveError, setLeaveError] = useState<string | null>(null);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [roundStatus, setRoundStatus] = useState<RoundStatus | null>(null);
   const [roundEndData, setRoundEndData] = useState<RoundEndData | null>(null);
   const [isSpectating, setIsSpectating] = useState(false);
@@ -67,8 +69,21 @@ export default function Game() {
       engine.onRoundEnd = (data) => {
         setRoundEndData(data);
       };
+      engine.onConnectionChange = (connected) => {
+        if (isStakeMode) setIsReconnecting(!connected);
+      };
     }
-  }, [engine]);
+  }, [engine, isStakeMode]);
+
+  useEffect(() => {
+    if (!isStakeMode) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isStakeMode]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -222,10 +237,7 @@ export default function Game() {
             
             <Button
               variant="outline"
-              onClick={() => {
-                engine?.sendLeave();
-                setLocation('/');
-              }}
+              onClick={() => setShowLeaveConfirm(true)}
               className="gap-2 border-[#D40046]/50 text-[#D40046] hover:bg-[#D40046]/20"
               data-testid="button-leave-lobby"
             >
@@ -235,6 +247,19 @@ export default function Game() {
         </div>
       )}
       
+      {isReconnecting && isStakeMode && (
+        <div className="absolute inset-0 bg-black/85 flex items-center justify-center z-50">
+          <div className="bg-card/95 backdrop-blur-xl border border-yellow-500/30 rounded-2xl p-8 max-w-sm w-full text-center">
+            <div className="w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-6 h-6 text-yellow-400 animate-pulse" />
+            </div>
+            <h3 className="text-xl font-bold mb-2">Connection Lost</h3>
+            <p className="text-gray-300 text-sm mb-1">Reconnecting to game server...</p>
+            <p className="text-gray-500 text-xs">Your funds and position are safe. You have 15 seconds to reconnect before being marked as spectator.</p>
+          </div>
+        </div>
+      )}
+
       {isSpectating && !roundEndData && (
         <div className="absolute top-14 md:top-20 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm px-4 md:px-6 py-2 md:py-3 rounded-lg border border-white/20 z-20">
           <div className="text-center">
@@ -393,6 +418,45 @@ export default function Game() {
             </Button>
             <Button onClick={handleRestart} className="gap-2 bg-primary hover:bg-primary/90 text-white" data-testid="button-play-again">
               <RotateCcw className="w-4 h-4" /> Play Again
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showLeaveConfirm} onOpenChange={setShowLeaveConfirm}>
+        <DialogContent className="bg-card/90 backdrop-blur-xl border-white/10 sm:max-w-sm">
+          <DialogHeader className="text-center">
+            <div className="mx-auto w-12 h-12 bg-[#D40046]/20 rounded-full flex items-center justify-center mb-3">
+              <AlertCircle className="w-6 h-6 text-[#D40046]" />
+            </div>
+            <DialogTitle className="text-xl font-bold">Leave Lobby?</DialogTitle>
+            <DialogDescription className="text-gray-300 text-sm leading-relaxed">
+              Your $1.00 entry fee will be refunded to your in-game balance immediately. You can rejoin the next round anytime.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-accent/10 border border-accent/20 rounded-lg p-3 my-2 text-center">
+            <div className="text-xs text-gray-400 mb-0.5">Your balance is always safe</div>
+            <div className="text-xs text-gray-500">Closing this browser tab will also refund your entry fee automatically.</div>
+          </div>
+          <DialogFooter className="sm:justify-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setShowLeaveConfirm(false)}
+              data-testid="button-leave-cancel"
+            >
+              Stay in Lobby
+            </Button>
+            <Button
+              variant="outline"
+              className="gap-2 border-[#D40046]/50 text-[#D40046] hover:bg-[#D40046]/20"
+              onClick={() => {
+                setShowLeaveConfirm(false);
+                engine?.sendLeave();
+                setLocation('/');
+              }}
+              data-testid="button-leave-confirm"
+            >
+              <LogOut className="w-4 h-4" /> Leave & Refund
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -579,16 +579,28 @@ export default function Lobby() {
                           <img src={solanaLogo} className="w-5 h-5" alt="SOL" />
                           <span className="text-sm font-mono text-accent">{shortenAddress(walletAddress)}</span>
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleDisconnectWallet}
-                          className="text-xs text-gray-400 hover:text-white"
-                          data-testid="button-disconnect-wallet"
-                        >
-                          Disconnect
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setLocation(`/profile?wallet=${walletAddress}`)}
+                            className="text-xs text-accent/70 hover:text-accent"
+                            data-testid="button-view-profile"
+                          >
+                            Profile
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleDisconnectWallet}
+                            className="text-xs text-gray-400 hover:text-white"
+                            data-testid="button-disconnect-wallet"
+                          >
+                            Disconnect
+                          </Button>
+                        </div>
                       </div>
                       
                       <div className="bg-black/30 p-2 rounded-lg space-y-1">

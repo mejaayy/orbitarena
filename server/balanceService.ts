@@ -475,6 +475,34 @@ class BalanceService {
     return transactions;
   }
 
+  async incrementStats(walletAddress: string, kills: number, games: number, wins: number): Promise<void> {
+    try {
+      await this.getOrCreateBalance(walletAddress);
+      await db.update(playerBalances)
+        .set({
+          totalKills: sql`${playerBalances.totalKills} + ${kills}`,
+          totalGames: sql`${playerBalances.totalGames} + ${games}`,
+          totalWins: sql`${playerBalances.totalWins} + ${wins}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(playerBalances.walletAddress, walletAddress));
+    } catch (error: any) {
+      log(`incrementStats failed for ${walletAddress.slice(0, 8)}...: ${error.message}`, 'error');
+    }
+  }
+
+  async getStats(walletAddress: string) {
+    const bal = await this.getOrCreateBalance(walletAddress);
+    return {
+      totalKills: bal.totalKills,
+      totalGames: bal.totalGames,
+      totalWins: bal.totalWins,
+      lifetimePrizeCents: bal.lifetimePrizeCents,
+      lifetimeDepositedCents: bal.lifetimeDepositedCents,
+      lifetimeWithdrawnCents: bal.lifetimeWithdrawnCents,
+    };
+  }
+
   getEntryFeeCents() {
     return ENTRY_FEE_CENTS;
   }

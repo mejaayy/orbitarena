@@ -25,6 +25,9 @@ export const playerBalances = pgTable("player_balances", {
   lifetimeDepositedCents: integer("lifetime_deposited_cents").notNull().default(0),
   lifetimeWithdrawnCents: integer("lifetime_withdrawn_cents").notNull().default(0),
   lifetimePrizeCents: integer("lifetime_prize_cents").notNull().default(0),
+  totalKills: integer("total_kills").notNull().default(0),
+  totalGames: integer("total_games").notNull().default(0),
+  totalWins: integer("total_wins").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

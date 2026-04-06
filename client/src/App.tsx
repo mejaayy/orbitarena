@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import Lobby from "@/pages/Lobby";
 import Game from "@/pages/Game";
 import Terms from "@/pages/Terms";
+import Profile from "@/pages/Profile";
 
 function Router() {
   return (
@@ -13,6 +14,7 @@ function Router() {
       <Route path="/" component={Lobby} />
       <Route path="/game" component={Game} />
       <Route path="/terms" component={Terms} />
+      <Route path="/profile" component={Profile} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -156,6 +156,31 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/stats/:walletAddress", async (req, res) => {
+    try {
+      const { walletAddress } = req.params;
+      if (!walletAddress || walletAddress.length < 32) {
+        return res.status(400).json({ error: "Invalid wallet address" });
+      }
+      const stats = await balanceService.getStats(walletAddress);
+      const transactions = await balanceService.getTransactionHistory(walletAddress, 50);
+      res.json({
+        walletAddress,
+        stats,
+        transactions: transactions.map(t => ({
+          id: t.id,
+          type: t.transactionType,
+          deltaAvailable: t.deltaAvailableCents,
+          deltaLocked: t.deltaLockedCents,
+          createdAt: t.createdAt,
+          metadata: t.metadata,
+        })),
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/balance/deposit/request", async (req, res) => {
     try {
       const result = depositRequestSchema.safeParse(req.body);
