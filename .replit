@@ -40,3 +40,8 @@ waitForPort = 5000
 
 [agent]
 mockupState = "FULLSTACK"
+
+[userenv]
+
+[userenv.shared]
+SOLANA_NETWORK = "mainnet-beta"
