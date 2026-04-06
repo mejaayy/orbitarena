@@ -670,7 +670,7 @@ export default function Lobby() {
                   )}
                   
                   <div className="text-xs text-gray-500 space-y-1">
-                    <p>Deposit USDC to play. Top 3 win prizes!</p>
+                    <p>Pay entry fee to compete for prizes!</p>
                     <p>1st: $4 | 2nd: $3 | 3rd: $2</p>
                   </div>
                 </div>
@@ -742,7 +742,7 @@ export default function Lobby() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ArrowDownToLine className="w-5 h-5 text-accent" />
-              Deposit USDC
+              Pay Entry Fee
             </DialogTitle>
             <DialogDescription>
               Add funds to your game balance
