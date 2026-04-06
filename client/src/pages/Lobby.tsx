@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, History, Crown } from 'lucide-react';
 import solanaLogo from '@assets/generated_images/solana_crypto_coin_logo_icon.png';
-import { connectPhantom, disconnectPhantom, isPhantomInstalled, getConnectedWallet, shortenAddress, ENTRY_FEE_USDC, getUSDCBalance } from '@/lib/phantom';
+import { connectPhantom, disconnectPhantom, isPhantomInstalled, getConnectedWallet, shortenAddress, ENTRY_FEE_USDC, getUSDCBalance, fetchSolanaConfig, sendUSDCDeposit } from '@/lib/phantom';
 import { AdminPanel } from '@/components/AdminPanel';
 import { containsProfanity } from '@/lib/profanityFilter';
 
@@ -111,6 +111,9 @@ export default function Lobby() {
   };
 
   useEffect(() => {
+    // Load Solana network config from server (sets platform wallet, USDC mint, network)
+    fetchSolanaConfig().catch(err => console.error('Failed to load Solana config:', err));
+
     const savedNickname = localStorage.getItem('orbit-arena-nickname');
     if (savedNickname) setNickname(savedNickname);
     
@@ -197,21 +200,44 @@ export default function Lobby() {
     setIsProcessing(true);
     try {
       const amountCents = Math.round(amount * 100);
-      const res = await fetch('/api/balance/deposit', {
+
+      // Step 1: Create a deposit request on the server (returns a token)
+      const reqRes = await fetch('/api/balance/deposit/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ walletAddress, amountCents }),
       });
-      const data = await res.json();
-      if (res.ok) {
+      const reqData = await reqRes.json();
+      if (!reqRes.ok) {
+        alert(reqData.error || 'Failed to initiate deposit');
+        return;
+      }
+      const { depositToken } = reqData;
+
+      // Step 2: Send actual USDC on-chain via Phantom
+      const depositResult = await sendUSDCDeposit(walletAddress, amountCents);
+      if (!depositResult.success) {
+        alert(depositResult.error || 'Wallet transaction failed — no USDC was transferred');
+        return;
+      }
+
+      // Step 3: Confirm with the server (server verifies the on-chain tx)
+      const confirmRes = await fetch('/api/balance/deposit/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ depositToken, onChainTxSignature: depositResult.txSignature }),
+      });
+      const confirmData = await confirmRes.json();
+      if (confirmRes.ok) {
         await fetchInternalBalance(walletAddress);
+        await getUSDCBalance(walletAddress).then(setWalletBalance);
         setShowDeposit(false);
         setDepositAmount('5');
       } else {
-        alert(data.error || 'Deposit failed');
+        alert(confirmData.error || 'Deposit verification failed. Contact support with your transaction signature: ' + depositResult.txSignature);
       }
-    } catch (e) {
-      alert('Network error, please try again');
+    } catch (e: any) {
+      alert(e?.message || 'Network error, please try again');
     } finally {
       setIsProcessing(false);
     }

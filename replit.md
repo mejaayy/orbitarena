@@ -37,14 +37,28 @@ Preferred communication style: Simple, everyday language.
 - **In-Memory State**: Game state (players, food, pending deposits) stored in memory on the server for real-time performance
 - **Session Storage**: MemStorage class for user sessions (can be upgraded to PostgreSQL)
 
+### Blockchain Layer (Mainnet-Ready)
+Server-side Solana utility in `server/solana.ts`:
+- Network driven by `SOLANA_NETWORK` env var (default: `mainnet-beta`)
+- RPC driven by `SOLANA_RPC_URL` env var (falls back to public endpoint)
+- USDC mint auto-selected per network (mainnet: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`)
+- `verifyUSDCDeposit()`: verifies on-chain USDC tx before crediting balance
+- `executeUSDCWithdrawal()`: signs real USDC transfers from platform wallet using `PLATFORM_WALLET_PRIVATE_KEY`
+- Client fetches network config from `/api/config` on mount (no hardcoded addresses)
+
+**Required secrets for stake mode:**
+- `PLATFORM_WALLET_ADDRESS` — public key of the platform wallet (already set)
+- `PLATFORM_WALLET_PRIVATE_KEY` — JSON array of 64 bytes for signing withdrawals
+- `SOLANA_RPC_URL` — reliable mainnet RPC URL (e.g. Helius, QuickNode)
+
 ### Internal Custodial Balance System
 The game uses an off-chain balance ledger for stake mode:
 
 **Architecture:**
-- Players deposit USDC to their internal game balance
+- Players deposit USDC to their internal game balance (verified on-chain before crediting)
 - Match entry fees are locked from internal balance (no on-chain tx during play)
 - Prizes are credited to internal balance
-- Players withdraw from internal balance when desired
+- Players withdraw from internal balance (triggers real on-chain USDC transfer)
 
 **Key Components:**
 - `BalanceService`: Handles deposits, locks, payouts, withdrawals with atomic DB transactions

@@ -68,7 +68,7 @@ const depositRequestSchema = z.object({
 
 const depositConfirmSchema = z.object({
   depositToken: z.string().min(10),
-  onChainTxSignature: z.string().optional(),
+  onChainTxSignature: z.string().min(10),
 });
 
 const withdrawalSchema = z.object({
@@ -81,6 +81,18 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   initGameServer(httpServer);
+
+  app.get("/api/config", async (req, res) => {
+    try {
+      const { getSolanaNetwork, getUSDCMint, getPlatformWalletAddress } = await import('./solana');
+      const network = getSolanaNetwork();
+      const mint = getUSDCMint().toBase58();
+      const platformWalletAddress = getPlatformWalletAddress();
+      res.json({ solanaNetwork: network, usdcMint: mint, platformWalletAddress });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   app.get("/api/game/status", (req, res) => {
     const gameServer = getGameServer();
@@ -179,39 +191,20 @@ export async function registerRoutes(
         return res.status(400).json({ error: depositResult.error });
       }
 
+      const pending = (balanceService as any).pendingDeposits?.get(depositToken);
+      const walletAddress = pending?.walletAddress || result.data.depositToken.split('_')[1];
+      const balance = walletAddress ? await balanceService.getBalance(walletAddress).catch(() => null) : null;
+
       res.json({
         success: true,
-        message: "Deposit confirmed",
+        message: "Deposit confirmed and credited to your balance",
         transactionId: depositResult.transactionId,
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/balance/deposit", async (req, res) => {
-    try {
-      const result = depositRequestSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({ error: "Invalid request", details: result.error.issues });
-      }
-
-      const { walletAddress, amountCents } = result.data;
-
-      const { depositToken } = await balanceService.createDepositRequest(walletAddress, amountCents);
-      const depositResult = await balanceService.confirmDeposit(depositToken);
-      if (!depositResult.success) {
-        return res.status(400).json({ error: depositResult.error });
-      }
-
-      const balance = await balanceService.getBalance(walletAddress);
-      res.json({
-        success: true,
-        message: `Deposited $${(amountCents / 100).toFixed(2)} to your balance`,
-        balance: {
-          availableCents: balance.available,
-          availableUsd: (balance.available / 100).toFixed(2),
-        }
+        ...(balance ? {
+          balance: {
+            availableCents: balance.available,
+            availableUsd: (balance.available / 100).toFixed(2),
+          }
+        } : {}),
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });

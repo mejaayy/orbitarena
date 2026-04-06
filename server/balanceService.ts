@@ -85,7 +85,7 @@ class BalanceService {
     return { depositToken };
   }
 
-  async confirmDeposit(depositToken: string, onChainTxSignature?: string): Promise<TransactionResult> {
+  async confirmDeposit(depositToken: string, onChainTxSignature: string): Promise<TransactionResult> {
     try {
       const pendingDeposit = this.pendingDeposits.get(depositToken);
       if (!pendingDeposit) {
@@ -93,15 +93,25 @@ class BalanceService {
       }
 
       const { walletAddress, amountCents } = pendingDeposit;
-      const externalRef = `confirmed_${depositToken}`;
+
+      // Idempotency: use the on-chain tx signature as the unique reference
+      const externalRef = `deposit_tx_${onChainTxSignature}`;
 
       const existingDeposit = await db.query.balanceTransactions.findFirst({
         where: eq(balanceTransactions.externalRef, externalRef),
       });
       if (existingDeposit) {
         this.pendingDeposits.delete(depositToken);
-        log(`Deposit already processed: ${externalRef}`);
+        log(`Deposit already processed for tx ${onChainTxSignature.slice(0, 16)}...`);
         return { success: true, transactionId: existingDeposit.id };
+      }
+
+      // Verify the on-chain transaction before crediting anything
+      const { verifyUSDCDeposit } = await import('./solana');
+      const verification = await verifyUSDCDeposit(onChainTxSignature, walletAddress, amountCents);
+      if (!verification.valid) {
+        log(`Deposit verification failed for ${walletAddress.slice(0, 8)}...: ${verification.error}`, 'error');
+        return { success: false, error: verification.error };
       }
 
       await this.getOrCreateBalance(walletAddress);
@@ -121,12 +131,12 @@ class BalanceService {
           deltaAvailableCents: amountCents,
           deltaLockedCents: 0,
           externalRef,
-          metadata: { source: 'on_chain_deposit', onChainTxSignature, depositToken },
+          metadata: { source: 'on_chain_verified', onChainTxSignature, depositToken },
         }).returning();
       });
 
       this.pendingDeposits.delete(depositToken);
-      log(`Deposit confirmed: ${amountCents} cents to ${walletAddress.slice(0, 8)}...`);
+      log(`Deposit verified and credited: $${(amountCents / 100).toFixed(2)} to ${walletAddress.slice(0, 8)}...`);
       return { success: true, transactionId: transaction.id };
     } catch (error: any) {
       if (error.code === '23505' && error.constraint?.includes('external_ref')) {
@@ -407,6 +417,24 @@ class BalanceService {
         return { success: false, error: 'Cannot withdraw while balance is locked in a match' };
       }
 
+      // Execute the on-chain USDC transfer first — only debit DB after it succeeds
+      const { executeUSDCWithdrawal } = await import('./solana');
+      const onChain = await executeUSDCWithdrawal(walletAddress, amountCents);
+      if (!onChain.success) {
+        log(`On-chain withdrawal failed for ${walletAddress.slice(0, 8)}...: ${onChain.error}`, 'error');
+        return { success: false, error: onChain.error };
+      }
+
+      const externalRef = `withdrawal_tx_${onChain.txSignature}`;
+
+      // Idempotency guard
+      const existing = await db.query.balanceTransactions.findFirst({
+        where: eq(balanceTransactions.externalRef, externalRef),
+      });
+      if (existing) {
+        return { success: true, transactionId: existing.id };
+      }
+
       const [transaction] = await db.transaction(async (tx) => {
         await tx.update(playerBalances)
           .set({
@@ -421,13 +449,17 @@ class BalanceService {
           transactionType: 'WITHDRAWAL' as TransactionType,
           deltaAvailableCents: -amountCents,
           deltaLockedCents: 0,
-          metadata: { amount: amountCents, status: 'pending' },
+          externalRef,
+          metadata: { amount: amountCents, status: 'completed', txSignature: onChain.txSignature },
         }).returning();
       });
 
-      log(`Withdrawal requested: ${amountCents} cents from ${walletAddress.slice(0, 8)}...`);
+      log(`Withdrawal completed: $${(amountCents / 100).toFixed(2)} from ${walletAddress.slice(0, 8)}... | tx: ${onChain.txSignature?.slice(0, 16)}...`);
       return { success: true, transactionId: transaction.id };
     } catch (error: any) {
+      if (error.code === '23505' && error.constraint?.includes('external_ref')) {
+        return { success: true };
+      }
       log(`Withdrawal failed: ${error.message}`, 'error');
       return { success: false, error: error.message };
     }
