@@ -431,12 +431,12 @@ export default function Game() {
             </div>
             <DialogTitle className="text-xl font-bold">Leave Lobby?</DialogTitle>
             <DialogDescription className="text-gray-300 text-sm leading-relaxed">
-              Your $1.00 entry fee will be refunded to your in-game balance immediately. You can rejoin the next round anytime.
+              Your $1.00 entry fee is <span className="text-white font-semibold">non-refundable</span>. Leaving now means you forfeit your entry fee and cannot rejoin this round.
             </DialogDescription>
           </DialogHeader>
-          <div className="bg-accent/10 border border-accent/20 rounded-lg p-3 my-2 text-center">
-            <div className="text-xs text-gray-400 mb-0.5">Your balance is always safe</div>
-            <div className="text-xs text-gray-500">Closing this browser tab will also refund your entry fee automatically.</div>
+          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 my-2 text-center">
+            <div className="text-xs text-destructive font-semibold mb-0.5">No Refunds</div>
+            <div className="text-xs text-gray-500">Your USDC balance is safe — only the $1.00 entry fee is forfeited.</div>
           </div>
           <DialogFooter className="sm:justify-center gap-2">
             <Button
@@ -456,7 +456,7 @@ export default function Game() {
               }}
               data-testid="button-leave-confirm"
             >
-              <LogOut className="w-4 h-4" /> Leave & Refund
+              <LogOut className="w-4 h-4" /> Leave & Forfeit
             </Button>
           </DialogFooter>
         </DialogContent>

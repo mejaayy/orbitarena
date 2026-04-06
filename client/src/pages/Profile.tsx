@@ -258,7 +258,7 @@ export default function Profile() {
 
         <div className="mt-8 p-4 bg-accent/5 border border-accent/20 rounded-xl text-center">
           <div className="text-xs text-gray-400 leading-relaxed">
-            Your USDC balance is stored securely and persists between sessions. Closing your browser never affects your funds.
+            Your USDC balance is stored securely and persists between sessions. Closing your browser never affects your funds. Note: entry fees are non-refundable once a round begins.
           </div>
         </div>
       </div>

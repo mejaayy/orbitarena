@@ -475,6 +475,45 @@ class BalanceService {
     return transactions;
   }
 
+  async forfeitLock(walletAddress: string, matchId: string): Promise<void> {
+    try {
+      const lockRef = `match_lock_${matchId}_${walletAddress}`;
+      const unlockRef = `match_unlock_${matchId}_${walletAddress}`;
+
+      const existingLock = await db.query.balanceTransactions.findFirst({
+        where: eq(balanceTransactions.externalRef, lockRef),
+      });
+      if (!existingLock) return;
+
+      const existingUnlock = await db.query.balanceTransactions.findFirst({
+        where: eq(balanceTransactions.externalRef, unlockRef),
+      });
+      if (existingUnlock) return;
+
+      await db.transaction(async (tx) => {
+        await tx.update(playerBalances)
+          .set({
+            lockedCents: sql`${playerBalances.lockedCents} - ${ENTRY_FEE_CENTS}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(playerBalances.walletAddress, walletAddress));
+
+        await tx.insert(balanceTransactions).values({
+          walletAddress,
+          transactionType: 'MATCH_UNLOCK' as TransactionType,
+          deltaAvailableCents: 0,
+          deltaLockedCents: -ENTRY_FEE_CENTS,
+          externalRef: unlockRef,
+          metadata: { matchId, reason: 'voluntary_leave_no_refund' },
+        });
+      });
+
+      log(`Entry fee forfeited (no refund) for ${maskWallet(walletAddress)} match ${matchId}`);
+    } catch (error: any) {
+      log(`Forfeit lock failed: ${error.message}`, 'error');
+    }
+  }
+
   async incrementStats(walletAddress: string, kills: number, games: number, wins: number): Promise<void> {
     try {
       await this.getOrCreateBalance(walletAddress);

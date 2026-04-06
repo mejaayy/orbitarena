@@ -1718,7 +1718,7 @@ class StakeGameRoom extends GameRoom {
   private prizePool: number = 0;
   private matchId: string = '';
   private lobbyPlayers: Map<string, { ws: WebSocket; name: string; walletAddress?: string; playerColor?: string; characterShape?: CharacterShape }> = new Map();
-  private disconnectedPlayers: Map<string, { oldPlayerId: string; player: Player; timeout: NodeJS.Timeout }> = new Map();
+  private disconnectedPlayers: Map<string, { oldPlayerId: string; snapshot: Player; timeout: NodeJS.Timeout }> = new Map();
 
   constructor(id: string) {
     super(id, true);
@@ -2013,9 +2013,9 @@ class StakeGameRoom extends GameRoom {
     if (this.lobbyPlayers.has(playerId)) {
       const playerData = this.lobbyPlayers.get(playerId);
       
-      // Release locked entry fee back to available balance
+      // Entry fee is non-refundable on voluntary leave
       if (playerData?.walletAddress) {
-        await balanceService.releaseLock(playerData.walletAddress, this.matchId);
+        await balanceService.forfeitLock(playerData.walletAddress, this.matchId);
       }
       
       this.lobbyPlayers.delete(playerId);
@@ -2050,9 +2050,9 @@ class StakeGameRoom extends GameRoom {
     if (this.lobbyPlayers.has(playerId)) {
       const playerData = this.lobbyPlayers.get(playerId);
       
-      // Release locked entry fee back to available balance
+      // Entry fee is non-refundable on disconnect from lobby
       if (playerData?.walletAddress) {
-        await balanceService.releaseLock(playerData.walletAddress, this.matchId);
+        await balanceService.forfeitLock(playerData.walletAddress, this.matchId);
       }
       
       this.lobbyPlayers.delete(playerId);
@@ -2072,16 +2072,33 @@ class StakeGameRoom extends GameRoom {
       const player = this.gameState.players.get(playerId);
       if (player && !player.isSpectator && player.walletAddress) {
         const walletKey = player.walletAddress;
+
+        // Snapshot exact state and remove from game so physics/collisions don't affect them
+        const snapshot: Player = {
+          ...player,
+          velocity: { ...player.velocity },
+          knockbackVelocity: { ...player.knockbackVelocity },
+          inputVector: { ...player.inputVector },
+        };
+        this.gameState.players.delete(playerId);
+        this.clients.delete(playerId);
+
         const timeout = setTimeout(() => {
           if (this.disconnectedPlayers.has(walletKey)) {
             this.disconnectedPlayers.delete(walletKey);
-            const p = this.gameState.players.get(playerId);
-            if (p) p.isSpectator = true;
-            log(`Player ${player.name} reconnect grace expired - forfeited`, 'room');
+            // Re-add as spectator after grace period expires
+            snapshot.id = playerId;
+            snapshot.isSpectator = true;
+            snapshot.velocity = { x: 0, y: 0 };
+            snapshot.knockbackVelocity = { x: 0, y: 0 };
+            this.gameState.players.set(playerId, snapshot);
+            log(`Player ${snapshot.name} reconnect grace expired - forfeited`, 'room');
           }
         }, RECONNECT_GRACE_MS);
-        this.disconnectedPlayers.set(walletKey, { oldPlayerId: playerId, player, timeout });
+
+        this.disconnectedPlayers.set(walletKey, { oldPlayerId: playerId, snapshot, timeout });
         log(`Player ${player.name} disconnected - ${RECONNECT_GRACE_MS / 1000}s reconnect window open`, 'room');
+        return;
       }
       this.clients.delete(playerId);
       return;
@@ -2097,19 +2114,23 @@ class StakeGameRoom extends GameRoom {
     clearTimeout(entry.timeout);
     this.disconnectedPlayers.delete(walletAddress);
 
-    // Swap the player to the new connection ID
-    const player = entry.player;
-    this.gameState.players.delete(entry.oldPlayerId);
-    player.id = newPlayerId;
-    player.isSpectator = false;
-    this.gameState.players.set(newPlayerId, player);
+    // Restore player from snapshot with frozen state (exact HP/position/energy at disconnect)
+    const restoredPlayer: Player = {
+      ...entry.snapshot,
+      id: newPlayerId,
+      isSpectator: false,
+      velocity: { ...entry.snapshot.velocity },
+      knockbackVelocity: { x: 0, y: 0 },
+      inputVector: { x: 0, y: 0 },
+    };
+    this.gameState.players.set(newPlayerId, restoredPlayer);
     this.clients.set(newPlayerId, ws);
 
     this.send(ws, {
       type: 'JOINED',
       payload: {
         playerId: newPlayerId,
-        player,
+        player: restoredPlayer,
         roomId: this.id,
         pickups: this.gameState.pickups,
         roundStartTime: this.roundStartTime,
@@ -2119,7 +2140,7 @@ class StakeGameRoom extends GameRoom {
       }
     });
 
-    log(`Player ${player.name} successfully reconnected to ${this.id}`, 'room');
+    log(`Player ${restoredPlayer.name} reconnected to ${this.id} — HP:${restoredPlayer.hp} pos:(${Math.round(restoredPlayer.x)},${Math.round(restoredPlayer.y)})`, 'room');
     return true;
   }
 
