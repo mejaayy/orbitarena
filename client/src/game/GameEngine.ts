@@ -115,7 +115,7 @@ export class GameEngine {
   private currentFps: number = 60;
   private localInputVector: Point = { x: 0, y: 0 };
   private lastInputSendTime: number = 0;
-  private inputSendInterval: number = 33;
+  private inputSendInterval: number = 40;
   private mouseScreenX: number = -1;
   private mouseScreenY: number = -1;
   private isMobile: boolean = window.innerWidth < 768 || 'ontouchstart' in window;
