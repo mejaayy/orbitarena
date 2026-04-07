@@ -6,8 +6,33 @@ import { Leaderboard } from '@/components/game/Leaderboard';
 import { GameEngine, RoundStatus, RoundEndData } from '@/game/GameEngine';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Trophy, Home, RotateCcw, LogOut, Coins, AlertCircle, Users, Timer, Award } from 'lucide-react';
+import { Trophy, Home, RotateCcw, LogOut, Coins, AlertCircle, Users, Timer, Award, Share2, Download } from 'lucide-react';
 import { EXIT_FEE_PERCENT } from '@/lib/phantom';
+
+function rrect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function dlBlob(blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'orbit-arena-result.png';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
@@ -42,6 +67,7 @@ export default function Game() {
   const prevPlayerCountRef = useRef<number>(0);
   const [prizeFlash, setPrizeFlash] = useState(false);
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [shareState, setShareState] = useState<'idle' | 'working' | 'done'>('idle');
 
   const initialParams = useRef(() => {
     const raw = sessionStorage.getItem('orbit-arena-session');
@@ -155,6 +181,122 @@ export default function Game() {
   const handleExit = () => {
     setLocation('/');
   };
+
+  const handleShare = useCallback(async () => {
+    const myResult = roundEndData?.standings.find(s => s.playerId === engine?.localPlayerId);
+    if (!myResult || !roundEndData) return;
+    setShareState('working');
+    try {
+      const W = 1200, H = 630;
+      const cv = document.createElement('canvas');
+      cv.width = W; cv.height = H;
+      const ctx = cv.getContext('2d')!;
+
+      ctx.fillStyle = '#080812';
+      ctx.fillRect(0, 0, W, H);
+
+      const glow = ctx.createRadialGradient(W * 0.35, H * 0.5, 0, W * 0.35, H * 0.5, 480);
+      glow.addColorStop(0, 'rgba(90,50,200,0.22)');
+      glow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.strokeStyle = 'rgba(120,80,255,0.10)';
+      ctx.lineWidth = 55;
+      ctx.beginPath(); ctx.arc(W - 80, -60, 420, 0, Math.PI * 2); ctx.stroke();
+      ctx.lineWidth = 30;
+      ctx.strokeStyle = 'rgba(120,80,255,0.07)';
+      ctx.beginPath(); ctx.arc(100, H + 70, 340, 0, Math.PI * 2); ctx.stroke();
+
+      const bar = ctx.createLinearGradient(0, 0, 0, H);
+      bar.addColorStop(0, 'rgba(140,90,255,0.9)');
+      bar.addColorStop(1, 'rgba(140,90,255,0)');
+      ctx.fillStyle = bar;
+      ctx.fillRect(0, 0, 5, H);
+
+      const dots: [number, number][] = [[60,40],[190,95],[320,28],[510,55],[680,18],[820,70],[950,35],[1100,80],[130,180],[370,220],[590,160],[800,205],[1080,155],[160,330],[430,370],[720,295],[1020,340],[210,490],[490,510],[780,470],[1090,500],[90,570],[410,595],[760,560],[1120,580]];
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      dots.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 1, 0, Math.PI * 2); ctx.fill(); });
+
+      const sans = '-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif';
+
+      ctx.font = `bold 20px ${sans}`;
+      ctx.fillStyle = 'rgba(160,130,255,0.65)';
+      ctx.fillText('ORBIT ARENA', 64, 68);
+
+      const rank = myResult.rank;
+      const rankLabel = rank === 1 ? '1ST PLACE' : rank === 2 ? '2ND PLACE' : rank === 3 ? '3RD PLACE' : `#${rank} PLACE`;
+      const rankColor = rank === 1 ? '#FFD700' : rank === 2 ? '#C0C0C0' : rank === 3 ? '#CD7F32' : '#666';
+
+      ctx.font = `900 100px ${sans}`;
+      ctx.fillStyle = rankColor;
+      ctx.fillText(rankLabel, 60, 210);
+
+      ctx.font = `600 50px ${sans}`;
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.fillText(myResult.name, 60, 285);
+
+      ctx.font = `400 28px ${sans}`;
+      ctx.fillStyle = 'rgba(180,160,220,0.65)';
+      ctx.fillText(`${myResult.score} kill${myResult.score !== 1 ? 's' : ''}   ·   ${roundEndData.standings.length} players`, 60, 345);
+
+      if (myResult.prize > 0) {
+        ctx.save();
+        rrect(ctx, 44, 378, 480, 96, 14);
+        ctx.fillStyle = 'rgba(120,80,255,0.18)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(140,90,255,0.45)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+        ctx.font = `900 68px ${sans}`;
+        ctx.fillStyle = '#a78bfa';
+        ctx.fillText(`+$${myResult.prize.toFixed(2)} USDC`, 64, 444);
+        ctx.font = `400 20px ${sans}`;
+        ctx.fillStyle = 'rgba(160,140,200,0.55)';
+        ctx.fillText('credited to in-game balance', 64, 468);
+      } else {
+        ctx.font = `400 26px ${sans}`;
+        ctx.fillStyle = 'rgba(150,140,180,0.45)';
+        ctx.fillText('Top 3 earn USDC — try again!', 60, 430);
+      }
+
+      const sep = ctx.createLinearGradient(60, 0, 680, 0);
+      sep.addColorStop(0, 'rgba(130,85,255,0.45)');
+      sep.addColorStop(1, 'rgba(130,85,255,0)');
+      ctx.fillStyle = sep;
+      ctx.fillRect(60, 548, 680, 1);
+
+      ctx.font = `500 24px ${sans}`;
+      ctx.fillStyle = 'rgba(140,120,200,0.5)';
+      ctx.fillText(window.location.origin, 60, 590);
+
+      ctx.textAlign = 'right';
+      ctx.font = `600 26px ${sans}`;
+      ctx.fillStyle = 'rgba(160,130,255,0.65)';
+      ctx.fillText('Can you beat me? →', W - 60, 590);
+      ctx.textAlign = 'left';
+
+      cv.toBlob(async (blob) => {
+        setShareState('done');
+        setTimeout(() => setShareState('idle'), 3000);
+        if (!blob) return;
+        const file = new File([blob], 'orbit-arena-result.png', { type: 'image/png' });
+        const shareText = `I finished ${rankLabel} in Orbit Arena!${myResult.prize > 0 ? ` Won $${myResult.prize.toFixed(2)} USDC!` : ''} Come play:`;
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+          try {
+            await navigator.share({ title: 'Orbit Arena', text: shareText, url: window.location.origin, files: [file] });
+          } catch {
+            dlBlob(blob);
+          }
+        } else {
+          dlBlob(blob);
+        }
+      }, 'image/png');
+    } catch (e) {
+      setShareState('idle');
+    }
+  }, [roundEndData, engine]);
 
   const handleLeaveStart = useCallback(() => {
     if (isStakeMode && roundStatus?.roundState === 'PLAYING') {
@@ -614,9 +756,24 @@ export default function Game() {
             })}
           </div>
 
-          <DialogFooter className="sm:justify-center gap-2">
+          <DialogFooter className="sm:justify-center gap-2 flex-wrap">
             <Button variant="outline" onClick={handleExit} className="gap-2" data-testid="button-exit-round">
               <Home className="w-4 h-4" /> Exit
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleShare}
+              disabled={shareState === 'working'}
+              className="gap-2 border-purple-500/50 text-purple-300 hover:bg-purple-500/20"
+              data-testid="button-share-result"
+            >
+              {shareState === 'working' ? (
+                <><div className="w-4 h-4 border-2 border-purple-400/50 border-t-purple-400 rounded-full animate-spin" /> Generating…</>
+              ) : shareState === 'done' ? (
+                <><Download className="w-4 h-4" /> Saved!</>
+              ) : (
+                <><Share2 className="w-4 h-4" /> Share Result</>
+              )}
             </Button>
             <Button onClick={handleRestart} className="gap-2 bg-primary hover:bg-primary/90 text-white" data-testid="button-next-round">
               <RotateCcw className="w-4 h-4" /> Join Next Round
