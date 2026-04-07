@@ -290,7 +290,8 @@ class BalanceService {
 
   async settlePayouts(
     matchId: string,
-    standings: Array<{ walletAddress: string; rank: number; name: string; score: number }>
+    standings: Array<{ walletAddress: string; rank: number; name: string; score: number }>,
+    prizes?: { first: number; second: number; third: number }
   ): Promise<TransactionResult> {
     try {
       const existingPayout = await db.query.balanceTransactions.findFirst({
@@ -334,10 +335,13 @@ class BalanceService {
             continue;
           }
 
+          const prize1stCents = prizes ? Math.round(prizes.first * 100) : PRIZE_1ST_CENTS;
+          const prize2ndCents = prizes ? Math.round(prizes.second * 100) : PRIZE_2ND_CENTS;
+          const prize3rdCents = prizes ? Math.round(prizes.third * 100) : PRIZE_3RD_CENTS;
           let prizeCents = 0;
-          if (standing.rank === 1) prizeCents = PRIZE_1ST_CENTS;
-          else if (standing.rank === 2) prizeCents = PRIZE_2ND_CENTS;
-          else if (standing.rank === 3) prizeCents = PRIZE_3RD_CENTS;
+          if (standing.rank === 1) prizeCents = prize1stCents;
+          else if (standing.rank === 2) prizeCents = prize2ndCents;
+          else if (standing.rank === 3) prizeCents = prize3rdCents;
 
           const currentBalance = await tx.query.playerBalances.findFirst({
             where: eq(playerBalances.walletAddress, standing.walletAddress),

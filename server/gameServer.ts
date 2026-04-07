@@ -134,15 +134,23 @@ const SQUARE_AURA_PLAYER_SLOW = 0.75;
 const SQUARE_AURA_TIMER_SLOW = 0.7;
 
 // Stake mode constants
+const MIN_PLAYERS_TO_START = 3;
+const MAX_STAKE_PLAYERS = 15;
 const ENTRY_FEE = 1.00;
 const PLATFORM_FEE = 0.10;
 const PRIZE_CONTRIBUTION = 0.90;
 const ROUND_DURATION = 180000; // 3 minutes in ms
-const COUNTDOWN_DURATION = 3000; // 3 seconds
-const PRIZE_1ST = 4.00;
-const PRIZE_2ND = 3.00;
-const PRIZE_3RD = 2.00;
-const TOTAL_PRIZE_POOL = PRIZE_1ST + PRIZE_2ND + PRIZE_3RD; // $9.00
+const COUNTDOWN_DURATION = 60000; // 60 seconds lobby countdown
+
+// Prizes scale with player count: pool = players * $0.90, split 4:3:2
+function computePrizes(playerCount: number): { first: number; second: number; third: number } {
+  const pool = playerCount * PRIZE_CONTRIBUTION;
+  return {
+    first:  Math.round(pool * 4 / 9 * 100) / 100,
+    second: Math.round(pool * 3 / 9 * 100) / 100,
+    third:  Math.round(pool * 2 / 9 * 100) / 100,
+  };
+}
 
 const BOT_NAMES = ['Orby', 'Cosmo', 'Nebula', 'Quasar', 'Nova', 'Comet', 'Astro', 'Lunar'];
 const BOT_SHAPES: CharacterShape[] = ['circle', 'triangle', 'square'];
@@ -1716,6 +1724,7 @@ class StakeGameRoom extends GameRoom {
   private countdownTimeout: NodeJS.Timeout | null = null;
   private roundEndTimeout: NodeJS.Timeout | null = null;
   private prizePool: number = 0;
+  private roundPrizes: { first: number; second: number; third: number } = { first: 4, second: 3, third: 2 };
   private matchId: string = '';
   private lobbyPlayers: Map<string, { ws: WebSocket; name: string; walletAddress?: string; playerColor?: string; characterShape?: CharacterShape }> = new Map();
   private disconnectedPlayers: Map<string, { oldPlayerId: string; timeout: NodeJS.Timeout }> = new Map();
@@ -1735,7 +1744,7 @@ class StakeGameRoom extends GameRoom {
   }
 
   isFull(): boolean {
-    return this.lobbyPlayers.size >= MAX_PLAYERS_PER_ROOM;
+    return this.lobbyPlayers.size >= MAX_STAKE_PLAYERS;
   }
 
   isEmpty(): boolean {
@@ -1760,7 +1769,7 @@ class StakeGameRoom extends GameRoom {
       return false;
     }
 
-    if (this.lobbyPlayers.size >= MAX_PLAYERS_PER_ROOM) {
+    if (this.lobbyPlayers.size >= MAX_STAKE_PLAYERS) {
       return false;
     }
 
@@ -1793,6 +1802,7 @@ class StakeGameRoom extends GameRoom {
     });
 
     // Send lobby info
+    const joinPrizes = computePrizes(this.lobbyPlayers.size);
     this.send(ws, {
       type: 'JOINED',
       payload: { 
@@ -1800,18 +1810,27 @@ class StakeGameRoom extends GameRoom {
         roomId: this.id, 
         isLobby: true,
         playerCount: this.lobbyPlayers.size,
-        maxPlayers: MAX_PLAYERS_PER_ROOM,
-        prizePool: TOTAL_PRIZE_POOL
+        maxPlayers: MAX_STAKE_PLAYERS,
+        minPlayers: MIN_PLAYERS_TO_START,
+        prizePool: this.lobbyPlayers.size * PRIZE_CONTRIBUTION,
+        prizes: joinPrizes
       }
     });
 
-    this.broadcastRoundStatus();
+    log(`Player ${payload.name} joined stake lobby ${this.id}. Lobby: ${this.lobbyPlayers.size}/${MAX_STAKE_PLAYERS}`, 'room');
 
-    log(`Player ${payload.name} joined stake lobby ${this.id}. Lobby: ${this.lobbyPlayers.size}/${MAX_PLAYERS_PER_ROOM}`, 'room');
-
-    // Check if lobby is full
-    if (this.lobbyPlayers.size >= MAX_PLAYERS_PER_ROOM) {
+    // If lobby is full, start round immediately
+    if (this.lobbyPlayers.size >= MAX_STAKE_PLAYERS) {
+      if (this.countdownTimeout) {
+        clearTimeout(this.countdownTimeout);
+        this.countdownTimeout = null;
+      }
+      this.startRound();
+    } else if (this.lobbyPlayers.size >= MIN_PLAYERS_TO_START && this.roundState === 'LOBBY') {
+      // Enough players to start the countdown timer
       this.startCountdown();
+    } else {
+      this.broadcastRoundStatus();
     }
 
     return true;
@@ -1822,9 +1841,8 @@ class StakeGameRoom extends GameRoom {
 
     this.roundState = 'COUNTDOWN';
     this.countdownStartTime = Date.now();
-    this.prizePool = TOTAL_PRIZE_POOL;
 
-    log(`Starting ${COUNTDOWN_DURATION/1000}s countdown for stake room ${this.id}. Prize pool: $${this.prizePool.toFixed(2)}`, 'room');
+    log(`Starting ${COUNTDOWN_DURATION/1000}s countdown for stake room ${this.id} with ${this.lobbyPlayers.size} players`, 'room');
 
     this.broadcastRoundStatus();
 
@@ -1846,7 +1864,9 @@ class StakeGameRoom extends GameRoom {
   private startRound() {
     this.roundState = 'PLAYING';
     this.roundStartTime = Date.now();
-    this.prizePool = TOTAL_PRIZE_POOL;
+    this.roundPrizes = computePrizes(this.lobbyPlayers.size);
+    this.prizePool = this.roundPrizes.first + this.roundPrizes.second + this.roundPrizes.third;
+    log(`Round starting with ${this.lobbyPlayers.size} players. Prize pool: $${this.prizePool.toFixed(2)} (1st: $${this.roundPrizes.first} | 2nd: $${this.roundPrizes.second} | 3rd: $${this.roundPrizes.third})`, 'room');
 
     // Reset pickups
     this.gameState.pickups = [];
@@ -1952,7 +1972,7 @@ class StakeGameRoom extends GameRoom {
       }));
 
     // Process payouts via balance service (idempotent)
-    await balanceService.settlePayouts(this.matchId, standings);
+    await balanceService.settlePayouts(this.matchId, standings, this.roundPrizes);
 
     // Update lifetime stats for all participants
     for (let i = 0; i < sortedByScore.length; i++) {
@@ -1976,7 +1996,7 @@ class StakeGameRoom extends GameRoom {
           playerId: p.id,
           name: p.name,
           score: p.score,
-          prize: i === 0 ? PRIZE_1ST : i === 1 ? PRIZE_2ND : i === 2 ? PRIZE_3RD : 0
+          prize: i === 0 ? this.roundPrizes.first : i === 1 ? this.roundPrizes.second : i === 2 ? this.roundPrizes.third : 0
         })),
         prizePool: this.prizePool
       }
@@ -2025,14 +2045,19 @@ class StakeGameRoom extends GameRoom {
       }
       
       this.lobbyPlayers.delete(playerId);
-      log(`Player left stake lobby ${this.id}. Lobby: ${this.lobbyPlayers.size}/${MAX_PLAYERS_PER_ROOM}`, 'room');
+      log(`Player left stake lobby ${this.id}. Lobby: ${this.lobbyPlayers.size}/${MAX_STAKE_PLAYERS}`, 'room');
       
-      // Cancel countdown if in countdown phase
       if (this.roundState === 'COUNTDOWN') {
-        this.cancelCountdown();
+        if (this.lobbyPlayers.size < MIN_PLAYERS_TO_START) {
+          // Too few players — cancel the countdown
+          this.cancelCountdown();
+        } else {
+          // Still enough players, just update the prize pool display
+          this.broadcastRoundStatus();
+        }
+      } else {
+        this.broadcastRoundStatus();
       }
-      
-      this.broadcastRoundStatus();
       return true;
     }
 
@@ -2062,14 +2087,17 @@ class StakeGameRoom extends GameRoom {
       }
       
       this.lobbyPlayers.delete(playerId);
-      log(`Player disconnected from stake lobby ${this.id}. Lobby: ${this.lobbyPlayers.size}/${MAX_PLAYERS_PER_ROOM}`, 'room');
+      log(`Player disconnected from stake lobby ${this.id}. Lobby: ${this.lobbyPlayers.size}/${MAX_STAKE_PLAYERS}`, 'room');
       
-      // Cancel countdown if in countdown phase
       if (this.roundState === 'COUNTDOWN') {
-        this.cancelCountdown();
+        if (this.lobbyPlayers.size < MIN_PLAYERS_TO_START) {
+          this.cancelCountdown();
+        } else {
+          this.broadcastRoundStatus();
+        }
+      } else {
+        this.broadcastRoundStatus();
       }
-      
-      this.broadcastRoundStatus();
       return;
     }
 
@@ -2249,15 +2277,17 @@ class StakeGameRoom extends GameRoom {
   }
 
   private broadcastRoundStatus() {
+    const prizes = computePrizes(this.lobbyPlayers.size);
     const status = {
       roundState: this.roundState,
       playerCount: this.lobbyPlayers.size,
-      maxPlayers: MAX_PLAYERS_PER_ROOM,
-      prizePool: TOTAL_PRIZE_POOL,
+      maxPlayers: MAX_STAKE_PLAYERS,
+      minPlayers: MIN_PLAYERS_TO_START,
+      prizePool: this.lobbyPlayers.size * PRIZE_CONTRIBUTION,
       countdownRemaining: this.roundState === 'COUNTDOWN' 
         ? Math.max(0, COUNTDOWN_DURATION - (Date.now() - this.countdownStartTime))
         : 0,
-      prizes: { first: PRIZE_1ST, second: PRIZE_2ND, third: PRIZE_3RD }
+      prizes,
     };
 
     // Broadcast to lobby players
@@ -2609,7 +2639,7 @@ export class GameServer {
       stats.push({
         id: room.id,
         players: room.getPlayerCount(),
-        maxPlayers: MAX_PLAYERS_PER_ROOM,
+        maxPlayers: MAX_STAKE_PLAYERS,
         isStakeMode: true,
         roundState: room.getRoundState()
       });

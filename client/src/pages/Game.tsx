@@ -38,6 +38,10 @@ export default function Game() {
   const leaveStartRef = useRef<number>(0);
   const isHoldingQRef = useRef<boolean>(false);
   const isMobile = useIsMobile();
+  const [liveCountdownSecs, setLiveCountdownSecs] = useState(60);
+  const prevPlayerCountRef = useRef<number>(0);
+  const [prizeFlash, setPrizeFlash] = useState(false);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const initialParams = useRef(() => {
     const raw = sessionStorage.getItem('orbit-arena-session');
@@ -84,6 +88,35 @@ export default function Game() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isStakeMode]);
+
+  useEffect(() => {
+    if (roundStatus?.roundState !== 'COUNTDOWN') {
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
+      return;
+    }
+    setLiveCountdownSecs(Math.ceil(roundStatus.countdownRemaining / 1000));
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    countdownIntervalRef.current = setInterval(() => {
+      setLiveCountdownSecs(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => {
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    };
+  }, [roundStatus?.roundState, Math.floor((roundStatus?.countdownRemaining ?? 0) / 10000)]);
+
+  useEffect(() => {
+    if (!roundStatus) return;
+    const count = roundStatus.playerCount;
+    if (count > prevPlayerCountRef.current && prevPlayerCountRef.current > 0) {
+      setPrizeFlash(true);
+      const t = setTimeout(() => setPrizeFlash(false), 500);
+      return () => clearTimeout(t);
+    }
+    prevPlayerCountRef.current = count;
+  }, [roundStatus?.playerCount]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -206,35 +239,94 @@ export default function Game() {
       
       {isInLobby && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-20 p-4">
-          <div className="bg-card/95 backdrop-blur-xl border border-white/10 rounded-2xl p-4 md:p-8 max-w-md w-full text-center">
-            <div className="mx-auto w-16 h-16 bg-accent/20 rounded-full flex items-center justify-center mb-4">
-              <Users className="w-8 h-8 text-accent" />
+          <div className="bg-card/95 backdrop-blur-xl border border-white/10 rounded-2xl p-6 max-w-sm w-full text-center">
+            <div className="text-[10px] font-bold tracking-widest uppercase text-accent/60 mb-5">
+              Tournament Lobby
             </div>
-            
-            <h2 className="text-2xl font-bold mb-2">
-              {roundStatus.roundState === 'COUNTDOWN' ? 'Round Starting!' : 'Waiting for Players'}
-            </h2>
-            
-            <div className="text-6xl font-mono font-bold text-primary my-6">
-              {roundStatus.roundState === 'COUNTDOWN' 
-                ? Math.ceil(roundStatus.countdownRemaining / 1000)
-                : `${roundStatus.playerCount}/${roundStatus.maxPlayers}`}
-            </div>
-            
-            {roundStatus.roundState === 'LOBBY' && (
-              <p className="text-gray-400 mb-4">
-                Waiting for {roundStatus.maxPlayers - roundStatus.playerCount} more player{roundStatus.maxPlayers - roundStatus.playerCount !== 1 ? 's' : ''}
-              </p>
-            )}
-            
-            <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 mb-6">
-              <div className="text-sm text-gray-400 mb-1">Prize Pool</div>
-              <div className="text-3xl font-mono font-bold text-accent">${(roundStatus.prizes.first + roundStatus.prizes.second + roundStatus.prizes.third).toFixed(2)}</div>
-              <div className="text-xs text-gray-500 mt-2">
-                1st: ${roundStatus.prizes.first} | 2nd: ${roundStatus.prizes.second} | 3rd: ${roundStatus.prizes.third}
+
+            {roundStatus.roundState === 'COUNTDOWN' ? (
+              <div className="relative mx-auto mb-5" style={{ width: 120, height: 120 }}>
+                <svg width="120" height="120" viewBox="0 0 120 120" style={{ transform: 'rotate(-90deg)' }}>
+                  <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="7" />
+                  <circle
+                    cx="60" cy="60" r="52"
+                    fill="none"
+                    className="text-accent"
+                    stroke="currentColor"
+                    strokeWidth="7"
+                    strokeLinecap="round"
+                    strokeDasharray={`${2 * Math.PI * 52}`}
+                    strokeDashoffset={`${2 * Math.PI * 52 * (1 - Math.max(0, liveCountdownSecs) / 60)}`}
+                    style={{ transition: 'stroke-dashoffset 1s linear' }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <div className="text-4xl font-mono font-bold text-white leading-none">{liveCountdownSecs}</div>
+                  <div className="text-[10px] text-gray-400 mt-1">seconds</div>
+                </div>
               </div>
+            ) : (
+              <div
+                className="mx-auto mb-5 flex flex-col items-center justify-center rounded-full bg-white/5 border border-white/10"
+                style={{ width: 120, height: 120 }}
+              >
+                <Users className="w-8 h-8 text-gray-500 mb-1" />
+                <div className="text-sm font-bold text-white">
+                  {Math.max(0, (roundStatus.minPlayers ?? 3) - roundStatus.playerCount)} more
+                </div>
+                <div className="text-[10px] text-gray-500">to start timer</div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap justify-center gap-1.5 mb-2">
+              {Array.from({ length: roundStatus.maxPlayers }, (_, i) => {
+                const filled = i < roundStatus.playerCount;
+                const isThreshold = i === (roundStatus.minPlayers ?? 3) - 1;
+                return (
+                  <div
+                    key={i}
+                    className={`rounded-full transition-all duration-300 ${
+                      filled
+                        ? 'w-3 h-3 bg-accent'
+                        : isThreshold && !filled
+                        ? 'w-3 h-3 border border-accent/40 bg-transparent'
+                        : 'w-2.5 h-2.5 bg-white/10'
+                    }`}
+                  />
+                );
+              })}
             </div>
-            
+
+            <div className="text-xs text-gray-500 mb-4">
+              <span className="text-white font-medium">{roundStatus.playerCount}</span>/{roundStatus.maxPlayers} players
+              {roundStatus.roundState === 'LOBBY' && roundStatus.playerCount < (roundStatus.minPlayers ?? 3) ? (
+                <span className="text-accent/60"> · {(roundStatus.minPlayers ?? 3) - roundStatus.playerCount} more to start</span>
+              ) : roundStatus.roundState === 'COUNTDOWN' && roundStatus.playerCount < roundStatus.maxPlayers ? (
+                <span className="text-accent/50"> · more players = bigger prizes</span>
+              ) : null}
+            </div>
+
+            <div className="bg-accent/10 border border-accent/20 rounded-xl p-4 mb-5">
+              <div className="text-[10px] font-semibold tracking-wider uppercase text-accent/60 mb-1">Prize Pool</div>
+              <div
+                className="text-3xl font-mono font-bold text-accent"
+                style={{
+                  transition: 'transform 0.2s ease',
+                  transform: prizeFlash ? 'scale(1.12)' : 'scale(1)',
+                }}
+              >
+                ${(roundStatus.prizes.first + roundStatus.prizes.second + roundStatus.prizes.third).toFixed(2)}
+              </div>
+              <div className="flex justify-center gap-3 text-xs text-gray-500 mt-2">
+                <span>1st <span className="text-white font-medium">${roundStatus.prizes.first.toFixed(2)}</span></span>
+                <span>2nd <span className="text-white font-medium">${roundStatus.prizes.second.toFixed(2)}</span></span>
+                <span>3rd <span className="text-white font-medium">${roundStatus.prizes.third.toFixed(2)}</span></span>
+              </div>
+              {roundStatus.playerCount > 0 && roundStatus.playerCount < roundStatus.maxPlayers && (
+                <div className="text-[10px] text-accent/40 mt-1.5">+$0.90 per player who joins</div>
+              )}
+            </div>
+
             <Button
               variant="outline"
               onClick={() => setShowLeaveConfirm(true)}

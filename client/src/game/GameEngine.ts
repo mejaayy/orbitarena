@@ -58,6 +58,7 @@ export interface RoundStatus {
   roundState: RoundState;
   playerCount: number;
   maxPlayers: number;
+  minPlayers?: number;
   prizePool: number;
   countdownRemaining: number;
   timeRemaining?: number;
@@ -342,6 +343,7 @@ export class GameEngine {
             roundState: 'LOBBY',
             playerCount: message.payload.playerCount,
             maxPlayers: message.payload.maxPlayers,
+            minPlayers: message.payload.minPlayers ?? 3,
             prizePool: message.payload.prizePool,
             countdownRemaining: 0,
             prizes: message.payload.prizes ?? { first: 4.00, second: 3.00, third: 2.00 }

@@ -671,7 +671,7 @@ export default function Lobby() {
                   
                   <div className="text-xs text-gray-500 space-y-1">
                     <p>Pay entry fee to compete for prizes!</p>
-                    <p>1st: $4 | 2nd: $3 | 3rd: $2</p>
+                    <p>Prizes grow with each player · up to 1st: $6 | 2nd: $4.50 | 3rd: $3</p>
                   </div>
                 </div>
               )}

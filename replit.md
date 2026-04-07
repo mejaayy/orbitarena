@@ -99,21 +99,20 @@ The game uses an off-chain balance ledger for stake mode:
 Stake mode uses a round-based tournament structure (StakeGameRoom class):
 
 **Round States:**
-- `LOBBY`: Waiting for 15 players, shows player count and prize pool
-- `COUNTDOWN`: 3-second countdown after lobby fills (resets if anyone leaves)
-- `PLAYING`: 2-minute active game round
+- `LOBBY`: Waiting for 3–15 players, shows player count and growing prize pool
+- `COUNTDOWN`: 60-second countdown starts when 3+ players join (resets only if count drops below 3); 15 players triggers immediate start
+- `PLAYING`: 3-minute active game round
 - `ENDED`: Shows standings and payouts, then resets to LOBBY
 
-**Entry & Prize Pool:**
+**Entry & Prize Pool (Dynamic):**
 - $1 USDC entry fee per player
 - $0.10 platform fee (kept by platform)
 - $0.90 per player goes to prize pool
-- Prize pool = numberOfPlayers × $0.90 = $13.50 for 15 players
+- Prize pool scales: `players × $0.90`
+- Prizes split 44% / 33% / 22% of pool
 
-**Payouts (Fixed Amounts):**
-- 1st Place: $4.00
-- 2nd Place: $3.00
-- 3rd Place: $2.00
+**Payouts at 15 players:**
+- 1st Place: $6.00 · 2nd Place: $4.50 · 3rd Place: $3.00
 
 **Key Rules:**
 - Round lasts 3 minutes OR ends when only 1 player remains
