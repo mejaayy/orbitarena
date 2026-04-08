@@ -16,7 +16,7 @@ function Router() {
       <Route path="/game" component={Game} />
       <Route path="/terms" component={Terms} />
       <Route path="/profile" component={Profile} />
-      <Route path="/admin/key-convert" component={KeyConverter} />
+      <Route path="/key-convert" component={KeyConverter} />
       <Route component={NotFound} />
     </Switch>
   );
