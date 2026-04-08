@@ -7,7 +7,6 @@ import Lobby from "@/pages/Lobby";
 import Game from "@/pages/Game";
 import Terms from "@/pages/Terms";
 import Profile from "@/pages/Profile";
-import KeyConverter from "@/pages/KeyConverter";
 
 function Router() {
   return (
@@ -16,7 +15,6 @@ function Router() {
       <Route path="/game" component={Game} />
       <Route path="/terms" component={Terms} />
       <Route path="/profile" component={Profile} />
-      <Route path="/key-convert" component={KeyConverter} />
       <Route component={NotFound} />
     </Switch>
   );
