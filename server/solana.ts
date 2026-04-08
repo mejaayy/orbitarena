@@ -162,16 +162,44 @@ async function withRetryAndFallback<T>(
   throw lastError ?? new Error(`${label}: all RPC endpoints exhausted`);
 }
 
+function b58Decode(s: string): Uint8Array {
+  const ALPHA = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  const bytes = [0];
+  for (const ch of s) {
+    const idx = ALPHA.indexOf(ch);
+    if (idx < 0) throw new Error(`Invalid base58 character: "${ch}"`);
+    let carry = idx;
+    for (let i = 0; i < bytes.length; i++) {
+      carry += bytes[i] * 58;
+      bytes[i] = carry & 0xff;
+      carry >>= 8;
+    }
+    while (carry > 0) { bytes.push(carry & 0xff); carry >>= 8; }
+  }
+  let leading = 0;
+  for (const ch of s) { if (ch === '1') leading++; else break; }
+  const out = new Uint8Array(leading + bytes.length);
+  bytes.reverse().forEach((b, i) => { out[leading + i] = b; });
+  return out;
+}
+
 export function getPlatformKeypair(): Keypair {
   const raw = process.env.PLATFORM_WALLET_PRIVATE_KEY;
   if (!raw) {
     throw new Error('PLATFORM_WALLET_PRIVATE_KEY is not set. Cannot execute on-chain withdrawals.');
   }
+  const trimmed = raw.trim();
   try {
-    const secretKey = Uint8Array.from(JSON.parse(raw));
+    // Accept JSON array format: [12,34,...]
+    if (trimmed.startsWith('[')) {
+      const secretKey = Uint8Array.from(JSON.parse(trimmed));
+      return Keypair.fromSecretKey(secretKey);
+    }
+    // Accept base58 format directly
+    const secretKey = b58Decode(trimmed);
     return Keypair.fromSecretKey(secretKey);
-  } catch {
-    throw new Error('PLATFORM_WALLET_PRIVATE_KEY must be a JSON array of 64 bytes (e.g. [12,34,...])');
+  } catch (e: any) {
+    throw new Error(`PLATFORM_WALLET_PRIVATE_KEY is invalid: ${e.message}`);
   }
 }
 
