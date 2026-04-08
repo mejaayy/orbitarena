@@ -139,7 +139,7 @@ export function ResultCard() {
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontSize: "clamp(8px, 2%, 24px)", color: "rgba(140,120,200,0.5)" }}>
-              orbit-arena.replit.app
+              orbitarena.replit.app
             </div>
             <div style={{ fontSize: "clamp(8px, 2.2%, 26px)", fontWeight: 600, color: "rgba(160,130,255,0.65)" }}>
               Can you beat me? →
