@@ -44,9 +44,8 @@ export default function KeyConverter() {
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
     if (!token) { setChecking(false); return; }
-    fetch('/api/admin/auth/status', { headers: { 'X-Admin-Token': token } })
-      .then(r => r.json())
-      .then(d => { if (d.authenticated) setAuthed(true); })
+    fetch('/api/admin/settings', { headers: { 'X-Admin-Token': token } })
+      .then(r => { if (r.ok) setAuthed(true); })
       .catch(() => {})
       .finally(() => setChecking(false));
   }, []);
