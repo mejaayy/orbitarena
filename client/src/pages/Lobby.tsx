@@ -56,6 +56,7 @@ export default function Lobby() {
   const [isStakeMode, setIsStakeMode] = useState(false);
   const mountTimeRef = useRef(Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [serverStatus, setServerStatus] = useState<{ playerCount: number; maxPlayers: number; roomCount: number } | null>(null);
@@ -111,6 +112,44 @@ export default function Lobby() {
       console.error('Failed to fetch transactions');
     }
   };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const draw = () => {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const hexSize = 100;
+      const hexWidth = Math.sqrt(3) * hexSize;
+      const vertSpacing = hexSize * 1.5;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      const rows = Math.ceil(canvas.height / vertSpacing) + 2;
+      const cols = Math.ceil(canvas.width / hexWidth) + 2;
+      for (let row = -1; row <= rows; row++) {
+        for (let col = -1; col <= cols; col++) {
+          const offsetX = (row % 2 === 0) ? 0 : hexWidth / 2;
+          const cx = col * hexWidth + offsetX;
+          const cy = row * vertSpacing;
+          for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i - Math.PI / 6;
+            const x = cx + hexSize * Math.cos(angle);
+            const y = cy + hexSize * Math.sin(angle);
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+        }
+      }
+      ctx.stroke();
+    };
+    draw();
+    window.addEventListener('resize', draw);
+    return () => window.removeEventListener('resize', draw);
+  }, []);
 
   useEffect(() => {
     // Load Solana network config from server (sets platform wallet, USDC mint, network)
@@ -352,38 +391,7 @@ export default function Lobby() {
   return (
     <div className="min-h-screen flex items-start md:items-center justify-center relative overflow-y-auto bg-background py-4 md:py-0">
       <canvas
-        ref={(canvas) => {
-          if (!canvas || canvas.dataset.drawn) return;
-          canvas.dataset.drawn = 'true';
-          const ctx = canvas.getContext('2d');
-          if (!ctx) return;
-          canvas.width = window.innerWidth;
-          canvas.height = window.innerHeight;
-          const hexSize = 100;
-          const hexWidth = Math.sqrt(3) * hexSize;
-          const vertSpacing = hexSize * 1.5;
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          const rows = Math.ceil(canvas.height / vertSpacing) + 2;
-          const cols = Math.ceil(canvas.width / hexWidth) + 2;
-          for (let row = -1; row <= rows; row++) {
-            for (let col = -1; col <= cols; col++) {
-              const offsetX = (row % 2 === 0) ? 0 : hexWidth / 2;
-              const cx = col * hexWidth + offsetX;
-              const cy = row * vertSpacing;
-              for (let i = 0; i < 6; i++) {
-                const angle = (Math.PI / 3) * i - Math.PI / 6;
-                const x = cx + hexSize * Math.cos(angle);
-                const y = cy + hexSize * Math.sin(angle);
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-              }
-              ctx.closePath();
-            }
-          }
-          ctx.stroke();
-        }}
+        ref={canvasRef}
         className="absolute inset-0 w-full h-full pointer-events-none"
       />
 
