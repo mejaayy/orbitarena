@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, History, Crown } from 'lucide-react';
+import { Trophy, Coins, Gamepad2, Wallet, ExternalLink, Users, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, History, Crown, ChevronRight, Zap, Target, Shield } from 'lucide-react';
 import solanaLogo from '@assets/generated_images/solana_crypto_coin_logo_icon.png';
 import { connectPhantom, disconnectPhantom, isPhantomInstalled, getConnectedWallet, shortenAddress, ENTRY_FEE_USDC, getUSDCBalance, fetchSolanaConfig, sendUSDCDeposit } from '@/lib/phantom';
 import { AdminPanel } from '@/components/AdminPanel';
@@ -75,6 +75,8 @@ export default function Lobby() {
   const [weeklyLeaderboard, setWeeklyLeaderboard] = useState<WeeklyPlayer[]>([]);
   const [mockLeaderboardEnabled, setMockLeaderboardEnabled] = useState(false);
   const [showMobileLeaderboard, setShowMobileLeaderboard] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
   const [, setLocation] = useLocation();
 
   const AVATAR_COLORS = [
@@ -324,6 +326,25 @@ export default function Lobby() {
     setTermsAccepted(true);
     localStorage.setItem('orbit-arena-terms-accepted', 'true');
     setShowTerms(false);
+    // Show tutorial only on first ever visit
+    if (!localStorage.getItem('orbit-arena-tutorial-seen')) {
+      setTutorialStep(0);
+      setShowTutorial(true);
+    }
+  };
+
+  const handleTutorialNext = () => {
+    if (tutorialStep < 3) {
+      setTutorialStep(s => s + 1);
+    } else {
+      setShowTutorial(false);
+      localStorage.setItem('orbit-arena-tutorial-seen', 'true');
+    }
+  };
+
+  const handleTutorialSkip = () => {
+    setShowTutorial(false);
+    localStorage.setItem('orbit-arena-tutorial-seen', 'true');
   };
 
   const canPlay = nickname.trim() && (!isStakeMode || walletAddress);
@@ -405,6 +426,16 @@ export default function Lobby() {
       )}
 
       <Card className="w-full max-w-md mx-4 md:mx-0 bg-card/80 backdrop-blur-xl border-white/10 shadow-2xl relative z-10">
+        {/* Help / tutorial button */}
+        <button
+          type="button"
+          onClick={() => { setTutorialStep(0); setShowTutorial(true); }}
+          className="absolute top-3 right-3 w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white text-xs font-bold transition-all z-20"
+          data-testid="button-open-tutorial"
+          title="How to play"
+        >
+          ?
+        </button>
         <CardHeader className="text-center pb-2 px-4 md:px-6">
           <h1 className="text-3xl md:text-4xl font-black tracking-tight font-mono uppercase" style={{ color: '#D40046' }}>
             Orbit Arena
@@ -936,6 +967,194 @@ export default function Lobby() {
           <p className="text-[10px] text-gray-500 text-center italic">
             Based on in-game performance. Displayed amounts are not guaranteed. No refunds.
           </p>
+        </DialogContent>
+      </Dialog>
+
+      {/* Tutorial Dialog */}
+      <Dialog open={showTutorial} onOpenChange={handleTutorialSkip}>
+        <DialogContent className="bg-[#0d0d1a] border-white/10 sm:max-w-md p-0 overflow-hidden gap-0">
+          {/* Progress bar */}
+          <div className="h-0.5 bg-white/5 w-full">
+            <div className="h-full bg-[#D40046] transition-all duration-300" style={{ width: `${((tutorialStep + 1) / 4) * 100}%` }} />
+          </div>
+
+          <div className="p-6">
+            {tutorialStep === 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-full bg-[#D40046]/20 flex items-center justify-center">
+                    <Target className="w-5 h-5 text-[#D40046]" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-white uppercase tracking-tight font-mono">Welcome to Orbit Arena</h2>
+                    <p className="text-xs text-gray-500">Quick start — 4 steps</p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-300 leading-relaxed">
+                  Real-time multiplayer combat. Pick your shape, collect pickups, and eliminate opponents to be the last one standing.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-white/5 rounded-lg p-3 text-center">
+                    <div className="text-2xl mb-1">❤️</div>
+                    <p className="text-xs font-semibold text-white">HP System</p>
+                    <p className="text-[11px] text-gray-500">Start at 100 HP. Die at 0.</p>
+                  </div>
+                  <div className="bg-white/5 rounded-lg p-3 text-center">
+                    <div className="text-2xl mb-1">⚡</div>
+                    <p className="text-xs font-semibold text-white">Charge System</p>
+                    <p className="text-[11px] text-gray-500">Build charge. Use abilities.</p>
+                  </div>
+                  <div className="bg-white/5 rounded-lg p-3 text-center">
+                    <div className="text-xl mb-1">🔴</div>
+                    <p className="text-xs font-semibold text-white">HP Pickups</p>
+                    <p className="text-[11px] text-gray-500">Red cross — +5 HP</p>
+                  </div>
+                  <div className="bg-white/5 rounded-lg p-3 text-center">
+                    <div className="text-xl mb-1">🔵</div>
+                    <p className="text-xs font-semibold text-white">Charge Pickups</p>
+                    <p className="text-[11px] text-gray-500">Blue bolt — +5 charge</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {tutorialStep === 1 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                    <Gamepad2 className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-white uppercase tracking-tight font-mono">Controls</h2>
+                    <p className="text-xs text-gray-500">Desktop &amp; Mobile</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="bg-white/5 rounded-lg p-3 flex items-center gap-3">
+                    <div className="text-xs font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">WASD / ↑↓←→</div>
+                    <p className="text-xs text-gray-300">Move your character</p>
+                  </div>
+                  <div className="bg-white/5 rounded-lg p-3 flex items-center gap-3">
+                    <div className="text-xs font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Right Click (hold)</div>
+                    <p className="text-xs text-gray-300">Ability 1 (costs 40 charge)</p>
+                  </div>
+                  <div className="bg-white/5 rounded-lg p-3 flex items-center gap-3">
+                    <div className="text-xs font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Left Click</div>
+                    <p className="text-xs text-gray-300">Ability 2 (costs 40 charge)</p>
+                  </div>
+                  <div className="bg-white/5 rounded-lg p-3 flex items-center gap-3">
+                    <div className="text-xs font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Hold Q / Hold Leave</div>
+                    <p className="text-xs text-gray-300">Exit the game</p>
+                  </div>
+                </div>
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                  <p className="text-xs text-blue-300 font-semibold mb-1">📱 On Mobile</p>
+                  <p className="text-xs text-gray-400">Left joystick = move · Hold left button = Ability 1 · Tap right button = Ability 2</p>
+                </div>
+              </div>
+            )}
+
+            {tutorialStep === 2 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-white uppercase tracking-tight font-mono">Character Shapes</h2>
+                    <p className="text-xs text-gray-500">Each has 2 unique abilities</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="bg-white/5 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <svg viewBox="0 0 20 20" className="w-5 h-5 shrink-0"><circle cx="10" cy="10" r="8" fill="none" stroke="#60a5fa" strokeWidth="2"/></svg>
+                      <span className="text-sm font-bold text-white">Circle</span>
+                      <span className="text-[10px] text-gray-500 ml-auto">Crowd Control</span>
+                    </div>
+                    <div className="flex gap-1.5 flex-wrap">
+                      <span className="text-[11px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">Pull — drag enemies toward you</span>
+                      <span className="text-[11px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">Slam — area damage around you</span>
+                    </div>
+                  </div>
+                  <div className="bg-white/5 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <svg viewBox="0 0 20 20" className="w-5 h-5 shrink-0"><polygon points="10,2 18,18 2,18" fill="none" stroke="#34d399" strokeWidth="2"/></svg>
+                      <span className="text-sm font-bold text-white">Triangle</span>
+                      <span className="text-[10px] text-gray-500 ml-auto">Aggression</span>
+                    </div>
+                    <div className="flex gap-1.5 flex-wrap">
+                      <span className="text-[11px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">Dash — quick forward burst</span>
+                      <span className="text-[11px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">Pierce — projectile in your direction</span>
+                    </div>
+                  </div>
+                  <div className="bg-white/5 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <svg viewBox="0 0 20 20" className="w-5 h-5 shrink-0"><rect x="3" y="3" width="14" height="14" fill="none" stroke="#f59e0b" strokeWidth="2"/></svg>
+                      <span className="text-sm font-bold text-white">Square</span>
+                      <span className="text-[10px] text-gray-500 ml-auto">Defense</span>
+                    </div>
+                    <div className="flex gap-1.5 flex-wrap">
+                      <span className="text-[11px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">Push — shove enemies away</span>
+                      <span className="text-[11px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">Stun Wave — stun nearby enemies</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {tutorialStep === 3 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                    <Trophy className="w-5 h-5 text-yellow-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-white uppercase tracking-tight font-mono">Game Modes</h2>
+                    <p className="text-xs text-gray-500">Choose how you play</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Gamepad2 className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm font-bold text-white">Free Mode</span>
+                      <span className="text-[10px] bg-gray-500/20 text-gray-400 px-2 py-0.5 rounded-full ml-auto">No cost</span>
+                    </div>
+                    <p className="text-xs text-gray-400">Jump straight in. No wallet needed. Play as long as you want, leave anytime. Great for practice.</p>
+                  </div>
+                  <div className="bg-[#D40046]/5 border border-[#D40046]/20 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Coins className="w-4 h-4 text-[#D40046]" />
+                      <span className="text-sm font-bold text-white">Stake Mode</span>
+                      <span className="text-[10px] bg-[#D40046]/20 text-[#D40046] px-2 py-0.5 rounded-full ml-auto">$1 USDC entry</span>
+                    </div>
+                    <p className="text-xs text-gray-400">Pay $1 USDC to enter. 6–15 players compete. Top 3 split the prize pool — up to <span className="text-white font-semibold">$6 for 1st place</span>. Requires a Phantom wallet.</p>
+                  </div>
+                </div>
+                <div className="bg-white/5 rounded-lg p-3 text-center">
+                  <p className="text-xs text-gray-400">You can always re-open this guide from the <span className="text-white font-semibold">?</span> button in the lobby — <span className="text-green-400 font-semibold">good luck out there!</span></p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Step dots + buttons */}
+          <div className="px-6 pb-5 flex items-center justify-between">
+            <div className="flex gap-1.5">
+              {[0,1,2,3].map(i => (
+                <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === tutorialStep ? 'bg-white w-4' : 'bg-white/20'}`} />
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={handleTutorialSkip} className="text-gray-500 text-xs h-8 px-3">
+                Skip
+              </Button>
+              <Button size="sm" onClick={handleTutorialNext} className="bg-[#D40046] hover:bg-[#b5003c] text-white h-8 px-4 gap-1.5 text-xs font-semibold" data-testid="button-tutorial-next">
+                {tutorialStep < 3 ? <><span>Next</span><ChevronRight className="w-3.5 h-3.5" /></> : 'Play Now'}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
