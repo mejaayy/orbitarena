@@ -334,7 +334,7 @@ export default function Lobby() {
   };
 
   const handleTutorialNext = () => {
-    if (tutorialStep < 3) {
+    if (tutorialStep < 4) {
       setTutorialStep(s => s + 1);
     } else {
       setShowTutorial(false);
@@ -975,7 +975,7 @@ export default function Lobby() {
         <DialogContent className="bg-[#0d0d1a] border-white/10 sm:max-w-md p-0 overflow-hidden gap-0">
           {/* Progress bar */}
           <div className="h-0.5 bg-white/5 w-full">
-            <div className="h-full bg-[#D40046] transition-all duration-300" style={{ width: `${((tutorialStep + 1) / 4) * 100}%` }} />
+            <div className="h-full bg-[#D40046] transition-all duration-300" style={{ width: `${((tutorialStep + 1) / 5) * 100}%` }} />
           </div>
 
           <div className="p-6">
@@ -1110,6 +1110,45 @@ export default function Lobby() {
             {tutorialStep === 3 && (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-orange-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-white uppercase tracking-tight font-mono">Elite Mode & Scoring</h2>
+                    <p className="text-xs text-gray-500">Get kills. Get stronger.</p>
+                  </div>
+                </div>
+                <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-orange-400 font-black text-lg">⚡</span>
+                    <p className="text-sm font-bold text-orange-300">Get 2 kills → ELITE MODE activates</p>
+                  </div>
+                  <div className="space-y-1.5 pl-1">
+                    <div className="flex items-center gap-2 text-xs text-gray-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
+                      +30% movement speed
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
+                      All abilities become more powerful
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
+                      1.5× score earned per damage dealt
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4 space-y-2">
+                  <p className="text-xs font-bold text-white uppercase tracking-wide">How Scoring Works</p>
+                  <p className="text-xs text-gray-400 leading-relaxed">Your score is based on <span className="text-white">damage you deal</span>, not just kills. The more you hit, the higher you rank — even without eliminating anyone.</p>
+                  <p className="text-xs text-gray-400 leading-relaxed">In Solana Mode, the <span className="text-white">top 3 players by score</span> at the end of the round share the prize pool.</p>
+                </div>
+              </div>
+            )}
+
+            {tutorialStep === 4 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
                     <Trophy className="w-5 h-5 text-yellow-400" />
                   </div>
@@ -1146,7 +1185,7 @@ export default function Lobby() {
           {/* Step dots + buttons */}
           <div className="px-6 pb-5 flex items-center justify-between">
             <div className="flex gap-1.5">
-              {[0,1,2,3].map(i => (
+              {[0,1,2,3,4].map(i => (
                 <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === tutorialStep ? 'bg-white w-4' : 'bg-white/20'}`} />
               ))}
             </div>
@@ -1155,7 +1194,7 @@ export default function Lobby() {
                 Skip
               </Button>
               <Button size="sm" onClick={handleTutorialNext} className="bg-[#D40046] hover:bg-[#b5003c] text-white h-8 px-4 gap-1.5 text-xs font-semibold" data-testid="button-tutorial-next">
-                {tutorialStep < 3 ? <><span>Next</span><ChevronRight className="w-3.5 h-3.5" /></> : 'Play Now'}
+                {tutorialStep < 4 ? <><span>Next</span><ChevronRight className="w-3.5 h-3.5" /></> : 'Play Now'}
               </Button>
             </div>
           </div>
