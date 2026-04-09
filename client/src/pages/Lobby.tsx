@@ -334,7 +334,7 @@ export default function Lobby() {
   };
 
   const handleTutorialNext = () => {
-    if (tutorialStep < 4) {
+    if (tutorialStep < 5) {
       setTutorialStep(s => s + 1);
     } else {
       setShowTutorial(false);
@@ -975,7 +975,7 @@ export default function Lobby() {
         <DialogContent className="bg-[#0d0d1a] border-white/10 sm:max-w-md p-0 overflow-hidden gap-0">
           {/* Progress bar */}
           <div className="h-0.5 bg-white/5 w-full">
-            <div className="h-full bg-[#D40046] transition-all duration-300" style={{ width: `${((tutorialStep + 1) / 5) * 100}%` }} />
+            <div className="h-full bg-[#D40046] transition-all duration-300" style={{ width: `${((tutorialStep + 1) / 6) * 100}%` }} />
           </div>
 
           <div className="p-6">
@@ -1074,11 +1074,11 @@ export default function Lobby() {
                     <div className="flex items-center gap-2 mb-1.5">
                       <svg viewBox="0 0 20 20" className="w-5 h-5 shrink-0"><circle cx="10" cy="10" r="8" fill="none" stroke="#60a5fa" strokeWidth="2"/></svg>
                       <span className="text-sm font-bold text-white">Circle</span>
-                      <span className="text-[10px] text-gray-500 ml-auto">Crowd Control</span>
+                      <span className="text-[10px] text-gray-500 ml-auto">Area Control</span>
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
-                      <span className="text-[11px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">Pull — drag enemies toward you</span>
-                      <span className="text-[11px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">Slam — area damage around you</span>
+                      <span className="text-[11px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">Right Click — Pull enemies toward you</span>
+                      <span className="text-[11px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">Left Click — Slam (more damage up close)</span>
                     </div>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3">
@@ -1088,8 +1088,8 @@ export default function Lobby() {
                       <span className="text-[10px] text-gray-500 ml-auto">Aggression</span>
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
-                      <span className="text-[11px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">Dash — quick forward burst</span>
-                      <span className="text-[11px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">Shoot — projectile in your direction</span>
+                      <span className="text-[11px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">Right Click — Dash (auto-locks on nearby enemies)</span>
+                      <span className="text-[11px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">Left Click — Shoot a projectile</span>
                     </div>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3">
@@ -1099,15 +1099,49 @@ export default function Lobby() {
                       <span className="text-[10px] text-gray-500 ml-auto">Defense</span>
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
-                      <span className="text-[11px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">Push — shove enemies away</span>
-                      <span className="text-[11px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">Stun Wave — stun nearby enemies</span>
+                      <span className="text-[11px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">Right Click — Push enemies away</span>
+                      <span className="text-[11px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">Left Click — Stun Wave (freezes enemies)</span>
                     </div>
+                  </div>
+                </div>
+                <p className="text-[11px] text-gray-500 text-center">Next: how each ability really works →</p>
+              </div>
+            )}
+
+            {tutorialStep === 3 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                    <Shield className="w-5 h-5 text-red-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-white uppercase tracking-tight font-mono">Combat Mechanics</h2>
+                    <p className="text-xs text-gray-500">Ability details & how to defend</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                    <p className="text-xs font-bold text-blue-300 mb-1">⭕ Slam — damage falls off with distance</p>
+                    <p className="text-xs text-gray-400">50 damage at point-blank → 20 damage at max range. Also <span className="text-white">destroys any projectiles</span> caught in the blast.</p>
+                  </div>
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                    <p className="text-xs font-bold text-amber-300 mb-1">🟥 Push — turns their bullets against them</p>
+                    <p className="text-xs text-gray-400">Shoves enemies back and deals 20 damage. Any nearby projectiles get <span className="text-white">hijacked and fired back</span> at the shooter.</p>
+                  </div>
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                    <p className="text-xs font-bold text-amber-300 mb-1">🟥 Stun Wave — closer = longer freeze</p>
+                    <p className="text-xs text-gray-400">Freezes enemies up to 1.5 seconds (less if farther away). Stunned players <span className="text-white">can't move or use abilities</span> and take 7 HP every second. Also destroys nearby projectiles.</p>
+                  </div>
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
+                    <p className="text-xs font-bold text-green-300 mb-1">🔺 Dash — auto-locks on your target</p>
+                    <p className="text-xs text-gray-400">Snaps toward the nearest enemy in your facing direction and deals 30 damage along the path. Great for <span className="text-white">escaping danger</span> too.</p>
                   </div>
                 </div>
               </div>
             )}
 
-            {tutorialStep === 3 && (
+            {tutorialStep === 4 && (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
@@ -1146,7 +1180,7 @@ export default function Lobby() {
               </div>
             )}
 
-            {tutorialStep === 4 && (
+            {tutorialStep === 5 && (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
@@ -1185,7 +1219,7 @@ export default function Lobby() {
           {/* Step dots + buttons */}
           <div className="px-6 pb-5 flex items-center justify-between">
             <div className="flex gap-1.5">
-              {[0,1,2,3,4].map(i => (
+              {[0,1,2,3,4,5].map(i => (
                 <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === tutorialStep ? 'bg-white w-4' : 'bg-white/20'}`} />
               ))}
             </div>
@@ -1194,7 +1228,7 @@ export default function Lobby() {
                 Skip
               </Button>
               <Button size="sm" onClick={handleTutorialNext} className="bg-[#D40046] hover:bg-[#b5003c] text-white h-8 px-4 gap-1.5 text-xs font-semibold" data-testid="button-tutorial-next">
-                {tutorialStep < 4 ? <><span>Next</span><ChevronRight className="w-3.5 h-3.5" /></> : 'Play Now'}
+                {tutorialStep < 5 ? <><span>Next</span><ChevronRight className="w-3.5 h-3.5" /></> : 'Play Now'}
               </Button>
             </div>
           </div>
