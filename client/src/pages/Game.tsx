@@ -37,10 +37,15 @@ function dlBlob(blob: Blob) {
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
+    const coarsePointer = window.matchMedia('(pointer: coarse)');
+    const check = () => setIsMobile(window.innerWidth < 1024 || coarsePointer.matches);
     check();
     window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
+    coarsePointer.addEventListener('change', check);
+    return () => {
+      window.removeEventListener('resize', check);
+      coarsePointer.removeEventListener('change', check);
+    };
   }, []);
   return isMobile;
 }
