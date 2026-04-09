@@ -822,28 +822,31 @@ export default function Lobby() {
                 type="number"
                 value={withdrawAmount}
                 onChange={(e) => setWithdrawAmount(e.target.value)}
-                placeholder="Enter amount"
+                placeholder="Min $1.00"
                 max={internalBalance?.availableCents ? internalBalance.availableCents / 100 : 0}
-                min="0.01"
+                min="1.00"
                 step="0.01"
                 data-testid="input-withdraw-amount"
               />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setWithdrawAmount(internalBalance?.availableUsd || '0')}
-                className="text-xs text-accent"
-              >
-                Withdraw All
-              </Button>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">Minimum $1.00</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setWithdrawAmount(internalBalance?.availableUsd || '0')}
+                  className="text-xs text-accent h-auto py-0"
+                >
+                  Withdraw All
+                </Button>
+              </div>
             </div>
           </div>
 
           <DialogFooter>
             <Button
               onClick={handleWithdraw}
-              disabled={isProcessing || !withdrawAmount || !Number.isFinite(parseFloat(withdrawAmount)) || parseFloat(withdrawAmount) <= 0}
+              disabled={isProcessing || !withdrawAmount || !Number.isFinite(parseFloat(withdrawAmount)) || parseFloat(withdrawAmount) < 1.00}
               className="w-full"
               data-testid="button-confirm-withdraw"
             >

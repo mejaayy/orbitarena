@@ -1728,6 +1728,7 @@ class StakeGameRoom extends GameRoom {
   private matchId: string = '';
   private lobbyPlayers: Map<string, { ws: WebSocket; name: string; walletAddress?: string; playerColor?: string; characterShape?: CharacterShape }> = new Map();
   private disconnectedPlayers: Map<string, { oldPlayerId: string; timeout: NodeJS.Timeout }> = new Map();
+  private lobbyDisconnectedPlayers: Map<string, { oldPlayerId: string; playerData: { name: string; walletAddress: string; playerColor?: string; characterShape?: CharacterShape }; timeout: NodeJS.Timeout }> = new Map();
 
   constructor(id: string) {
     super(id, true);
@@ -1769,16 +1770,39 @@ class StakeGameRoom extends GameRoom {
       return false;
     }
 
-    if (this.lobbyPlayers.size >= MAX_STAKE_PLAYERS) {
-      return false;
-    }
-
     // Require wallet for stake mode
     if (!payload.walletAddress) {
       this.send(ws, {
         type: 'ERROR',
         payload: { message: 'Wallet connection required for stake mode.' }
       });
+      return false;
+    }
+
+    // Check if this wallet is reconnecting from a lobby disconnect grace period
+    const gracePending = this.lobbyDisconnectedPlayers.get(payload.walletAddress);
+    if (gracePending) {
+      clearTimeout(gracePending.timeout);
+      this.lobbyDisconnectedPlayers.delete(payload.walletAddress);
+      // Restore to lobby without re-locking (they already paid)
+      this.lobbyPlayers.set(playerId, {
+        ws,
+        name: gracePending.playerData.name,
+        walletAddress: gracePending.playerData.walletAddress,
+        playerColor: gracePending.playerData.playerColor,
+        characterShape: gracePending.playerData.characterShape,
+      });
+      log(`Player ${gracePending.playerData.name} reconnected to stake lobby within grace period`, 'room');
+      const joinPrizes = computePrizes(this.lobbyPlayers.size);
+      this.send(ws, {
+        type: 'JOINED',
+        payload: { playerId, roomId: this.id, isLobby: true, prizePool: joinPrizes.pool / 100, playerCount: this.lobbyPlayers.size, maxPlayers: MAX_STAKE_PLAYERS, minPlayers: MIN_PLAYERS_TO_START, prizes: { first: joinPrizes.first / 100, second: joinPrizes.second / 100, third: joinPrizes.third / 100 } },
+      });
+      this.broadcastRoundStatus();
+      return true;
+    }
+
+    if (this.lobbyPlayers.size >= MAX_STAKE_PLAYERS) {
       return false;
     }
 
@@ -1957,6 +1981,13 @@ class StakeGameRoom extends GameRoom {
     }
     this.disconnectedPlayers.clear();
 
+    // Clear any pending lobby disconnect grace periods and forfeit their locks
+    for (const [walletKey, entry] of this.lobbyDisconnectedPlayers) {
+      clearTimeout(entry.timeout);
+      balanceService.forfeitLock(walletKey, this.matchId).catch(() => {});
+    }
+    this.lobbyDisconnectedPlayers.clear();
+
     // Calculate final standings
     const allPlayers = Array.from(this.gameState.players.values());
     const sortedByScore = allPlayers.sort((a, b) => b.score - a.score);
@@ -2077,16 +2108,28 @@ class StakeGameRoom extends GameRoom {
   }
 
   async handleDisconnect(playerId: string) {
-    // Handle lobby disconnect
+    // Handle lobby disconnect — give 30s grace period to reconnect before forfeiting
     if (this.lobbyPlayers.has(playerId)) {
       const playerData = this.lobbyPlayers.get(playerId);
-      
-      // Entry fee is non-refundable on disconnect from lobby
-      if (playerData?.walletAddress) {
-        await balanceService.forfeitLock(playerData.walletAddress, this.matchId);
-      }
-      
       this.lobbyPlayers.delete(playerId);
+
+      if (playerData?.walletAddress) {
+        const walletKey = playerData.walletAddress;
+        const matchId = this.matchId;
+        const graceSecs = 30;
+
+        const timeout = setTimeout(async () => {
+          if (this.lobbyDisconnectedPlayers.has(walletKey)) {
+            this.lobbyDisconnectedPlayers.delete(walletKey);
+            await balanceService.forfeitLock(walletKey, matchId);
+            log(`Lobby grace expired for ${walletKey.slice(0, 8)}... — entry fee forfeited`, 'room');
+          }
+        }, graceSecs * 1000);
+
+        this.lobbyDisconnectedPlayers.set(walletKey, { oldPlayerId: playerId, playerData: { name: playerData.name, walletAddress: walletKey, playerColor: playerData.playerColor, characterShape: playerData.characterShape }, timeout });
+        log(`Player ${playerData.name} disconnected from lobby — ${graceSecs}s grace to reconnect`, 'room');
+      }
+
       log(`Player disconnected from stake lobby ${this.id}. Lobby: ${this.lobbyPlayers.size}/${MAX_STAKE_PLAYERS}`, 'room');
       
       if (this.roundState === 'COUNTDOWN') {

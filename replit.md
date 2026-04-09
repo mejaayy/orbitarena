@@ -165,13 +165,22 @@ The `/profile?wallet=xxx` page displays stats cards (wins, win rate, kills, game
 
 API endpoint: `GET /api/stats/:walletAddress` — returns stats + up to 50 recent transactions.
 
-### Reconnect Grace Period (Stake Mode)
+### Reconnect Grace Periods (Stake Mode)
 
-When a stake player disconnects during a PLAYING round, they enter a 15-second reconnect grace period stored in `StakeGameRoom.disconnectedPlayers`. If they reconnect within 15 seconds with the same wallet address, their position and HP are fully restored. After 15 seconds, they are forfeited to spectator status. A "Connection Lost" overlay with a countdown message appears on the client side during disconnect.
+**In-game disconnect**: When a stake player disconnects during a PLAYING round, they enter a 15-second grace period stored in `StakeGameRoom.disconnectedPlayers`. Their character freezes in the arena (can still take damage). If they reconnect within 15 seconds with the same wallet address, their position and HP are fully restored. After 15 seconds, they become a spectator. A "Connection Lost" overlay with countdown appears on the client.
+
+**Lobby disconnect**: If a player's connection drops while in the stake lobby, they have a 30-second grace period stored in `StakeGameRoom.lobbyDisconnectedPlayers`. If they reconnect within 30 seconds, they are restored to the lobby without re-paying the entry fee. After 30 seconds, the $1.00 entry fee is forfeited.
+
+**Voluntary lobby leave**: Clicking "Leave Lobby" forfeits the entry fee immediately (non-refundable). A confirmation dialog warns the player before they confirm.
+
+### Withdrawal Safety
+
+- **Minimum withdrawal**: $1.00 minimum enforced on both client and server
+- **Concurrent lock**: An in-memory Set prevents duplicate withdrawal requests for the same wallet
+- **Order**: On-chain Solana transfer executes first; DB is debited only after success
 
 ### Leave Confirmation & Fund Persistence
 
-- **Lobby leave**: Clicking "Leave Lobby" in stake mode shows a confirmation dialog explaining that the $1.00 entry fee will be refunded. Funds persist in PostgreSQL regardless of browser close.
 - **beforeunload warning**: Browser tab close/refresh shows a native browser confirmation dialog while in stake mode.
 - **Fund safety messaging**: The profile page and game UI explicitly communicate that USDC balances persist between sessions.
 

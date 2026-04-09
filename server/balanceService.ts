@@ -5,6 +5,10 @@ import { eq, sql, and, gte } from "drizzle-orm";
 const ENTRY_FEE_CENTS = 100;
 const PLATFORM_FEE_CENTS = 10;
 const PRIZE_CONTRIBUTION_CENTS = 90;
+const MIN_WITHDRAWAL_CENTS = 100; // $1.00 minimum withdrawal
+
+// In-memory lock to prevent concurrent withdrawal requests for the same wallet
+const withdrawalInProgress = new Set<string>();
 
 const PRIZE_1ST_CENTS = 400;
 const PRIZE_2ND_CENTS = 300;
@@ -410,6 +414,15 @@ class BalanceService {
   }
 
   async requestWithdrawal(walletAddress: string, amountCents: number): Promise<TransactionResult> {
+    if (amountCents < MIN_WITHDRAWAL_CENTS) {
+      return { success: false, error: `Minimum withdrawal is $${(MIN_WITHDRAWAL_CENTS / 100).toFixed(2)}` };
+    }
+
+    if (withdrawalInProgress.has(walletAddress)) {
+      return { success: false, error: 'A withdrawal is already in progress for this wallet. Please wait.' };
+    }
+
+    withdrawalInProgress.add(walletAddress);
     try {
       const balance = await this.getOrCreateBalance(walletAddress);
 
@@ -466,6 +479,8 @@ class BalanceService {
       }
       log(`Withdrawal failed: ${error.message}`, 'error');
       return { success: false, error: error.message };
+    } finally {
+      withdrawalInProgress.delete(walletAddress);
     }
   }
 
