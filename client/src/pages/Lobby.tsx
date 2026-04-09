@@ -357,8 +357,8 @@ export default function Lobby() {
           canvas.dataset.drawn = 'true';
           const ctx = canvas.getContext('2d');
           if (!ctx) return;
-          canvas.width = canvas.offsetWidth;
-          canvas.height = canvas.offsetHeight;
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
           const hexSize = 100;
           const hexWidth = Math.sqrt(3) * hexSize;
           const vertSpacing = hexSize * 1.5;
@@ -425,7 +425,7 @@ export default function Lobby() {
         </div>
       )}
 
-      <Card className="w-full max-w-md mx-4 md:mx-0 bg-card/80 backdrop-blur-xl border-white/10 shadow-2xl relative z-10">
+      <Card className="w-full max-w-[35rem] mx-4 md:mx-0 bg-card/80 backdrop-blur-xl border-white/10 shadow-2xl relative z-10">
         {/* Help / tutorial button */}
         <button
           type="button"
@@ -465,7 +465,7 @@ export default function Lobby() {
         <CardContent className="px-4 md:px-6">
           <form onSubmit={handlePlay} className="space-y-4 md:space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="nickname" className="text-xs uppercase tracking-widest text-gray-500">
+              <Label htmlFor="nickname" className="text-sm uppercase tracking-widest text-gray-500">
                 Operative Name
               </Label>
               <Input
@@ -481,7 +481,7 @@ export default function Lobby() {
                     : value;
                   setNickname(cleaned.slice(0, 10));
                 }}
-                className="bg-black/20 border-white/10 h-12 text-lg font-medium focus-visible:ring-[#D40046]/50 transition-all hover:border-white/20"
+                className="bg-black/20 border-white/10 h-14 text-xl font-medium focus-visible:ring-[#D40046]/50 transition-all hover:border-white/20"
                 autoFocus
                 autoComplete="off"
               />
@@ -491,12 +491,12 @@ export default function Lobby() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-widest text-gray-500">Character</Label>
+              <Label className="text-sm uppercase tracking-widest text-gray-500">Character</Label>
               <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedShape('circle')}
-                  className={`p-3 rounded-xl transition-all border ${
+                  className={`p-4 rounded-xl transition-all border ${
                     selectedShape === 'circle' 
                       ? 'bg-white/15 border-white/40 ring-2 ring-white/50' 
                       : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
@@ -504,11 +504,11 @@ export default function Lobby() {
                   data-testid="shape-circle"
                 >
                   <div className="flex flex-col items-center gap-2">
-                    <svg viewBox="0 0 24 24" className="w-8 h-8">
+                    <svg viewBox="0 0 24 24" className="w-10 h-10">
                       <circle cx="12" cy="12" r="10" fill={selectedColor} />
                     </svg>
-                    <span className="text-xs font-medium text-white">Circle</span>
-                    <div className="text-[10px] text-gray-400 leading-tight text-center">
+                    <span className="text-sm font-medium text-white">Circle</span>
+                    <div className="text-xs text-gray-400 leading-tight text-center">
                       Pull • Slam
                     </div>
                   </div>
@@ -516,7 +516,7 @@ export default function Lobby() {
                 <button
                   type="button"
                   onClick={() => setSelectedShape('triangle')}
-                  className={`p-3 rounded-xl transition-all border ${
+                  className={`p-4 rounded-xl transition-all border ${
                     selectedShape === 'triangle' 
                       ? 'bg-white/15 border-white/40 ring-2 ring-white/50' 
                       : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
@@ -524,11 +524,11 @@ export default function Lobby() {
                   data-testid="shape-triangle"
                 >
                   <div className="flex flex-col items-center gap-2">
-                    <svg viewBox="0 0 24 24" className="w-8 h-8">
+                    <svg viewBox="0 0 24 24" className="w-10 h-10">
                       <polygon points="12,2 22,20 2,20" fill={selectedColor} />
                     </svg>
-                    <span className="text-xs font-medium text-white">Triangle</span>
-                    <div className="text-[10px] text-gray-400 leading-tight text-center">
+                    <span className="text-sm font-medium text-white">Triangle</span>
+                    <div className="text-xs text-gray-400 leading-tight text-center">
                       Dash • Shoot
                     </div>
                   </div>
@@ -536,7 +536,7 @@ export default function Lobby() {
                 <button
                   type="button"
                   onClick={() => setSelectedShape('square')}
-                  className={`p-3 rounded-xl transition-all border ${
+                  className={`p-4 rounded-xl transition-all border ${
                     selectedShape === 'square' 
                       ? 'bg-white/15 border-white/40 ring-2 ring-white/50' 
                       : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
@@ -544,11 +544,11 @@ export default function Lobby() {
                   data-testid="shape-square"
                 >
                   <div className="flex flex-col items-center gap-2">
-                    <svg viewBox="0 0 24 24" className="w-8 h-8">
+                    <svg viewBox="0 0 24 24" className="w-10 h-10">
                       <rect x="2" y="2" width="20" height="20" fill={selectedColor} />
                     </svg>
-                    <span className="text-xs font-medium text-white">Square</span>
-                    <div className="text-[10px] text-gray-400 leading-tight text-center">
+                    <span className="text-sm font-medium text-white">Square</span>
+                    <div className="text-xs text-gray-400 leading-tight text-center">
                       Push • Stun Wave
                     </div>
                   </div>
@@ -557,14 +557,14 @@ export default function Lobby() {
             </div>
 
             <div className="flex items-center justify-between">
-              <Label className="text-xs uppercase tracking-widest text-gray-500">Color</Label>
-              <div className="flex gap-1.5">
+              <Label className="text-sm uppercase tracking-widest text-gray-500">Color</Label>
+              <div className="flex gap-2">
                 {AVATAR_COLORS.map((color) => (
                   <button
                     key={color.hex}
                     type="button"
                     onClick={() => setSelectedColor(color.hex)}
-                    className={`w-5 h-5 rounded-full transition-all hover:scale-110 ${
+                    className={`w-6 h-6 rounded-full transition-all hover:scale-110 ${
                       selectedColor === color.hex ? 'ring-2 ring-white ring-offset-1 ring-offset-black' : 'opacity-60 hover:opacity-100'
                     }`}
                     style={{ backgroundColor: color.hex }}
@@ -582,8 +582,8 @@ export default function Lobby() {
                     {isStakeMode ? <Coins className="w-5 h-5" /> : <Trophy className="w-5 h-5" />}
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-bold text-sm">Solana Mode</span>
-                    <span className="text-xs text-gray-400">
+                    <span className="font-bold text-base">Solana Mode</span>
+                    <span className="text-sm text-gray-400">
                       {isStakeMode ? `Entry: ${ENTRY_FEE_USDC} USDC` : "Play for USDC"}
                     </span>
                   </div>
@@ -972,7 +972,7 @@ export default function Lobby() {
 
       {/* Tutorial Dialog */}
       <Dialog open={showTutorial} onOpenChange={handleTutorialSkip}>
-        <DialogContent className="bg-[#0d0d1a] border-white/10 sm:max-w-md p-0 overflow-hidden gap-0">
+        <DialogContent className="bg-[#0d0d1a] border-white/10 sm:max-w-[35rem] p-0 overflow-hidden gap-0">
           {/* Progress bar */}
           <div className="h-0.5 bg-white/5 w-full">
             <div className="h-full bg-[#D40046] transition-all duration-300" style={{ width: `${((tutorialStep + 1) / 6) * 100}%` }} />
@@ -986,37 +986,37 @@ export default function Lobby() {
                     <Target className="w-5 h-5 text-[#D40046]" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-black text-white uppercase tracking-tight font-mono">Welcome to Orbit Arena</h2>
-                    <p className="text-xs text-gray-500">Quick start — 4 steps</p>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight font-mono">Welcome to Orbit Arena</h2>
+                    <p className="text-sm text-gray-500">Quick start — 6 steps</p>
                   </div>
                 </div>
-                <p className="text-sm text-gray-300 leading-relaxed">
+                <p className="text-base text-gray-300 leading-relaxed">
                   Real-time multiplayer combat. Pick your shape, collect pickups, and eliminate opponents to be the last one standing.
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-white/5 rounded-lg p-3 text-center">
                     <div className="text-2xl mb-1">❤️</div>
-                    <p className="text-xs font-semibold text-white">HP System</p>
-                    <p className="text-[11px] text-gray-500">Start at 100 HP. Die at 0.</p>
+                    <p className="text-sm font-semibold text-white">HP System</p>
+                    <p className="text-sm text-gray-500">Start at 100 HP. Die at 0.</p>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3 text-center">
                     <div className="text-2xl mb-1">⚡</div>
-                    <p className="text-xs font-semibold text-white">Energy System</p>
-                    <p className="text-[11px] text-gray-500">Build energy. Use abilities.</p>
+                    <p className="text-sm font-semibold text-white">Energy System</p>
+                    <p className="text-sm text-gray-500">Build energy. Use abilities.</p>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3 text-center">
                     <div className="flex justify-center mb-1.5">
                       <div className="w-5 h-5 bg-[#00CC7A]" />
                     </div>
-                    <p className="text-xs font-semibold text-white">HP Pickups</p>
-                    <p className="text-[11px] text-gray-500">Green square — +5 HP</p>
+                    <p className="text-sm font-semibold text-white">HP Pickups</p>
+                    <p className="text-sm text-gray-500">Green square — +5 HP</p>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3 text-center">
                     <div className="flex justify-center mb-1.5">
                       <svg viewBox="0 0 20 16" className="w-5 h-4"><polygon points="10,1 19,15 1,15" fill="#D40046"/></svg>
                     </div>
-                    <p className="text-xs font-semibold text-white">Energy Pickups</p>
-                    <p className="text-[11px] text-gray-500">Red triangle — +5 energy</p>
+                    <p className="text-sm font-semibold text-white">Energy Pickups</p>
+                    <p className="text-sm text-gray-500">Red triangle — +5 energy</p>
                   </div>
                 </div>
               </div>
@@ -1029,31 +1029,31 @@ export default function Lobby() {
                     <Gamepad2 className="w-5 h-5 text-blue-400" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-black text-white uppercase tracking-tight font-mono">Controls</h2>
-                    <p className="text-xs text-gray-500">Desktop &amp; Mobile</p>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight font-mono">Controls</h2>
+                    <p className="text-sm text-gray-500">Desktop &amp; Mobile</p>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <div className="bg-white/5 rounded-lg p-3 flex items-center gap-3">
-                    <div className="text-xs font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Move Mouse</div>
-                    <p className="text-xs text-gray-300">Your character follows your cursor</p>
+                    <div className="text-sm font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Move Mouse</div>
+                    <p className="text-sm text-gray-300">Your character follows your cursor</p>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3 flex items-center gap-3">
-                    <div className="text-xs font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Right Click</div>
-                    <p className="text-xs text-gray-300">Ability 1 (costs 20 energy)</p>
+                    <div className="text-sm font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Right Click</div>
+                    <p className="text-sm text-gray-300">Ability 1 (costs 20 energy)</p>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3 flex items-center gap-3">
-                    <div className="text-xs font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Left Click</div>
-                    <p className="text-xs text-gray-300">Ability 2 (costs 20 energy)</p>
+                    <div className="text-sm font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Left Click</div>
+                    <p className="text-sm text-gray-300">Ability 2 (costs 20 energy)</p>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3 flex items-center gap-3">
-                    <div className="text-xs font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Q key</div>
-                    <p className="text-xs text-gray-300">Leave the game (free mode only)</p>
+                    <div className="text-sm font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Q key</div>
+                    <p className="text-sm text-gray-300">Leave the game (free mode only)</p>
                   </div>
                 </div>
                 <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-                  <p className="text-xs text-blue-300 font-semibold mb-1">📱 On Mobile / Tablet</p>
-                  <p className="text-xs text-gray-400">Joystick = move · Hold top button = Ability 1 · Tap bottom button = Ability 2</p>
+                  <p className="text-sm text-blue-300 font-semibold mb-1">📱 On Mobile / Tablet</p>
+                  <p className="text-sm text-gray-400">Joystick = move · Hold top button = Ability 1 · Tap bottom button = Ability 2</p>
                 </div>
               </div>
             )}
@@ -1065,46 +1065,46 @@ export default function Lobby() {
                     <Zap className="w-5 h-5 text-purple-400" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-black text-white uppercase tracking-tight font-mono">Character Shapes</h2>
-                    <p className="text-xs text-gray-500">Each has 2 unique abilities</p>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight font-mono">Character Shapes</h2>
+                    <p className="text-sm text-gray-500">Each has 2 unique abilities</p>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <div className="bg-white/5 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-1.5">
                       <svg viewBox="0 0 20 20" className="w-5 h-5 shrink-0"><circle cx="10" cy="10" r="8" fill="none" stroke="#60a5fa" strokeWidth="2"/></svg>
-                      <span className="text-sm font-bold text-white">Circle</span>
-                      <span className="text-[10px] text-gray-500 ml-auto">Area Control</span>
+                      <span className="text-base font-bold text-white">Circle</span>
+                      <span className="text-xs text-gray-500 ml-auto">Area Control</span>
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
-                      <span className="text-[11px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">Right Click — Pull enemies toward you</span>
-                      <span className="text-[11px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">Left Click — Slam (more damage up close)</span>
+                      <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full">Right Click — Pull enemies toward you</span>
+                      <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full">Left Click — Slam (more damage up close)</span>
                     </div>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-1.5">
                       <svg viewBox="0 0 20 20" className="w-5 h-5 shrink-0"><polygon points="10,2 18,18 2,18" fill="none" stroke="#34d399" strokeWidth="2"/></svg>
-                      <span className="text-sm font-bold text-white">Triangle</span>
-                      <span className="text-[10px] text-gray-500 ml-auto">Aggression</span>
+                      <span className="text-base font-bold text-white">Triangle</span>
+                      <span className="text-xs text-gray-500 ml-auto">Aggression</span>
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
-                      <span className="text-[11px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">Right Click — Dash (auto-locks on nearby enemies)</span>
-                      <span className="text-[11px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">Left Click — Shoot a projectile</span>
+                      <span className="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded-full">Right Click — Dash (auto-locks on nearby enemies)</span>
+                      <span className="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded-full">Left Click — Shoot a projectile</span>
                     </div>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-1.5">
                       <svg viewBox="0 0 20 20" className="w-5 h-5 shrink-0"><rect x="3" y="3" width="14" height="14" fill="none" stroke="#f59e0b" strokeWidth="2"/></svg>
-                      <span className="text-sm font-bold text-white">Square</span>
-                      <span className="text-[10px] text-gray-500 ml-auto">Defense</span>
+                      <span className="text-base font-bold text-white">Square</span>
+                      <span className="text-xs text-gray-500 ml-auto">Defense</span>
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
-                      <span className="text-[11px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">Right Click — Push enemies away</span>
-                      <span className="text-[11px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">Left Click — Stun Wave (freezes enemies)</span>
+                      <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-1 rounded-full">Right Click — Push enemies away</span>
+                      <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-1 rounded-full">Left Click — Stun Wave (freezes enemies)</span>
                     </div>
                   </div>
                 </div>
-                <p className="text-[11px] text-gray-500 text-center">Next: how each ability really works →</p>
+                <p className="text-sm text-gray-500 text-center">Next: how each ability really works →</p>
               </div>
             )}
 
@@ -1115,27 +1115,27 @@ export default function Lobby() {
                     <Shield className="w-5 h-5 text-red-400" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-black text-white uppercase tracking-tight font-mono">Combat Mechanics</h2>
-                    <p className="text-xs text-gray-500">Ability details & how to defend</p>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight font-mono">Combat Mechanics</h2>
+                    <p className="text-sm text-gray-500">Ability details & how to defend</p>
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-                    <p className="text-xs font-bold text-blue-300 mb-1">⭕ Slam — damage falls off with distance</p>
-                    <p className="text-xs text-gray-400">50 damage at point-blank → 20 damage at max range. Also <span className="text-white">destroys any projectiles</span> caught in the blast.</p>
+                    <p className="text-sm font-bold text-blue-300 mb-1">⭕ Slam — damage falls off with distance</p>
+                    <p className="text-sm text-gray-400">50 damage at point-blank → 20 damage at max range. Also <span className="text-white">destroys any projectiles</span> caught in the blast.</p>
                   </div>
                   <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                    <p className="text-xs font-bold text-amber-300 mb-1">🟥 Push — turns their bullets against them</p>
-                    <p className="text-xs text-gray-400">Shoves enemies back and deals 20 damage. Any nearby projectiles get <span className="text-white">hijacked and fired back</span> at the shooter.</p>
+                    <p className="text-sm font-bold text-amber-300 mb-1">🟥 Push — turns their bullets against them</p>
+                    <p className="text-sm text-gray-400">Shoves enemies back and deals 20 damage. Any nearby projectiles get <span className="text-white">hijacked and fired back</span> at the shooter.</p>
                   </div>
                   <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                    <p className="text-xs font-bold text-amber-300 mb-1">🟥 Stun Wave — closer = longer freeze</p>
-                    <p className="text-xs text-gray-400">Freezes enemies up to 1.5 seconds (less if farther away). Stunned players <span className="text-white">can't move or use abilities</span> and take 7 HP every second. Also destroys nearby projectiles.</p>
+                    <p className="text-sm font-bold text-amber-300 mb-1">🟥 Stun Wave — closer = longer freeze</p>
+                    <p className="text-sm text-gray-400">Freezes enemies up to 1.5 seconds (less if farther away). Stunned players <span className="text-white">can't move or use abilities</span> and take 7 HP every second. Also destroys nearby projectiles.</p>
                   </div>
                   <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
-                    <p className="text-xs font-bold text-green-300 mb-1">🔺 Dash — auto-locks on your target</p>
-                    <p className="text-xs text-gray-400">Snaps toward the nearest enemy in your facing direction and deals 30 damage along the path. Great for <span className="text-white">escaping danger</span> too.</p>
+                    <p className="text-sm font-bold text-green-300 mb-1">🔺 Dash — auto-locks on your target</p>
+                    <p className="text-sm text-gray-400">Snaps toward the nearest enemy in your facing direction and deals 30 damage along the path. Great for <span className="text-white">escaping danger</span> too.</p>
                   </div>
                 </div>
               </div>
@@ -1148,8 +1148,8 @@ export default function Lobby() {
                     <Zap className="w-5 h-5 text-orange-400" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-black text-white uppercase tracking-tight font-mono">Elite Mode & Scoring</h2>
-                    <p className="text-xs text-gray-500">Get kills. Get stronger.</p>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight font-mono">Elite Mode & Scoring</h2>
+                    <p className="text-sm text-gray-500">Get kills. Get stronger.</p>
                   </div>
                 </div>
                 <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 space-y-2">
@@ -1158,24 +1158,24 @@ export default function Lobby() {
                     <p className="text-sm font-bold text-orange-300">Get 2 kills → ELITE MODE activates</p>
                   </div>
                   <div className="space-y-1.5 pl-1">
-                    <div className="flex items-center gap-2 text-xs text-gray-300">
+                    <div className="flex items-center gap-2 text-sm text-gray-300">
                       <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
                       +30% movement speed
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-300">
+                    <div className="flex items-center gap-2 text-sm text-gray-300">
                       <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
                       All abilities become more powerful
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-300">
+                    <div className="flex items-center gap-2 text-sm text-gray-300">
                       <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
                       1.5× score earned per damage dealt
                     </div>
                   </div>
                 </div>
                 <div className="bg-white/5 rounded-lg p-4 space-y-2">
-                  <p className="text-xs font-bold text-white uppercase tracking-wide">How Scoring Works</p>
-                  <p className="text-xs text-gray-400 leading-relaxed">Your score is based on <span className="text-white">damage you deal</span>, not just kills. The more you hit, the higher you rank — even without eliminating anyone.</p>
-                  <p className="text-xs text-gray-400 leading-relaxed">In Solana Mode, the <span className="text-white">top 3 players by score</span> at the end of the round share the prize pool.</p>
+                  <p className="text-sm font-bold text-white uppercase tracking-wide">How Scoring Works</p>
+                  <p className="text-sm text-gray-400 leading-relaxed">Your score is based on <span className="text-white">damage you deal</span>, not just kills. The more you hit, the higher you rank — even without eliminating anyone.</p>
+                  <p className="text-sm text-gray-400 leading-relaxed">In Solana Mode, the <span className="text-white">top 3 players by score</span> at the end of the round share the prize pool.</p>
                 </div>
               </div>
             )}
@@ -1187,30 +1187,30 @@ export default function Lobby() {
                     <Trophy className="w-5 h-5 text-yellow-400" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-black text-white uppercase tracking-tight font-mono">Game Modes</h2>
-                    <p className="text-xs text-gray-500">Choose how you play</p>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight font-mono">Game Modes</h2>
+                    <p className="text-sm text-gray-500">Choose how you play</p>
                   </div>
                 </div>
                 <div className="space-y-3">
                   <div className="bg-white/5 border border-white/10 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Gamepad2 className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm font-bold text-white">Free Mode</span>
-                      <span className="text-[10px] bg-gray-500/20 text-gray-400 px-2 py-0.5 rounded-full ml-auto">No cost</span>
+                      <span className="text-base font-bold text-white">Free Mode</span>
+                      <span className="text-xs bg-gray-500/20 text-gray-400 px-2 py-0.5 rounded-full ml-auto">No cost</span>
                     </div>
-                    <p className="text-xs text-gray-400">Jump straight in. No wallet needed. Play as long as you want, leave anytime. Great for practice.</p>
+                    <p className="text-sm text-gray-400">Jump straight in. No wallet needed. Play as long as you want, leave anytime. Great for practice.</p>
                   </div>
                   <div className="bg-[#D40046]/5 border border-[#D40046]/20 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Coins className="w-4 h-4 text-[#D40046]" />
-                      <span className="text-sm font-bold text-white">Solana Mode</span>
-                      <span className="text-[10px] bg-[#D40046]/20 text-[#D40046] px-2 py-0.5 rounded-full ml-auto">$1 USDC entry</span>
+                      <span className="text-base font-bold text-white">Solana Mode</span>
+                      <span className="text-xs bg-[#D40046]/20 text-[#D40046] px-2 py-0.5 rounded-full ml-auto">$1 USDC entry</span>
                     </div>
-                    <p className="text-xs text-gray-400">Pay $1 USDC to enter. 6–15 players compete. Top 3 split the prize pool — up to <span className="text-white font-semibold">$6 for 1st place</span>. Requires a Phantom wallet.</p>
+                    <p className="text-sm text-gray-400">Pay $1 USDC to enter. 6–15 players compete. Top 3 split the prize pool — up to <span className="text-white font-semibold">$6 for 1st place</span>. Requires a Phantom wallet.</p>
                   </div>
                 </div>
                 <div className="bg-white/5 rounded-lg p-3 text-center">
-                  <p className="text-xs text-gray-400">You can always re-open this guide from the <span className="text-white font-semibold">?</span> button in the lobby — <span className="text-green-400 font-semibold">good luck out there!</span></p>
+                  <p className="text-sm text-gray-400">You can always re-open this guide from the <span className="text-white font-semibold">?</span> button in the lobby — <span className="text-green-400 font-semibold">good luck out there!</span></p>
                 </div>
               </div>
             )}
@@ -1224,11 +1224,11 @@ export default function Lobby() {
               ))}
             </div>
             <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={handleTutorialSkip} className="text-gray-500 text-xs h-8 px-3">
+              <Button variant="ghost" size="sm" onClick={handleTutorialSkip} className="text-gray-500 text-sm h-9 px-4">
                 Skip
               </Button>
-              <Button size="sm" onClick={handleTutorialNext} className="bg-[#D40046] hover:bg-[#b5003c] text-white h-8 px-4 gap-1.5 text-xs font-semibold" data-testid="button-tutorial-next">
-                {tutorialStep < 5 ? <><span>Next</span><ChevronRight className="w-3.5 h-3.5" /></> : 'Play Now'}
+              <Button size="sm" onClick={handleTutorialNext} className="bg-[#D40046] hover:bg-[#b5003c] text-white h-9 px-5 gap-1.5 text-sm font-semibold" data-testid="button-tutorial-next">
+                {tutorialStep < 5 ? <><span>Next</span><ChevronRight className="w-4 h-4" /></> : 'Play Now'}
               </Button>
             </div>
           </div>
