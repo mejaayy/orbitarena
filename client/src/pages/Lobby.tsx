@@ -1001,18 +1001,22 @@ export default function Lobby() {
                   </div>
                   <div className="bg-white/5 rounded-lg p-3 text-center">
                     <div className="text-2xl mb-1">⚡</div>
-                    <p className="text-xs font-semibold text-white">Charge System</p>
-                    <p className="text-[11px] text-gray-500">Build charge. Use abilities.</p>
+                    <p className="text-xs font-semibold text-white">Energy System</p>
+                    <p className="text-[11px] text-gray-500">Build energy. Use abilities.</p>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3 text-center">
-                    <div className="text-xl mb-1">🔴</div>
+                    <div className="flex justify-center mb-1.5">
+                      <div className="w-5 h-5 bg-[#00CC7A]" />
+                    </div>
                     <p className="text-xs font-semibold text-white">HP Pickups</p>
-                    <p className="text-[11px] text-gray-500">Red cross — +5 HP</p>
+                    <p className="text-[11px] text-gray-500">Green square — +5 HP</p>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3 text-center">
-                    <div className="text-xl mb-1">🔵</div>
-                    <p className="text-xs font-semibold text-white">Charge Pickups</p>
-                    <p className="text-[11px] text-gray-500">Blue bolt — +5 charge</p>
+                    <div className="flex justify-center mb-1.5">
+                      <svg viewBox="0 0 20 16" className="w-5 h-4"><polygon points="10,1 19,15 1,15" fill="#D40046"/></svg>
+                    </div>
+                    <p className="text-xs font-semibold text-white">Energy Pickups</p>
+                    <p className="text-[11px] text-gray-500">Red triangle — +5 energy</p>
                   </div>
                 </div>
               </div>
@@ -1031,25 +1035,25 @@ export default function Lobby() {
                 </div>
                 <div className="space-y-2">
                   <div className="bg-white/5 rounded-lg p-3 flex items-center gap-3">
-                    <div className="text-xs font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">WASD / ↑↓←→</div>
-                    <p className="text-xs text-gray-300">Move your character</p>
+                    <div className="text-xs font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Move Mouse</div>
+                    <p className="text-xs text-gray-300">Your character follows your cursor</p>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3 flex items-center gap-3">
-                    <div className="text-xs font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Right Click (hold)</div>
-                    <p className="text-xs text-gray-300">Ability 1 (costs 40 charge)</p>
+                    <div className="text-xs font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Right Click</div>
+                    <p className="text-xs text-gray-300">Ability 1 (costs 20 energy)</p>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3 flex items-center gap-3">
                     <div className="text-xs font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Left Click</div>
-                    <p className="text-xs text-gray-300">Ability 2 (costs 40 charge)</p>
+                    <p className="text-xs text-gray-300">Ability 2 (costs 20 energy)</p>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3 flex items-center gap-3">
-                    <div className="text-xs font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Hold Q / Hold Leave</div>
-                    <p className="text-xs text-gray-300">Exit the game</p>
+                    <div className="text-xs font-mono bg-white/10 rounded px-2 py-1 text-white shrink-0">Q key</div>
+                    <p className="text-xs text-gray-300">Leave the game (free mode only)</p>
                   </div>
                 </div>
                 <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-                  <p className="text-xs text-blue-300 font-semibold mb-1">📱 On Mobile</p>
-                  <p className="text-xs text-gray-400">Left joystick = move · Hold left button = Ability 1 · Tap right button = Ability 2</p>
+                  <p className="text-xs text-blue-300 font-semibold mb-1">📱 On Mobile / Tablet</p>
+                  <p className="text-xs text-gray-400">Joystick = move · Hold top button = Ability 1 · Tap bottom button = Ability 2</p>
                 </div>
               </div>
             )}
@@ -1085,7 +1089,7 @@ export default function Lobby() {
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
                       <span className="text-[11px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">Dash — quick forward burst</span>
-                      <span className="text-[11px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">Pierce — projectile in your direction</span>
+                      <span className="text-[11px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">Shoot — projectile in your direction</span>
                     </div>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3">
@@ -1126,7 +1130,7 @@ export default function Lobby() {
                   <div className="bg-[#D40046]/5 border border-[#D40046]/20 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Coins className="w-4 h-4 text-[#D40046]" />
-                      <span className="text-sm font-bold text-white">Stake Mode</span>
+                      <span className="text-sm font-bold text-white">Solana Mode</span>
                       <span className="text-[10px] bg-[#D40046]/20 text-[#D40046] px-2 py-0.5 rounded-full ml-auto">$1 USDC entry</span>
                     </div>
                     <p className="text-xs text-gray-400">Pay $1 USDC to enter. 6–15 players compete. Top 3 split the prize pool — up to <span className="text-white font-semibold">$6 for 1st place</span>. Requires a Phantom wallet.</p>
