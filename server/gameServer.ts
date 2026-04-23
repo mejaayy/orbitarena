@@ -135,7 +135,7 @@ const SQUARE_AURA_TIMER_SLOW = 0.7;
 
 // Stake mode constants
 const MIN_PLAYERS_TO_START = 6;
-const MAX_STAKE_PLAYERS = 10000;
+const MAX_STAKE_PLAYERS = 15;
 const ENTRY_FEE = 1.00;
 const PLATFORM_FEE = 0.10;
 const PRIZE_CONTRIBUTION = 0.90;
