@@ -193,7 +193,11 @@ class GameRoom {
       pickups: []
     };
     this.initPickups();
-    this.startGameLoop();
+    // Free rooms start the loop only when a player joins (see addPlayer/removePlayer).
+    // Stake rooms manage their own loop lifecycle after the round begins.
+    if (!isStakeMode) {
+      // loop stays off until first player arrives
+    }
     log(`Game room ${id} created (${isStakeMode ? 'stake' : 'free'} mode)`, 'room');
 
   }
@@ -891,6 +895,11 @@ class GameRoom {
       payload: { roomId: this.id, playerCount: this.getPlayerCount(), maxPlayers: MAX_PLAYERS_PER_ROOM }
     });
 
+    // Wake up the free-room game loop on first human player
+    if (!this.isStakeMode && !this.tickInterval) {
+      this.startGameLoop();
+    }
+
     log(`Player ${payload.name} (${playerId}) joined room ${this.id}. Room total: ${this.getHumanPlayerCount()}`, 'room');
     return true;
   }
@@ -1401,6 +1410,11 @@ class GameRoom {
 
     if (!isBot && this.clients.size === 0 && this.botsActive) {
       this.deactivateBots();
+    }
+
+    // Put the free-room game loop to sleep when the last human leaves
+    if (!this.isStakeMode && this.clients.size === 0) {
+      this.stopGameLoop();
     }
   }
 
