@@ -99,8 +99,8 @@ const WORLD_SIZE = 4000;
 const INITIAL_RADIUS = 20;
 const MAX_SPEED = 4.69;
 const PICKUP_COUNT = 400;
-const MAX_PLAYERS_PER_ROOM = 10;
-const MAX_ROOMS = 10;
+const MAX_PLAYERS_PER_ROOM = 10000;
+const MAX_ROOMS = 10000;
 const TICK_RATE = 30;
 const COMBAT_COOLDOWN = 3000;
 
@@ -135,7 +135,7 @@ const SQUARE_AURA_TIMER_SLOW = 0.7;
 
 // Stake mode constants
 const MIN_PLAYERS_TO_START = 6;
-const MAX_STAKE_PLAYERS = 15;
+const MAX_STAKE_PLAYERS = 10000;
 const ENTRY_FEE = 1.00;
 const PLATFORM_FEE = 0.10;
 const PRIZE_CONTRIBUTION = 0.90;
