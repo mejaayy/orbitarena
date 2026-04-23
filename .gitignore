@@ -1,6 +1,28 @@
+# Dependencies
 node_modules
+
+# Build output
 dist
+
+# macOS
 .DS_Store
-server/public
+
+# Vite temp files
 vite.config.ts.*
+
+# Archives
 *.tar.gz
+
+# Replit-specific (not needed on Railway / GitHub)
+.replit
+.upm/
+.config/
+.cache/
+.local/
+.agents/
+
+# Design sandbox (prototyping only, not part of the deployable app)
+artifacts/
+
+# Dev-only docs
+MULTIPLAYER_TESTING.md
