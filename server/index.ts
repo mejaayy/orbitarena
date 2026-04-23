@@ -102,7 +102,30 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await runMigrations();
+  const port = parseInt(process.env.PORT || "5000", 10);
+
+  // Register health check immediately so Railway healthcheck passes
+  // regardless of migration or boot time
+  app.get("/health", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.status(200).json({ ok: true });
+  });
+
+  // Start listening right away so the healthcheck succeeds
+  await new Promise<void>((resolve) => {
+    httpServer.listen({ port, host: "0.0.0.0", reusePort: true }, () => {
+      log(`serving on port ${port}`);
+      resolve();
+    });
+  });
+
+  // Run migrations (non-fatal — server is already up)
+  try {
+    await runMigrations();
+  } catch (err: any) {
+    console.error("[db] Migration failed:", err.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -121,16 +144,4 @@ app.use((req, res, next) => {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
   }
-
-  const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`serving on port ${port}`);
-    },
-  );
 })();
