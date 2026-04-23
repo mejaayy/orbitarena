@@ -18,6 +18,12 @@ export async function runMigrations() {
     console.log("[db] Running migrations...");
     await migrate(migrationDb, { migrationsFolder });
     console.log("[db] Migrations complete.");
+  } catch (err: any) {
+    if (err.message?.includes("already exists")) {
+      console.log("[db] Tables already exist — database is up to date.");
+    } else {
+      throw err;
+    }
   } finally {
     await migrationClient.end();
   }

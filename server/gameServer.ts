@@ -867,6 +867,7 @@ class GameRoom {
       stunAttackerId: null,
       lastStunDamageTime: 0,
       facingAngle: 0,
+      lastAbilityTime: 0,
       kills: 0,
       supercharged: false
     };
@@ -1559,6 +1560,7 @@ class GameRoom {
           id: `pickup-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           x: victim.x + Math.cos(angle) * dist,
           y: victim.y + Math.sin(angle) * dist,
+          radius: 7,
           type: 'CHARGE',
           value: CHARGE_PICKUP_VALUE
         });
@@ -1810,7 +1812,7 @@ class StakeGameRoom extends GameRoom {
       const joinPrizes = computePrizes(this.lobbyPlayers.size);
       this.send(ws, {
         type: 'JOINED',
-        payload: { playerId, roomId: this.id, isLobby: true, prizePool: joinPrizes.pool / 100, playerCount: this.lobbyPlayers.size, maxPlayers: MAX_STAKE_PLAYERS, minPlayers: MIN_PLAYERS_TO_START, prizes: { first: joinPrizes.first / 100, second: joinPrizes.second / 100, third: joinPrizes.third / 100 } },
+        payload: { playerId, roomId: this.id, isLobby: true, prizePool: (joinPrizes.first + joinPrizes.second + joinPrizes.third) / 100, playerCount: this.lobbyPlayers.size, maxPlayers: MAX_STAKE_PLAYERS, minPlayers: MIN_PLAYERS_TO_START, prizes: { first: joinPrizes.first / 100, second: joinPrizes.second / 100, third: joinPrizes.third / 100 } },
       });
       this.broadcastRoundStatus();
       return true;
@@ -2575,7 +2577,7 @@ export class GameServer {
     return false;
   }
 
-  private handleJoin(playerId: string, ws: WebSocket, payload: { name: string; isStakeMode?: boolean; walletAddress?: string; playerColor?: string; characterShape?: CharacterShape }) {
+  private async handleJoin(playerId: string, ws: WebSocket, payload: { name: string; isStakeMode?: boolean; walletAddress?: string; playerColor?: string; characterShape?: CharacterShape }) {
     const validation = this.validateJoinPayload(payload);
     if (!validation.valid || !validation.sanitized) {
       ws.send(JSON.stringify({ type: 'ERROR', payload: { message: validation.error || 'Invalid join request' } }));
@@ -2599,7 +2601,7 @@ export class GameServer {
       return;
     }
 
-    const added = room.addPlayer(playerId, ws, sanitized);
+    const added = await Promise.resolve(room.addPlayer(playerId, ws, sanitized));
     if (added) {
       this.playerToRoom.set(playerId, room.id);
       this.playerStakeMode.set(playerId, sanitized.isStakeMode);
@@ -2630,9 +2632,10 @@ export class GameServer {
     room?.handleInput(playerId, { x, y, facingAngle });
   }
 
-  private handleLeave(playerId: string) {
+  private async handleLeave(playerId: string) {
     const room = this.getRoom(playerId);
-    if (room?.handleLeave(playerId)) {
+    const left = await Promise.resolve(room?.handleLeave(playerId));
+    if (left) {
       this.playerToRoom.delete(playerId);
       this.playerStakeMode.delete(playerId);
       this.cleanupEmptyRooms();

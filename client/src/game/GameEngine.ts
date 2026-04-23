@@ -25,8 +25,20 @@ export interface Player {
   velocity: Point;
   balance?: number;
   isStunned?: boolean;
+  isSpectator?: boolean;
   facingAngle?: number;
   supercharged?: boolean;
+  // Abbreviated wire-format fields sent by server
+  r?: number;
+  s?: number;
+  mh?: number;
+  ch?: number;
+  mc?: number;
+  cs?: CharacterShape;
+  fa?: number;
+  st?: boolean;
+  sp?: boolean;
+  sc?: boolean;
 }
 
 interface InterpolatedPlayer extends Player {
@@ -36,6 +48,7 @@ interface InterpolatedPlayer extends Player {
   targetY: number;
   interpStartTime: number;
   trail: { x: number; y: number }[];
+  isSpectator?: boolean;
 }
 
 export interface Pickup {
@@ -361,7 +374,7 @@ export class GameEngine {
       case 'PICKUP_DELTA':
         // Play pickup sound and flash if a collected pickup was near local player
         if (message.payload.collected && Array.isArray(message.payload.collected)) {
-          const localPlayer = this.players.get(this.localPlayerId);
+          const localPlayer = this.localPlayerId ? this.players.get(this.localPlayerId) : null;
           if (localPlayer) {
             for (const pickupId of message.payload.collected) {
               const pickup = this.pickups.find(p => p.id === pickupId);
@@ -534,6 +547,7 @@ export class GameEngine {
     playerId: string;
     color?: string;
     shape?: string;
+    distance?: number;
   }> = [];
 
   private recentDeathBursts: Map<string, number> = new Map();
@@ -1986,7 +2000,7 @@ export class GameEngine {
     }
   }
 
-  private drawTrailingMiniTriangles(player: InterpolatedPlayer, size: number) {
+  private drawTrailingMiniTriangles(player: Player, size: number) {
     const angle = player.facingAngle || 0;
     const ms = size * 0.3;
     const ox = size * 0.15;
@@ -2175,7 +2189,7 @@ export class GameEngine {
     this.ctx.fillText(player.name, player.x, player.y + player.radius + 5);
   }
 
-  private drawSquareAura(player: InterpolatedPlayer) {
+  private drawSquareAura(player: Player) {
     const AURA_RADIUS = 250;
     const time = performance.now() / 1000;
     const pulse = 0.08 + Math.sin(time * 2) * 0.03;
@@ -2196,7 +2210,7 @@ export class GameEngine {
     this.ctx.restore();
   }
 
-  private drawCircleEliteIdle(player: InterpolatedPlayer) {
+  private drawCircleEliteIdle(player: Player) {
     const time = performance.now() / 1000;
     const rx = player.radius * 1.65;
     const ry = player.radius * 1.0;
@@ -2221,7 +2235,7 @@ export class GameEngine {
     this.ctx.restore();
   }
 
-  private drawTriangleEliteIdle(player: InterpolatedPlayer) {
+  private drawTriangleEliteIdle(player: Player) {
     const time = performance.now() / 1000;
     const [cr, cg, cb] = this.parseHexColor(player.color);
     const haloRadius = player.radius * 1.35;
@@ -2240,7 +2254,7 @@ export class GameEngine {
     this.ctx.restore();
   }
 
-  private drawSquareEliteIdle(player: InterpolatedPlayer) {
+  private drawSquareEliteIdle(player: Player) {
     const AURA_RADIUS = 250;
     const time = performance.now() / 1000;
     const [cr, cg, cb] = this.parseHexColor(player.color);
