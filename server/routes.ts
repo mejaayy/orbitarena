@@ -94,7 +94,13 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/health", (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.status(200).json({ ok: true });
+  });
+
   app.get("/api/game/status", (req, res) => {
+    res.set('Cache-Control', 'no-store');
     const gameServer = getGameServer();
     res.json({
       playerCount: gameServer?.getTotalPlayerCount() || 0,
